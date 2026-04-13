@@ -1,0 +1,37 @@
+.toggle {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+  color: var(--text-secondary);
+}
+
+.toggle:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--primary);
+  color: var(--accent-orange);
+  box-shadow: 0 0 12px var(--primary-glow);
+}
+
+.icon {
+  position: absolute;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.visible {
+  opacity: 1;
+  transform: scale(1) rotate(0deg);
+}
+
+.hidden {
+  opacity: 0;
+  transform: scale(0.5) rotate(180deg);
+  pointer-events: none;
+}

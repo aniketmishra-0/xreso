@@ -1,0 +1,40 @@
+.logoWrap {
+  display: flex;
+  align-items: center;
+  gap: 6px; /* Reduced space between logo and text */
+}
+
+.logoMark {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logoImg {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+@keyframes logoGlow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.logoText {
+  font-size: var(--text-lg);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

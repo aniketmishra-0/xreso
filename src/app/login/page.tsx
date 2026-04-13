@@ -1,0 +1,171 @@
+"use client";
+
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import styles from "./page.module.css";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const [mode, setMode] = useState<"login" | "register">("login");
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      if (mode === "register") {
+        const res = await fetch("/api/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(form),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error || "Registration failed");
+          setLoading(false);
+          return;
+        }
+        // Auto-login after registration
+      }
+
+      const result = await signIn("credentials", {
+        email: form.email,
+        password: form.password,
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Invalid email or password");
+        setLoading(false);
+        return;
+      }
+
+      router.push("/");
+      router.refresh();
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className={styles.page}>
+      <div className={styles.container}>
+        <div className={styles.card}>
+          <div className={styles.header}>
+            <Link href="/" className={styles.logoLink}>
+              <span className={styles.logoText}>xreso</span>
+            </Link>
+            <h1 className={styles.title}>
+              {mode === "login" ? "Welcome back" : "Create account"}
+            </h1>
+            <p className={styles.subtitle}>
+              {mode === "login"
+                ? "Sign in to upload, bookmark, and manage your notes"
+                : "Join the community and start sharing your notes"}
+            </p>
+          </div>
+
+          {/* Tab Toggle */}
+          <div className={styles.tabs}>
+            <button
+              className={`${styles.tab} ${mode === "login" ? styles.tabActive : ""}`}
+              onClick={() => { setMode("login"); setError(""); }}
+            >
+              Sign In
+            </button>
+            <button
+              className={`${styles.tab} ${mode === "register" ? styles.tabActive : ""}`}
+              onClick={() => { setMode("register"); setError(""); }}
+            >
+              Create Account
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className={styles.form}>
+            {error && <div className={styles.error}>{error}</div>}
+
+            {mode === "register" && (
+              <div className="input-group">
+                <label htmlFor="name" className="input-label">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  id="name"
+                  className="input"
+                  placeholder="Aniket Mishra"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  required
+                />
+              </div>
+            )}
+
+            <div className="input-group">
+              <label htmlFor="email" className="input-label">
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                className="input"
+                placeholder="you@example.com"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                required
+              />
+            </div>
+
+            <div className="input-group">
+              <label htmlFor="password" className="input-label">
+                Password
+              </label>
+              <input
+                type="password"
+                id="password"
+                className="input"
+                placeholder="••••••••"
+                value={form.password}
+                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                required
+                minLength={6}
+              />
+            </div>
+
+            <button
+              type="submit"
+              className={`btn btn-primary btn-lg ${styles.submitBtn}`}
+              disabled={loading}
+            >
+              {loading
+                ? "Please wait..."
+                : mode === "login"
+                ? "Sign In"
+                : "Create Account"}
+            </button>
+          </form>
+
+          {mode === "login" && (
+            <div className={styles.demoCredentials}>
+              <p className={styles.demoTitle}>Demo Credentials</p>
+              <p className={styles.demoText}>
+                Admin: <code>admin@xreso.dev</code> / <code>admin123</code>
+              </p>
+              <p className={styles.demoText}>
+                User: <code>priya@example.com</code> / <code>user123</code>
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,410 @@
+/* ============================================
+   NAVBAR — Theme-Aware Styles
+   ============================================ */
+
+.header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  height: var(--nav-height);
+  display: flex;
+  align-items: center;
+  transition: all var(--transition-base);
+  border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 65%, transparent);
+  background: color-mix(in srgb, var(--bg-primary) 65%, transparent);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+}
+
+/* Dark mode scroll — frosted dark glass */
+.header.scrolled {
+  background: color-mix(in srgb, var(--bg-primary) 78%, transparent);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border-bottom-color: var(--border-primary);
+  box-shadow: 0 1px 0 rgba(139, 92, 246, 0.08), 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.nav {
+  width: 100%;
+  max-width: var(--max-width-wide);
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Logo */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  text-decoration: none;
+  z-index: 10;
+}
+
+/* Nav Links */
+.navLinks {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  position: relative;
+}
+
+.navLink {
+  padding: 8px 16px;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+}
+
+.navLink:hover {
+  color: var(--primary-light);
+  background: var(--primary-subtle);
+}
+
+.megaMenuWrap {
+  position: relative;
+}
+
+.megaMenu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 460px;
+  /* Push panel down via padding-top — keeps pointer inside .megaMenuWrap */
+  padding: 12px 0 0;
+  /* Transparent bg on the outer shell so the gap area is still inside the hover target */
+  background: transparent;
+  z-index: 200;
+}
+
+.megaMenuInner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--bg-surface) 95%, transparent);
+  box-shadow: var(--shadow-xl), 0 0 0 1px rgba(139, 92, 246, 0.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: dropdownIn 0.16s ease;
+}
+
+.megaColumn {
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
+  padding: 10px;
+}
+
+.megaTitle {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.megaItem {
+  display: block;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  transition: all var(--transition-fast);
+}
+
+.megaItem:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-hover);
+}
+
+/* Actions */
+.navActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.uploadBtn {
+  composes: uploadBtn;
+}
+
+.loginBtn {
+  composes: loginBtn;
+}
+
+/* Hamburger */
+.mobileToggle {
+  display: none;
+  width: 40px;
+  height: 40px;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.hamburger {
+  display: block;
+  width: 20px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  position: relative;
+  transition: all var(--transition-fast);
+}
+
+.hamburger::before,
+.hamburger::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  transition: all var(--transition-fast);
+}
+
+.hamburger::before {
+  top: -6px;
+}
+
+.hamburger::after {
+  bottom: -6px;
+}
+
+.hamburger.open {
+  background: transparent;
+}
+
+.hamburger.open::before {
+  top: 0;
+  transform: rotate(45deg);
+}
+
+.hamburger.open::after {
+  bottom: 0;
+  transform: rotate(-45deg);
+}
+
+/* Mobile Menu */
+.mobileMenu {
+  display: none;
+  position: fixed;
+  top: var(--nav-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-primary);
+  padding: var(--space-xl) var(--space-lg);
+  flex-direction: column;
+  gap: var(--space-sm);
+  opacity: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+  transition: all var(--transition-base);
+}
+
+.mobileMenuOpen {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+
+.mobileLink {
+  display: block;
+  padding: var(--space-md) var(--space-lg);
+  font-size: var(--text-lg);
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  background: none;
+  border: none;
+  text-align: left;
+  width: 100%;
+  font-family: inherit;
+}
+
+.mobileLink:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface);
+}
+
+.mobileDivider {
+  height: 1px;
+  background: var(--border-secondary);
+  margin: var(--space-md) 0;
+}
+
+.mobileUpload,
+.mobileLogin {
+  width: 100%;
+  text-align: center;
+}
+
+/* User menu */
+.userMenu {
+  position: relative;
+}
+
+.userAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--gradient-brand);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: white;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 2px solid transparent;
+}
+
+.userAvatar:hover {
+  border-color: var(--accent-orange-light);
+  transform: scale(1.05);
+  box-shadow: 0 0 16px var(--primary-glow);
+}
+
+.dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 260px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-sm);
+  box-shadow: var(--shadow-xl);
+  z-index: 100;
+  animation: dropdownIn 0.15s ease;
+}
+
+@keyframes dropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dropdownHeader {
+  padding: var(--space-sm) var(--space-md);
+}
+
+.dropdownName {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.dropdownEmail {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+.dropdownDivider {
+  height: 1px;
+  background: var(--border-secondary);
+  margin: var(--space-xs) 0;
+}
+
+.dropdownItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px var(--space-md);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+}
+
+.dropdownItem:hover {
+  color: var(--text-primary);
+  background: var(--bg-surface-hover);
+}
+
+/* ── Theme toggle row inside dropdown ── */
+.themeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.themeLabel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.themeToggleTrack {
+  width: 36px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--border-primary);
+  position: relative;
+  transition: background 0.2s ease;
+  flex-shrink: 0;
+}
+
+.themeToggleTrack[data-active="true"] {
+  background: var(--primary);
+}
+
+.themeToggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.themeToggleTrack[data-active="true"] .themeToggleThumb {
+  transform: translateX(16px);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .navLinks,
+  .navActions {
+    display: none;
+  }
+
+  .mobileToggle {
+    display: flex;
+  }
+
+  .mobileMenu {
+    display: flex;
+  }
+}

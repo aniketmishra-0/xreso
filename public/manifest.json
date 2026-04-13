@@ -1,0 +1,27 @@
+{
+  "name": "xreso — Community Programming Notes",
+  "short_name": "xreso",
+  "description": "Access, read, and share handwritten programming notes for SQL, Python, JavaScript, and more.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#08080D",
+  "theme_color": "#FF4D6A",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "productivity"],
+  "lang": "en",
+  "dir": "ltr"
+}

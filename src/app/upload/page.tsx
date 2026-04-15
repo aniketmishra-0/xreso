@@ -56,6 +56,28 @@ const INITIAL_FORM_DATA = {
   licenseType: "CC-BY-4.0",
 };
 
+const SPECIALIZED_RESOURCE_LABEL = "Cloud, System Design & APIs";
+const RESOURCE_SECTION_OPTIONS = [
+  {
+    tier: "standard" as const,
+    eyebrow: "Core Coding",
+    title: "Programming Languages",
+    buttonHint: "JavaScript, Python, SQL",
+    description:
+      "Use this for language-specific notes and regular coding topics.",
+    examples: ["JavaScript", "Python", "Java", "SQL", "React", "DSA"],
+  },
+  {
+    tier: "advanced" as const,
+    eyebrow: "Specialized",
+    title: SPECIALIZED_RESOURCE_LABEL,
+    buttonHint: "Kubernetes, APIs, DevOps",
+    description:
+      "Use this for infrastructure, architecture, backend systems, and API-focused resources.",
+    examples: ["Kubernetes", "DevOps", "System Design", "API Design"],
+  },
+];
+
 interface AdvancedTrackTopic {
   id: number;
   slug: string;
@@ -98,7 +120,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
   const selectedTrack = advancedTracks.find((track) => track.slug === formData.advancedTrackSlug);
   const catLabel =
     resourceTier === "advanced"
-      ? selectedTrack?.name || formData.advancedTrackSlug || "Advanced Track"
+      ? selectedTrack?.name || formData.advancedTrackSlug || SPECIALIZED_RESOURCE_LABEL
       : CATEGORY_LABELS[formData.category] || formData.category || "Category";
   const catBadge = resourceTier === "advanced" ? "badge-blue" : CATEGORY_BADGE[formData.category] || "";
   const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -342,6 +364,25 @@ export default function UploadPage() {
     !submitBlockedByRole &&
     hasSelectedCategory &&
     hasSelectedContent;
+  const selectedResourceSection =
+    RESOURCE_SECTION_OPTIONS.find((option) => option.tier === resourceTier) ||
+    RESOURCE_SECTION_OPTIONS[0];
+  const shouldShowFloatingPreview = Boolean(
+    formData.title || formData.description || hasSelectedContent
+  );
+  const fieldShieldProps = {
+    translate: "no",
+    autoComplete: "off",
+    autoCorrect: "off",
+    autoCapitalize: "none",
+    spellCheck: false,
+    "data-lpignore": "true",
+    "data-1p-ignore": "true",
+    "data-form-type": "other",
+    "data-gramm": "false",
+    "data-gramm_editor": "false",
+    "data-enable-grammarly": "false",
+  } as const;
 
   useEffect(() => {
     if (!sessionName) return;
@@ -464,7 +505,7 @@ export default function UploadPage() {
         if (!canAccessAdvancedUpload) {
           setUploadResult({
             success: false,
-            message: "Advanced DB upload is available only for admin or moderator accounts.",
+            message: `${SPECIALIZED_RESOURCE_LABEL} submissions are available only for admin or moderator accounts right now.`,
           });
           return;
         }
@@ -472,7 +513,7 @@ export default function UploadPage() {
         if (!formData.advancedTrackSlug) {
           setUploadResult({
             success: false,
-            message: "Select an advanced track before submitting.",
+            message: `Select a ${SPECIALIZED_RESOURCE_LABEL} category before submitting.`,
           });
           return;
         }
@@ -480,7 +521,7 @@ export default function UploadPage() {
         if (uploadMode === "file" && !file) {
           setUploadResult({
             success: false,
-            message: "Choose a file to upload for Advanced Tracks DB.",
+            message: `Choose a file to upload for ${SPECIALIZED_RESOURCE_LABEL}.`,
           });
           return;
         }
@@ -488,7 +529,7 @@ export default function UploadPage() {
         if (uploadMode === "link" && !formData.resourceUrl) {
           setUploadResult({
             success: false,
-            message: "Provide a resource URL for Advanced Tracks DB link submission.",
+            message: `Provide a resource URL for ${SPECIALIZED_RESOURCE_LABEL}.`,
           });
           return;
         }
@@ -523,8 +564,8 @@ export default function UploadPage() {
             data.message ||
             data.error ||
             (res.ok
-              ? "Advanced resource saved to Advanced DB and queued for review."
-              : "Advanced upload failed"),
+              ? `${SPECIALIZED_RESOURCE_LABEL} resource saved and queued for review.`
+              : `${SPECIALIZED_RESOURCE_LABEL} upload failed`),
           noteId: data.resourceId,
         });
         return;
@@ -597,18 +638,20 @@ export default function UploadPage() {
       />
 
       {/* Floating Preview Button */}
-      <button
-        className={`${styles.floatingPreviewBtn} ${previewOpen ? styles.floatingPreviewBtnActive : ""}`}
-        onClick={() => setPreviewOpen(!previewOpen)}
-        id="floating-preview-btn"
-        title="Preview your note"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-          <circle cx="12" cy="12" r="3"/>
-        </svg>
-        <span>{previewOpen ? "Close Preview" : "Preview"}</span>
-      </button>
+      {shouldShowFloatingPreview && (
+        <button
+          className={`${styles.floatingPreviewBtn} ${previewOpen ? styles.floatingPreviewBtnActive : ""}`}
+          onClick={() => setPreviewOpen(!previewOpen)}
+          id="floating-preview-btn"
+          title="Preview your note"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+          <span>{previewOpen ? "Close Preview" : "Preview"}</span>
+        </button>
+      )}
 
       {/* Header */}
       <div className={styles.header}>
@@ -627,7 +670,18 @@ export default function UploadPage() {
       </div>
 
       <div className={styles.formContainer}>
-        <form onSubmit={handleSubmit} className={styles.form}>
+        <form
+          onSubmit={handleSubmit}
+          className={styles.form}
+          translate="no"
+          autoComplete="off"
+          data-lpignore="true"
+          data-1p-ignore="true"
+          data-form-type="other"
+          data-gramm="false"
+          data-gramm_editor="false"
+          data-enable-grammarly="false"
+        >
           {uploadResult && !uploadResult.success && (
             <div className={styles.errorBanner}>{uploadResult.message}</div>
           )}
@@ -748,7 +802,7 @@ export default function UploadPage() {
                   <span className={styles.linkIcon}>{linkMeta.icon}</span>
                   <input type="url" name="resourceUrl" id="resourceUrl" className={styles.linkInput}
                     placeholder="Paste any link — Google Drive, GitHub, YouTube, Notion…"
-                    value={formData.resourceUrl ?? ""} onChange={handleInputChange} autoFocus />
+                    value={formData.resourceUrl ?? ""} onChange={handleInputChange} autoFocus {...fieldShieldProps} />
                 </div>
 
                 {formData.resourceUrl && (
@@ -785,31 +839,76 @@ export default function UploadPage() {
             </h2>
 
             <div className={styles.detailsToggleBlock}>
-              <p className={styles.detailsToggleLabel}>Submission Flow</p>
-              <div className={styles.detailsToggle}>
-                <button
-                  type="button"
-                  className={`${styles.detailsToggleBtn} ${resourceTier === "standard" ? styles.detailsToggleBtnActive : ""}`}
-                  onClick={() => setResourceTier("standard")}
-                >
-                  Programming Resource
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.detailsToggleBtn} ${resourceTier === "advanced" ? styles.detailsToggleBtnActive : ""}`}
-                  onClick={() => setResourceTier("advanced")}
-                >
-                  Advanced Tracks DB
-                </button>
+              <p className={styles.detailsToggleLabel}>Choose Resource Section</p>
+              <div className={styles.resourceChoiceRow}>
+                {RESOURCE_SECTION_OPTIONS.map((option) => {
+                  const isActive = resourceTier === option.tier;
+
+                  return (
+                    <button
+                      key={option.tier}
+                      type="button"
+                      className={`${styles.resourceChoiceBtn} ${
+                        isActive ? styles.resourceChoiceBtnActive : ""
+                      }`}
+                      onClick={() => setResourceTier(option.tier)}
+                    >
+                      <span className={styles.resourceChoiceEyebrow}>
+                        {option.eyebrow}
+                      </span>
+                      <span className={styles.resourceChoiceTitle}>{option.title}</span>
+                      <span className={styles.resourceChoiceHint}>{option.buttonHint}</span>
+                      <span className={styles.resourceChoiceState}>
+                        {isActive ? "Selected" : "Choose"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className={styles.resourceSectionMobileNote}>
+                <strong>{selectedResourceSection.title}</strong>
+                <span>{selectedResourceSection.buttonHint}</span>
+              </p>
+              <div
+                className={`${styles.resourceSectionSummary} ${
+                  resourceTier === "advanced"
+                    ? styles.resourceSectionSummaryAdvanced
+                    : styles.resourceSectionSummaryStandard
+                }`}
+              >
+                <div className={styles.resourceSectionSummaryHeader}>
+                  <div className={styles.resourceSectionSummaryCopy}>
+                    <span className={styles.resourceSectionSummaryEyebrow}>
+                      {selectedResourceSection.eyebrow}
+                    </span>
+                    <h3 className={styles.resourceSectionSummaryTitle}>
+                      {selectedResourceSection.title}
+                    </h3>
+                  </div>
+                  <span className={styles.resourceSectionSummaryBadge}>Selected</span>
+                </div>
+                <p className={styles.resourceSectionSummaryText}>
+                  {selectedResourceSection.description}
+                </p>
+                <div className={styles.resourceSectionSummaryExamples}>
+                  {selectedResourceSection.examples.map((example) => (
+                    <span
+                      key={`${selectedResourceSection.tier}-${example}`}
+                      className={styles.resourceSectionSummaryExample}
+                    >
+                      {example}
+                    </span>
+                  ))}
+                </div>
               </div>
               <p className={styles.detailsToggleHint}>
                 {resourceTier === "advanced"
-                  ? "Advanced mode stores links in Advanced DB track resources."
-                  : "Standard mode publishes under regular programming categories."}
+                  ? "Best for cloud tools, backend architecture, system design case studies, and API engineering resources."
+                  : "Best for language notes, frameworks, coding interview prep, and general programming resources."}
               </p>
               {resourceTier === "advanced" && !canAccessAdvancedUpload && (
                 <p className={styles.detailsWarning}>
-                  You can preview advanced tracks, but submission requires admin or moderator role.
+                  You can browse these categories now, but submitting here currently requires an admin or moderator account.
                 </p>
               )}
             </div>
@@ -819,39 +918,61 @@ export default function UploadPage() {
                 <label htmlFor="title" className="input-label">Title <span className={styles.required}>*</span></label>
                 <input type="text" id="title" name="title" className="input"
                   placeholder="e.g., SQL Joins Explained — Visual Guide"
-                  value={formData.title ?? ""} onChange={handleInputChange} required />
+                  value={formData.title ?? ""} onChange={handleInputChange} required {...fieldShieldProps} />
               </div>
               <div className={`input-group ${styles.fullWidth}`}>
                 <label htmlFor="description" className="input-label">Description <span className={styles.required}>*</span></label>
                 <textarea id="description" name="description" className="input textarea"
                   placeholder="Describe what this resource covers, key topics, and who it's best suited for…"
-                  value={formData.description ?? ""} onChange={handleInputChange} required />
+                  value={formData.description ?? ""} onChange={handleInputChange} required {...fieldShieldProps} />
               </div>
 
-              {resourceTier === "standard" ? (
+              <div
+                className={`${styles.fieldConditionalGroup} ${
+                  resourceTier === "standard" ? "" : styles.fieldSetHidden
+                }`}
+                aria-hidden={resourceTier !== "standard"}
+              >
                 <div className="input-group">
-                  <label htmlFor="category" className="input-label">Programming Category <span className={styles.required}>*</span></label>
-                  <select id="category" name="category" className="input" value={formData.category ?? ""} onChange={handleInputChange} required>
-                    <option value="">Select a category</option>
+                  <label htmlFor="category" className="input-label">Programming Language / Topic <span className={styles.required}>*</span></label>
+                  <select
+                    id="category"
+                    name="category"
+                    className="input"
+                    value={formData.category ?? ""}
+                    onChange={handleInputChange}
+                    required={resourceTier === "standard"}
+                    disabled={resourceTier !== "standard"}
+                    {...fieldShieldProps}
+                  >
+                    <option value="">Select a programming topic</option>
                     {STANDARD_CATEGORY_CATALOG.map(cat => (
                       <option key={cat.slug} value={cat.slug}>{cat.name}</option>
                     ))}
                   </select>
                 </div>
-              ) : (
-                <>
-                  <div className="input-group">
-                    <label htmlFor="advancedTrackSlug" className="input-label">Advanced Track <span className={styles.required}>*</span></label>
+              </div>
+
+              <div
+                className={`${styles.fieldConditionalGroup} ${
+                  resourceTier === "advanced" ? "" : styles.fieldSetHidden
+                }`}
+                aria-hidden={resourceTier !== "advanced"}
+              >
+                <div className="input-group">
+                    <label htmlFor="advancedTrackSlug" className="input-label">{SPECIALIZED_RESOURCE_LABEL} Category <span className={styles.required}>*</span></label>
                     <select
                       id="advancedTrackSlug"
                       name="advancedTrackSlug"
                       className="input"
                       value={formData.advancedTrackSlug ?? ""}
                       onChange={handleInputChange}
-                      required
+                      required={resourceTier === "advanced"}
+                      disabled={resourceTier !== "advanced"}
+                      {...fieldShieldProps}
                     >
                       <option value="">
-                        {advancedCatalogLoading ? "Loading tracks..." : "Select an advanced track"}
+                        {advancedCatalogLoading ? "Loading categories..." : `Select a ${SPECIALIZED_RESOURCE_LABEL} category`}
                       </option>
                       {advancedTracks.map((track) => (
                         <option key={track.slug} value={track.slug}>{track.name}</option>
@@ -870,7 +991,12 @@ export default function UploadPage() {
                       className="input"
                       value={formData.advancedTopicSlug ?? ""}
                       onChange={handleInputChange}
-                      disabled={!selectedAdvancedTrack || selectedAdvancedTopics.length === 0}
+                      disabled={
+                        resourceTier !== "advanced" ||
+                        !selectedAdvancedTrack ||
+                        selectedAdvancedTopics.length === 0
+                      }
+                      {...fieldShieldProps}
                     >
                       <option value="">
                         {selectedAdvancedTrack
@@ -893,6 +1019,8 @@ export default function UploadPage() {
                       className="input"
                       value={formData.advancedResourceType ?? "link"}
                       onChange={handleInputChange}
+                      disabled={resourceTier !== "advanced"}
+                      {...fieldShieldProps}
                     >
                       <option value="link">Link</option>
                       <option value="pdf">PDF</option>
@@ -900,14 +1028,13 @@ export default function UploadPage() {
                       <option value="video">Video</option>
                     </select>
                   </div>
-                </>
-              )}
+              </div>
 
               <div className="input-group">
                 <label htmlFor="tags" className="input-label">Tags</label>
                 <input type="text" id="tags" name="tags" className="input"
                   placeholder="e.g., joins, subqueries, optimization"
-                  value={formData.tags ?? ""} onChange={handleInputChange} />
+                  value={formData.tags ?? ""} onChange={handleInputChange} {...fieldShieldProps} />
                 <span className={styles.fieldHint}>Separate tags with commas</span>
               </div>
             </div>
@@ -926,19 +1053,22 @@ export default function UploadPage() {
                 <label htmlFor="authorCredit" className="input-label">Your Name / Handle <span className={styles.required}>*</span></label>
                 <input type="text" id="authorCredit" name="authorCredit" className="input"
                   placeholder={sessionName || "Your name or pen name"}
-                  value={formData.authorCredit ?? ""} onChange={handleInputChange} required />
+                  value={formData.authorCredit ?? ""} onChange={handleInputChange} required {...fieldShieldProps} />
               </div>
-              {uploadMode === "file" && (
+              <div
+                className={uploadMode === "file" ? "" : styles.fieldSetHidden}
+                aria-hidden={uploadMode !== "file"}
+              >
                 <div className="input-group">
                   <label htmlFor="sourceUrl" className="input-label">Source URL <span className={styles.optional}>(optional)</span></label>
                   <input type="url" id="sourceUrl" name="sourceUrl" className="input"
                     placeholder="https://your-blog.com/original-post"
-                    value={formData.sourceUrl ?? ""} onChange={handleInputChange} />
+                    value={formData.sourceUrl ?? ""} onChange={handleInputChange} disabled={uploadMode !== "file"} {...fieldShieldProps} />
                 </div>
-              )}
+              </div>
               <div className={`input-group ${styles.fullWidth}`}>
                 <label htmlFor="licenseType" className="input-label">License</label>
-                <select id="licenseType" name="licenseType" className="input" value={formData.licenseType ?? "CC-BY-4.0"} onChange={handleInputChange}>
+                <select id="licenseType" name="licenseType" className="input" value={formData.licenseType ?? "CC-BY-4.0"} onChange={handleInputChange} {...fieldShieldProps}>
                   <option value="CC-BY-4.0">CC BY 4.0 — Others can share with credit</option>
                   <option value="CC-BY-SA-4.0">CC BY-SA 4.0 — Share alike with credit</option>
                   <option value="all-rights-reserved">All Rights Reserved — View only on xreso</option>
@@ -996,7 +1126,7 @@ export default function UploadPage() {
                       : <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     }
                     {resourceTier === "advanced"
-                      ? "Submit Advanced Resource"
+                      ? `Submit ${SPECIALIZED_RESOURCE_LABEL} Resource`
                       : uploadMode === "file"
                         ? "Upload Notes"
                         : "Share Resource"}
@@ -1007,8 +1137,8 @@ export default function UploadPage() {
             <p className={styles.submitHint}>
               {resourceTier === "advanced"
                 ? submitBlockedByRole
-                  ? "Advanced DB submissions are currently restricted to admin and moderator roles."
-                  : "This entry will be stored in Advanced Tracks DB and queued for moderation."
+                  ? `${SPECIALIZED_RESOURCE_LABEL} submissions are currently restricted to admin and moderator roles.`
+                  : `This entry will be saved under ${SPECIALIZED_RESOURCE_LABEL} and queued for moderation.`
                 : uploadMode === "file"
                   ? "Your notes will be reviewed before being published."
                   : "Your link will be reviewed and shared with the community."}

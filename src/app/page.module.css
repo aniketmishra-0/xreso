@@ -1244,6 +1244,30 @@
     padding: var(--space-lg);
   }
 
+  .featuredScroller::before,
+  .featuredScroller::after {
+    display: none;
+  }
+
+  .featuredTrack {
+    gap: 12px;
+    padding-bottom: 0;
+  }
+
+  .featuredTrack > article {
+    flex: 0 0 100%;
+    min-width: 100%;
+    max-width: none;
+  }
+
+  .noteCard {
+    min-height: 0;
+  }
+
+  .noteMedia {
+    min-height: 148px;
+  }
+
   .categorySummary,
   .featuredSummary,
   .categoryGrid {
@@ -1290,12 +1314,15 @@
   }
 
   .summaryCard {
-    padding: 14px 16px;
+    padding: 12px 14px;
   }
 
-  .featuredTrack > article {
-    flex: 0 0 86vw;
-    min-width: 86vw;
+  .sectionShell {
+    padding: 14px;
+  }
+
+  .featuredSummary {
+    gap: 10px;
   }
 
   .categoryCard {
@@ -1303,13 +1330,18 @@
   }
 
   .noteCardContent {
-    padding: var(--space-lg);
+    padding: 14px;
   }
 
   .noteFooter {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-sm);
+  }
+
+  .noteDate {
+    white-space: normal;
+    text-align: right;
   }
 }
 

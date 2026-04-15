@@ -68,6 +68,25 @@ function hasActivePremiumEntitlement(
   return expiryTime > Date.now();
 }
 
+function getFallbackOAuthEmail(account: {
+  provider?: string | null;
+  providerAccountId?: string | null;
+}) {
+  const provider =
+    typeof account.provider === "string" ? account.provider.trim().toLowerCase() : "";
+  const providerAccountId =
+    typeof account.providerAccountId === "string"
+      ? account.providerAccountId.trim()
+      : "";
+
+  if (!provider || !providerAccountId) {
+    return "";
+  }
+
+  const safeProviderAccountId = providerAccountId.replace(/[^a-zA-Z0-9._-]/g, "_");
+  return `${provider}_${safeProviderAccountId}@oauth.xreso.local`;
+}
+
 function getDbUserByEmail(email: string): AppUserRow | null {
   const sqlite = new Database(DB_PATH);
 
@@ -113,11 +132,13 @@ function upsertOAuthUserInDb(data: {
           ? data.image.trim()
           : existing.avatar;
 
-      sqlite
-        .prepare(
-          "UPDATE users SET name = ?, avatar = ?, updated_at = datetime('now') WHERE id = ?"
-        )
-        .run(resolvedName, resolvedAvatar, existing.id);
+      if (resolvedName !== existing.name || resolvedAvatar !== existing.avatar) {
+        sqlite
+          .prepare(
+            "UPDATE users SET name = ?, avatar = ?, updated_at = datetime('now') WHERE id = ?"
+          )
+          .run(resolvedName, resolvedAvatar, existing.id);
+      }
 
       return {
         ...existing,
@@ -150,7 +171,8 @@ function upsertOAuthUserInDb(data: {
       premium_access: 0,
       premium_expires_at: null,
     };
-  } catch {
+  } catch (error) {
+    console.error("[auth] Failed to upsert OAuth user in database", error);
     return null;
   } finally {
     sqlite.close();
@@ -226,6 +248,11 @@ if (LINKEDIN_CLIENT_ID && LINKEDIN_CLIENT_SECRET) {
     LinkedIn({
       clientId: LINKEDIN_CLIENT_ID,
       clientSecret: LINKEDIN_CLIENT_SECRET,
+      authorization: {
+        params: {
+          scope: "openid profile email",
+        },
+      },
     })
   );
 }
@@ -238,15 +265,44 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
       const normalizedEmail =
         typeof user.email === "string" ? user.email.trim().toLowerCase() : "";
-      if (!normalizedEmail) return false;
+      const fallbackEmail = getFallbackOAuthEmail({
+        provider: account.provider,
+        providerAccountId: account.providerAccountId,
+      });
+      const resolvedEmail = normalizedEmail || fallbackEmail;
+      if (!resolvedEmail) return false;
 
       const syncedUser = upsertOAuthUserInDb({
-        email: normalizedEmail,
+        email: resolvedEmail,
         name: user.name,
         image: user.image,
       });
 
-      return syncedUser !== null;
+      if (!syncedUser) return false;
+
+      const premium = hasActivePremiumEntitlement(
+        syncedUser.premium_access,
+        syncedUser.premium_expires_at
+      );
+      const mutableUser = user as {
+        id?: string;
+        email?: string | null;
+        name?: string | null;
+        image?: string | null;
+        role?: AppRole;
+        premium?: boolean;
+        premiumExpiresAt?: string | null;
+      };
+
+      mutableUser.id = syncedUser.id;
+      mutableUser.email = syncedUser.email;
+      mutableUser.name = syncedUser.name;
+      mutableUser.image = syncedUser.avatar;
+      mutableUser.role = normalizeRole(syncedUser.role);
+      mutableUser.premium = premium;
+      mutableUser.premiumExpiresAt = syncedUser.premium_expires_at;
+
+      return true;
     },
     async jwt({ token, user, trigger, session }) {
       if (user) {

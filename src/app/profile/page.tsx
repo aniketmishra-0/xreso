@@ -27,6 +27,8 @@ interface UserProfile {
   linkedin_url: string | null;
   twitter_url: string | null;
   website_url: string | null;
+  premium_access?: number;
+  premium_expires_at?: string | null;
 }
 
 /* ── Social link icons ──────────────────────────────── */
@@ -332,6 +334,13 @@ export default function ProfilePage() {
 
   const totalViews = userNotes.reduce((s, n) => s + (n.view_count || 0), 0);
   const hasSocials = profile?.github_url || profile?.linkedin_url || profile?.twitter_url || profile?.website_url;
+  const premiumActive = Boolean(profile?.premium_access);
+  const premiumExpiry = profile?.premium_expires_at;
+  const premiumLabel = premiumActive
+    ? premiumExpiry
+      ? `Premium until ${new Date(premiumExpiry).toLocaleDateString()}`
+      : "Premium Lifetime"
+    : "Free Plan";
   const handleProfileSave = async (updated: UserProfile) => {
     setProfile(updated);
 
@@ -372,7 +381,9 @@ export default function ProfilePage() {
             github_url: "",
             linkedin_url: "",
             twitter_url: "",
-            website_url: ""
+            website_url: "",
+            premium_access: 0,
+            premium_expires_at: null,
            } as UserProfile}
           onClose={() => setEditOpen(false)}
           onSave={handleProfileSave}
@@ -432,6 +443,10 @@ export default function ProfilePage() {
               <div className={styles.statPill}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
                 <strong>{bookmarks.length}</strong> bookmarks
+              </div>
+              <div className={styles.statPill}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
+                <strong>{premiumLabel}</strong>
               </div>
             </div>
 

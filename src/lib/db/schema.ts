@@ -9,6 +9,10 @@ export const users = sqliteTable("users", {
   password: text("password"), // hashed, null for OAuth
   avatar: text("avatar"),
   bio: text("bio"),
+  premiumAccess: integer("premium_access", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  premiumExpiresAt: text("premium_expires_at"),
   role: text("role", { enum: ["user", "admin", "moderator"] })
     .notNull()
     .default("user"),

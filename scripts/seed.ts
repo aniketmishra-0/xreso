@@ -21,6 +21,8 @@ async function seed() {
       password TEXT,
       avatar TEXT,
       bio TEXT,
+      premium_access INTEGER NOT NULL DEFAULT 0,
+      premium_expires_at TEXT,
       role TEXT NOT NULL DEFAULT 'user',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -151,6 +153,19 @@ async function seed() {
 
     CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(title, description, tags, content='');
   `);
+
+  // Keep seed compatible with pre-premium local DBs.
+  try {
+    db.exec("ALTER TABLE users ADD COLUMN premium_access INTEGER NOT NULL DEFAULT 0;");
+  } catch {
+    // Column already exists.
+  }
+  try {
+    db.exec("ALTER TABLE users ADD COLUMN premium_expires_at TEXT;");
+  } catch {
+    // Column already exists.
+  }
+
   console.log("✅ Tables created\n");
 
   // ── Users ──────────────────────────────────
@@ -158,12 +173,41 @@ async function seed() {
   const userId1 = uuidv4();
   const userId2 = uuidv4();
 
+  const premiumTrialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
   const insertUser = db.prepare(
-    "INSERT OR IGNORE INTO users (id, name, email, password, role, bio) VALUES (?, ?, ?, ?, ?, ?)"
+    "INSERT OR IGNORE INTO users (id, name, email, password, role, bio, premium_access, premium_expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   );
-  insertUser.run(adminId, "Admin", "admin@xreso.dev", hashSync("admin123", 10), "admin", "Platform administrator");
-  insertUser.run(userId1, "Priya Sharma", "priya@example.com", hashSync("user123", 10), "user", "CS student and note enthusiast");
-  insertUser.run(userId2, "Rahul Dev", "rahul@example.com", hashSync("user123", 10), "user", "Full-stack developer");
+  insertUser.run(
+    adminId,
+    "Admin",
+    "admin@xreso.dev",
+    hashSync("admin123", 10),
+    "admin",
+    "Platform administrator",
+    1,
+    null
+  );
+  insertUser.run(
+    userId1,
+    "Priya Sharma",
+    "priya@example.com",
+    hashSync("user123", 10),
+    "user",
+    "CS student and note enthusiast",
+    1,
+    premiumTrialEndsAt
+  );
+  insertUser.run(
+    userId2,
+    "Rahul Dev",
+    "rahul@example.com",
+    hashSync("user123", 10),
+    "user",
+    "Full-stack developer",
+    0,
+    null
+  );
   console.log("✅ Seeded 3 users");
 
   // ── Categories ─────────────────────────────

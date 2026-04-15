@@ -141,6 +141,56 @@
   grid-column: 1 / -1;
 }
 
+.memberList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.memberRow {
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  padding: var(--space-md);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.memberInfo {
+  flex: 1;
+}
+
+.memberName {
+  font-size: var(--text-lg);
+  font-weight: 700;
+}
+
+.memberMeta {
+  margin-top: 6px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.memberActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 240px;
+}
+
+.memberReadonly {
+  min-width: 140px;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 700;
+  align-self: center;
+}
+
 .resourceList {
   display: flex;
   flex-direction: column;
@@ -283,7 +333,16 @@
     flex-direction: column;
   }
 
+  .memberRow {
+    flex-direction: column;
+  }
+
   .resourceActions {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .memberActions {
     justify-content: flex-start;
     min-width: 0;
   }

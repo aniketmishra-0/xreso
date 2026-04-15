@@ -185,7 +185,9 @@ export async function GET() {
     }
     const db = new Database(DB_PATH);
     const user = db
-      .prepare("SELECT id, name, email, avatar, bio, github_url, linkedin_url, twitter_url, website_url, role, created_at FROM users WHERE id = ?")
+      .prepare(
+        "SELECT id, name, email, avatar, bio, github_url, linkedin_url, twitter_url, website_url, role, premium_access, premium_expires_at, created_at FROM users WHERE id = ?"
+      )
       .get(session.user.id) as Record<string, unknown> | undefined;
     db.close();
     if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });

@@ -7,6 +7,29 @@ const DB_PATH = path.join(process.cwd(), "xreso.db");
 
 type SortValue = "newest" | "popular" | "featured";
 
+function hasActivePremiumEntitlement(
+  premiumAccess: unknown,
+  premiumExpiresAt: unknown
+) {
+  const hasAccess =
+    premiumAccess === true || premiumAccess === 1 || premiumAccess === "1";
+
+  if (!hasAccess) {
+    return false;
+  }
+
+  if (typeof premiumExpiresAt !== "string" || premiumExpiresAt.trim().length === 0) {
+    return true;
+  }
+
+  const expiresAt = Date.parse(premiumExpiresAt);
+  if (Number.isNaN(expiresAt)) {
+    return false;
+  }
+
+  return expiresAt > Date.now();
+}
+
 function buildOrderBy(sort: SortValue) {
   switch (sort) {
     case "popular":
@@ -24,7 +47,13 @@ export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     const sessionUser = session?.user as
-      | { role?: string; premium?: boolean; isPremium?: boolean }
+      | {
+          id?: string;
+          role?: string;
+          premium?: boolean;
+          premiumExpiresAt?: string | null;
+          isPremium?: boolean;
+        }
       | undefined;
 
     const viewerRole =
@@ -34,14 +63,40 @@ export async function GET(req: NextRequest) {
           ? "user"
           : "guest";
 
-    const hasPremiumAccess =
-      viewerRole === "admin" ||
-      viewerRole === "moderator" ||
-      sessionUser?.premium === true ||
-      sessionUser?.isPremium === true;
+    let hasPremiumAccess =
+      viewerRole === "admin" || viewerRole === "moderator";
+    let premiumExpiresAt: string | null = null;
 
     sqlite = new Database(DB_PATH);
     sqlite.pragma("foreign_keys = ON");
+
+    if (!hasPremiumAccess && sessionUser?.id) {
+      try {
+        const entitlement = sqlite
+          .prepare(
+            "SELECT premium_access, premium_expires_at FROM users WHERE id = ?"
+          )
+          .get(sessionUser.id) as
+          | { premium_access: number; premium_expires_at: string | null }
+          | undefined;
+
+        premiumExpiresAt = entitlement?.premium_expires_at || null;
+        hasPremiumAccess = hasActivePremiumEntitlement(
+          entitlement?.premium_access,
+          entitlement?.premium_expires_at
+        );
+      } catch (entitlementError) {
+        console.warn("[AdvancedTracks] Premium columns unavailable:", entitlementError);
+      }
+    }
+
+    if (!hasPremiumAccess) {
+      premiumExpiresAt = sessionUser?.premiumExpiresAt || premiumExpiresAt;
+      hasPremiumAccess =
+        (sessionUser?.premium === true &&
+          hasActivePremiumEntitlement(true, sessionUser?.premiumExpiresAt || null)) ||
+        sessionUser?.isPremium === true;
+    }
 
     const { searchParams } = new URL(req.url);
     const track = searchParams.get("track");
@@ -173,6 +228,7 @@ export async function GET(req: NextRequest) {
         role: viewerRole,
         isAuthenticated: Boolean(sessionUser),
         hasPremiumAccess,
+        premiumExpiresAt,
       },
       pagination: {
         page,

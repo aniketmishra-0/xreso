@@ -30,6 +30,20 @@ npm run db:seed       # optional sample data
 
 For the advanced premium module, schema is managed by migration files (not runtime table creation).
 
+## Premium Entitlement Flow
+
+Advanced tracks use user-level premium entitlement fields:
+
+- `users.premium_access` (boolean)
+- `users.premium_expires_at` (nullable ISO datetime)
+
+Operational flow:
+
+1. Run `npm run db:migrate` to ensure entitlement columns exist.
+2. Manage member entitlement from `/admin/advanced-tracks` (Premium Access Control panel).
+3. Resource links in `/api/advanced-tracks/resources` are masked when entitlement is not active.
+4. Admin/moderator accounts are treated as privileged viewers for advanced module moderation.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

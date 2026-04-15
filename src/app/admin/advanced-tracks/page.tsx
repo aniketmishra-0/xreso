@@ -44,6 +44,19 @@ interface ApiPayload {
   resources: Resource[];
 }
 
+interface EntitlementUser {
+  id: string;
+  name: string;
+  email: string;
+  role: "user" | "admin" | "moderator";
+  premiumAccess: boolean;
+  premiumExpiresAt: string | null;
+  premiumActive: boolean;
+  createdAt: string;
+}
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
 const INITIAL_FORM = {
   title: "",
   summary: "",
@@ -71,6 +84,8 @@ export default function AdvancedTracksAdminPage() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
+  const [entitlementUsers, setEntitlementUsers] = useState<EntitlementUser[]>([]);
+  const [updatingEntitlementId, setUpdatingEntitlementId] = useState<string | null>(null);
   const [form, setForm] = useState(INITIAL_FORM);
 
   const loadData = useCallback(async (isRefresh = false) => {
@@ -84,15 +99,35 @@ export default function AdvancedTracksAdminPage() {
     setMessage("");
 
     try {
-      const response = await fetch("/api/admin/advanced-tracks", { cache: "no-store" });
-      if (!response.ok) {
-        throw new Error("Failed to load advanced track data");
+      const [advancedRes, entitlementsRes] = await Promise.all([
+        fetch("/api/admin/advanced-tracks", { cache: "no-store" }),
+        fetch("/api/admin/entitlements", { cache: "no-store" }),
+      ]);
+
+      if (!advancedRes.ok || !entitlementsRes.ok) {
+        const advancedPayload = (await advancedRes
+          .json()
+          .catch(() => null)) as { error?: string } | null;
+        const entitlementsPayload = (await entitlementsRes
+          .json()
+          .catch(() => null)) as { error?: string } | null;
+
+        throw new Error(
+          advancedPayload?.error ||
+            entitlementsPayload?.error ||
+            "Failed to load advanced track admin data"
+        );
       }
 
-      const payload = (await response.json()) as ApiPayload;
+      const payload = (await advancedRes.json()) as ApiPayload;
+      const entitlements = (await entitlementsRes.json()) as {
+        users?: EntitlementUser[];
+      };
+
       setTracks(payload.tracks || []);
       setTopics(payload.topics || []);
       setResources(payload.resources || []);
+      setEntitlementUsers(entitlements.users || []);
 
       setForm((prev) => {
         if (prev.trackSlug || !payload.tracks?.length) {
@@ -101,8 +136,12 @@ export default function AdvancedTracksAdminPage() {
 
         return { ...prev, trackSlug: payload.tracks[0].slug };
       });
-    } catch {
-      setError("Could not load advanced tracks admin data.");
+    } catch (loadError) {
+      if (loadError instanceof Error) {
+        setError(loadError.message);
+      } else {
+        setError("Could not load advanced tracks admin data.");
+      }
     } finally {
       if (isRefresh) {
         setRefreshing(false);
@@ -190,6 +229,40 @@ export default function AdvancedTracksAdminPage() {
       } else {
         setError("Action failed.");
       }
+    }
+  };
+
+  const handleEntitlementUpdate = async (
+    userId: string,
+    premiumAccess: boolean,
+    premiumExpiresAt: string | null
+  ) => {
+    setError("");
+    setMessage("");
+    setUpdatingEntitlementId(userId);
+
+    try {
+      const response = await fetch("/api/admin/entitlements", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, premiumAccess, premiumExpiresAt }),
+      });
+
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Failed to update entitlement");
+      }
+
+      setMessage("Premium entitlement updated.");
+      await loadData(true);
+    } catch (entitlementError) {
+      if (entitlementError instanceof Error) {
+        setError(entitlementError.message);
+      } else {
+        setError("Failed to update entitlement.");
+      }
+    } finally {
+      setUpdatingEntitlementId(null);
     }
   };
 
@@ -432,6 +505,90 @@ export default function AdvancedTracksAdminPage() {
               </button>
             </div>
           </form>
+        </section>
+
+        <section className={styles.panel}>
+          <h2 className={styles.panelTitle}>Premium Access Control</h2>
+
+          {loading ? (
+            <div className={styles.loading}>Loading member entitlements...</div>
+          ) : entitlementUsers.length === 0 ? (
+            <div className={styles.empty}>No members found.</div>
+          ) : (
+            <div className={styles.memberList}>
+              {entitlementUsers.map((member) => {
+                const expiresLabel = member.premiumExpiresAt
+                  ? new Date(member.premiumExpiresAt).toLocaleDateString()
+                  : member.premiumAccess
+                    ? "Lifetime"
+                    : "Free tier";
+                const grantThirtyDaysAt = new Date(
+                  Date.now() + THIRTY_DAYS_MS
+                ).toISOString();
+
+                return (
+                  <article key={member.id} className={styles.memberRow}>
+                    <div className={styles.memberInfo}>
+                      <h3 className={styles.memberName}>{member.name}</h3>
+                      <p className={styles.memberMeta}>
+                        {member.email} • {member.role}
+                      </p>
+                      <div className={styles.badges}>
+                        <span
+                          className={`${styles.badge} ${
+                            member.premiumActive
+                              ? styles.status_approved
+                              : styles.status_pending
+                          }`}
+                        >
+                          {member.premiumActive ? "premium active" : "premium inactive"}
+                        </span>
+                        <span className={styles.badge}>{expiresLabel}</span>
+                      </div>
+                    </div>
+
+                    {role === "admin" ? (
+                      <div className={styles.memberActions}>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          disabled={updatingEntitlementId === member.id}
+                          onClick={() =>
+                            void handleEntitlementUpdate(member.id, true, null)
+                          }
+                        >
+                          Lifetime
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          disabled={updatingEntitlementId === member.id}
+                          onClick={() =>
+                            void handleEntitlementUpdate(
+                              member.id,
+                              true,
+                              grantThirtyDaysAt
+                            )
+                          }
+                        >
+                          +30 Days
+                        </button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          disabled={updatingEntitlementId === member.id}
+                          onClick={() =>
+                            void handleEntitlementUpdate(member.id, false, null)
+                          }
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    ) : (
+                      <p className={styles.memberReadonly}>Moderator view</p>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         <section className={styles.panel}>

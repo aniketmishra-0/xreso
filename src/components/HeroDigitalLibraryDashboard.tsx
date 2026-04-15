@@ -64,7 +64,7 @@ export default function HeroDigitalLibraryDashboard() {
 
   return (
     <motion.div
-      className="relative mx-auto h-[560px] w-full max-w-[780px] overflow-visible"
+      className="pointer-events-none relative mx-auto h-[560px] w-full max-w-[780px] overflow-visible select-none"
       animate={reducedMotion ? undefined : { y: [0, -4, 0] }}
       transition={
         reducedMotion

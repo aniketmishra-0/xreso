@@ -13,14 +13,14 @@
 
 .container {
   width: 100%;
-  max-width: 440px;
+  max-width: 420px;
 }
 
 .card {
   background: var(--bg-surface);
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-xl);
-  padding: var(--space-2xl);
+  padding: var(--space-xl);
 }
 
 .header {
@@ -58,7 +58,7 @@
   background: var(--bg-primary);
   border-radius: var(--radius-md);
   padding: 4px;
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-lg);
 }
 
 .tab {
@@ -74,6 +74,133 @@
 .tabActive {
   background: var(--bg-surface-hover);
   color: var(--text-primary);
+}
+
+.socialSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.socialButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.socialBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  transition: border-color var(--transition-fast), background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.socialBtn:hover:not(:disabled) {
+  border-color: var(--border-hover);
+  background: var(--bg-surface-hover);
+}
+
+.socialBtn:disabled {
+  cursor: not-allowed;
+  opacity: 0.78;
+}
+
+.socialBtnGoogle {
+  background: #ffffff;
+  color: #1f1f1f;
+  border-color: #dadce0;
+}
+
+.socialBtnGoogle:hover:not(:disabled) {
+  background: #f8f9fa;
+  border-color: #c9cdd2;
+}
+
+.socialBtnGitHub {
+  background: #111827;
+  color: #f9fafb;
+  border-color: #111827;
+}
+
+.socialBtnGitHub:hover:not(:disabled) {
+  background: #1f2937;
+  border-color: #1f2937;
+}
+
+.socialBtnLinkedIn {
+  background: #0a66c2;
+  color: #ffffff;
+  border-color: #0a66c2;
+}
+
+.socialBtnLinkedIn:hover:not(:disabled) {
+  background: #005fb8;
+  border-color: #005fb8;
+}
+
+.socialBtnUnavailable {
+  background: var(--bg-primary);
+  color: var(--text-tertiary);
+  border-color: var(--border-secondary);
+  border-style: dashed;
+}
+
+.socialIcon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border-secondary);
+}
+
+.socialHint {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.socialHintBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.socialTip {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 /* Form */

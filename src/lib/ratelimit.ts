@@ -23,12 +23,35 @@ export const registerLimiter = new Ratelimit({
   prefix: "ratelimit:register",
 });
 
+export const loginLimiter = new Ratelimit({
+  redis,
+  limiter: Ratelimit.slidingWindow(8, "15 m"), // 8 login attempts per 15 minutes per identifier
+  analytics: true,
+  prefix: "ratelimit:login",
+});
+
 export const apiLimiter = new Ratelimit({
   redis,
   limiter: Ratelimit.slidingWindow(60, "1 m"), // 60 requests per minute
   analytics: true,
   prefix: "ratelimit:api",
 });
+
+export async function isRateLimited(
+  identifier: string,
+  limiter: Ratelimit
+): Promise<boolean> {
+  if (process.env.NODE_ENV === "development") return false;
+
+  try {
+    const { success } = await limiter.limit(identifier);
+    return !success;
+  } catch {
+    // Fail-open if Redis is unavailable to avoid blocking auth unexpectedly.
+    console.warn("Rate limiting unavailable - Redis error");
+    return false;
+  }
+}
 
 // Helper to get client identifier
 function getIdentifier(req: NextRequest): string {

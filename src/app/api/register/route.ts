@@ -4,6 +4,7 @@ import { hashSync } from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import { appendUserToExcel } from "@/lib/excel";
+import { checkRateLimit, registerLimiter } from "@/lib/ratelimit";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -12,6 +13,9 @@ const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).
 // POST /api/register — Create new user
 export async function POST(req: NextRequest) {
   try {
+    const rateLimited = await checkRateLimit(req, registerLimiter);
+    if (rateLimited) return rateLimited;
+
     const { name, email, password, avatar } = await req.json();
     const safeName = typeof name === "string" ? name.trim() : "";
     const safeEmail = typeof email === "string" ? email.trim().toLowerCase() : "";

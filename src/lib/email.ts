@@ -1,11 +1,26 @@
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM_EMAIL = process.env.FROM_EMAIL || "xreso <noreply@xreso.dev>";
+
+function appUrl(pathname: string) {
+  return `${process.env.NEXT_PUBLIC_APP_URL || "https://xreso.dev"}${pathname}`;
+}
+
+function getResendClient() {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    return null;
+  }
+
+  return new Resend(apiKey);
+}
 
 // ── Welcome Email ─────────────────────────────────────
 export async function sendWelcomeEmail(to: string, name: string) {
   try {
+    const resend = getResendClient();
+    if (!resend) return;
+
     await resend.emails.send({
       from: FROM_EMAIL,
       to,
@@ -49,6 +64,9 @@ export async function sendNoteApprovedEmail(
   noteId: string
 ) {
   try {
+    const resend = getResendClient();
+    if (!resend) return;
+
     await resend.emails.send({
       from: FROM_EMAIL,
       to,
@@ -87,6 +105,9 @@ export async function sendNoteRejectedEmail(
   noteTitle: string
 ) {
   try {
+    const resend = getResendClient();
+    if (!resend) return;
+
     await resend.emails.send({
       from: FROM_EMAIL,
       to,
@@ -116,5 +137,58 @@ export async function sendNoteRejectedEmail(
     });
   } catch (e) {
     console.error("Failed to send rejection email:", e);
+  }
+}
+
+// ── Password Reset Email ──────────────────────────────
+export async function sendPasswordResetEmail(
+  to: string,
+  name: string,
+  resetToken: string
+) {
+  try {
+    const resend = getResendClient();
+    if (!resend) return;
+
+    const resetLink = appUrl(`/reset-password/${resetToken}`);
+
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: "Reset your xreso password",
+      text: `Hi ${name},\n\nWe received a request to reset your xreso password. Use this link to choose a new password:\n${resetLink}\n\nIf you did not request this, you can ignore this email.`,
+      html: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 40px 20px;">
+          <div style="text-align: center; margin-bottom: 32px;">
+            <h1 style="color: #FF4D6A; font-size: 28px; font-weight: 900; margin: 0;">xreso</h1>
+          </div>
+          <h2 style="color: #f0f0f5; font-size: 22px;">Reset your password, ${name}</h2>
+          <p style="color: #9ca3af; font-size: 15px; line-height: 1.6;">
+            We received a request to reset your xreso password. Click the button below to choose a new password.
+          </p>
+          <div style="text-align: center; margin: 32px 0;">
+            <a href="${resetLink}"
+               style="background: #FF4D6A; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
+              Reset Password
+            </a>
+          </div>
+          <p style="color: #9ca3af; font-size: 14px; line-height: 1.7; text-align: center; margin-bottom: 0;">
+            If the button does not work, copy and paste this link into your browser:
+          </p>
+          <p style="color: #FF4D6A; font-size: 13px; line-height: 1.7; text-align: center; word-break: break-all; margin-top: 8px;">
+            <a href="${resetLink}" style="color: #FF4D6A; text-decoration: underline;">${resetLink}</a>
+          </p>
+          <p style="color: #6b7280; font-size: 13px; line-height: 1.6; text-align: center;">
+            This link will expire soon for your security. If you did not request this, you can ignore this email.
+          </p>
+          <p style="color: #6b7280; font-size: 12px; text-align: center; margin-top: 28px; word-break: break-all;">
+            Or paste this link into your browser:<br />
+            <span style="color: #9ca3af;">${resetLink}</span>
+          </p>
+        </div>
+      `,
+    });
+  } catch (e) {
+    console.error("Failed to send password reset email:", e);
   }
 }

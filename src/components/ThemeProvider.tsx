@@ -10,7 +10,7 @@ export default function ThemeProviderWrapper({ children }: { children: ReactNode
       defaultTheme="dark"
       enableSystem={false}
       themes={["dark", "light"]}
-      disableTransitionOnChange={false}
+      disableTransitionOnChange
     >
       {children}
     </ThemeProvider>

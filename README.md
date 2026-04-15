@@ -16,6 +16,20 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Database Workflow
+
+This project uses Drizzle + SQLite with SQL migrations in [drizzle/](drizzle/).
+
+Use these commands in order:
+
+```bash
+npm run db:generate   # generate new SQL migration from schema changes
+npm run db:migrate    # apply migrations to xreso.db
+npm run db:seed       # optional sample data
+```
+
+For the advanced premium module, schema is managed by migration files (not runtime table creation).
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

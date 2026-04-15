@@ -72,6 +72,31 @@
   background-color: var(--bg-elevated);
 }
 
+.viewerPdf {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border: none;
+  background-color: var(--bg-elevated);
+  display: block;
+}
+
+.viewerLink {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  background-color: var(--bg-elevated);
+  text-align: center;
+}
+
+.linkIcon {
+  font-size: 48px;
+  line-height: 1;
+}
+
 .viewerControls {
   display: flex;
   gap: var(--space-sm);
@@ -322,6 +347,51 @@
   margin-bottom: var(--space-xl);
 }
 
+@media (max-width: 1366px) {
+  .container {
+    max-width: 1260px;
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .container {
+    max-width: var(--max-width-ultra);
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 420px;
+    gap: var(--space-2xl);
+  }
+
+  .sideSection {
+    padding: var(--space-xl);
+  }
+}
+
+@media (min-width: 1920px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 460px;
+  }
+
+  .noteTitle {
+    font-size: var(--text-2xl);
+  }
+
+  .viewerControls {
+    padding: var(--space-lg);
+  }
+}
+
+@media (min-width: 2560px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 520px;
+  }
+}
+
 /* ── Responsive ───────────────────────────── */
 @media (max-width: 1024px) {
   .layout {
@@ -331,10 +401,65 @@
   .main {
     position: static;
   }
+
+  .breadcrumbCurrent {
+    max-width: 100%;
+  }
 }
 
 @media (max-width: 768px) {
+  .page {
+    padding-top: calc(var(--nav-height) + var(--space-lg));
+    padding-bottom: var(--space-3xl);
+  }
+
+  .container {
+    padding: 0 var(--space-md);
+  }
+
+  .breadcrumb {
+    margin-bottom: var(--space-lg);
+  }
+
+  .sideSection {
+    padding: var(--space-md);
+  }
+
+  .noteTitle {
+    font-size: var(--text-lg);
+  }
+
+  .resourceCard {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .statsGrid {
+    grid-template-columns: 1fr;
+  }
+
   .viewerControls {
     flex-wrap: wrap;
+    padding: var(--space-sm);
+  }
+
+  .viewerControls :global(.btn) {
+    flex: 1 1 calc(50% - var(--space-sm));
+    justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .viewerControls :global(.btn) {
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  .authorCard {
+    align-items: flex-start;
+  }
+
+  .licenseCard {
+    flex-wrap: wrap;
+    font-size: var(--text-xs);
   }
 }

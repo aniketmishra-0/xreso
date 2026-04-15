@@ -1,5 +1,4 @@
 import Link from "next/link";
-import XresoLogo from "@/components/XresoLogo/XresoLogo";
 import styles from "./Footer.module.css";
 
 export default function Footer() {
@@ -10,7 +9,7 @@ export default function Footer() {
           {/* Brand Column */}
           <div className={styles.brandCol}>
             <Link href="/" className={styles.logo}>
-              <XresoLogo size={32} />
+              <span className={styles.logoText}>xreso</span>
             </Link>
             <p className={styles.brandDesc}>
               Community-driven handwritten programming notes. Learn, share, and
@@ -47,6 +46,8 @@ export default function Footer() {
             <h4 className={styles.colTitle}>Platform</h4>
             <Link href="/browse" className={styles.footerLink}>Browse Notes</Link>
             <Link href="/categories" className={styles.footerLink}>Categories</Link>
+            <Link href="/tracks" className={styles.footerLink}>Cloud Native Tracks</Link>
+            <Link href="/admin/advanced-tracks" className={styles.footerLink}>Advanced Tracks Admin</Link>
             <Link href="/upload" className={styles.footerLink}>Upload Notes</Link>
             <Link href="/about" className={styles.footerLink}>About Us</Link>
           </div>

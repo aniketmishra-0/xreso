@@ -1,0 +1,50 @@
+@import "../login/page.module.css";
+
+.success {
+  padding: 12px 16px;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  border-radius: var(--radius-md);
+  color: var(--accent-green);
+  font-size: var(--text-sm);
+  text-align: center;
+}
+
+.footerLink {
+  margin-top: var(--space-lg);
+  text-align: center;
+  font-size: var(--text-sm);
+}
+
+.footerLink a {
+  color: var(--primary-light);
+  text-decoration: underline;
+}
+
+.linkBox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+}
+
+.linkTitle {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+.linkValue {
+  font-size: var(--text-sm);
+  color: var(--primary-light);
+  word-break: break-all;
+}
+
+.copyBtn {
+  align-self: flex-start;
+}

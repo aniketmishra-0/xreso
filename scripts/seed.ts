@@ -95,6 +95,60 @@ async function seed() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS advanced_tracks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slug TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT NOT NULL DEFAULT '',
+      premium INTEGER NOT NULL DEFAULT 1,
+      status TEXT NOT NULL DEFAULT 'active',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS advanced_track_topics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      track_id INTEGER NOT NULL REFERENCES advanced_tracks(id) ON DELETE CASCADE,
+      slug TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      level TEXT NOT NULL DEFAULT 'Beginner',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(track_id, slug)
+    );
+
+    CREATE TABLE IF NOT EXISTS advanced_track_resources (
+      id TEXT PRIMARY KEY,
+      track_id INTEGER NOT NULL REFERENCES advanced_tracks(id) ON DELETE CASCADE,
+      topic_id INTEGER REFERENCES advanced_track_topics(id) ON DELETE SET NULL,
+      author_id TEXT NOT NULL REFERENCES users(id),
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      resource_type TEXT NOT NULL DEFAULT 'link',
+      content_url TEXT NOT NULL,
+      thumbnail_url TEXT,
+      premium_only INTEGER NOT NULL DEFAULT 1,
+      featured INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'pending',
+      view_count INTEGER NOT NULL DEFAULT 0,
+      save_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS advanced_track_resource_tags (
+      resource_id TEXT NOT NULL REFERENCES advanced_track_resources(id) ON DELETE CASCADE,
+      tag TEXT NOT NULL,
+      PRIMARY KEY(resource_id, tag)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_advanced_track_topics_track_id ON advanced_track_topics(track_id);
+    CREATE INDEX IF NOT EXISTS idx_advanced_track_resources_track_id ON advanced_track_resources(track_id);
+    CREATE INDEX IF NOT EXISTS idx_advanced_track_resources_status ON advanced_track_resources(status);
+
     CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(title, description, tags, content='');
   `);
   console.log("✅ Tables created\n");
@@ -193,6 +247,128 @@ async function seed() {
 
   // Update category counts
   db.exec(`UPDATE categories SET note_count = (SELECT COUNT(*) FROM notes WHERE notes.category_id = categories.id AND notes.status = 'approved')`);
+
+  // ── Advanced Tracks Module (separate from notes) ─────
+  const advancedTracks = [
+    ["kubernetes", "Kubernetes", "Container orchestration, production scaling, and cluster operations.", 0],
+    ["devops", "DevOps", "Automation, CI/CD, infrastructure, and delivery reliability.", 1],
+    ["system-design", "System Design", "Scalable architecture patterns and system tradeoffs.", 2],
+  ] as const;
+
+  const insertAdvancedTrack = db.prepare(
+    `INSERT OR IGNORE INTO advanced_tracks (slug, name, description, premium, status, sort_order)
+     VALUES (?, ?, ?, 1, 'active', ?)`
+  );
+
+  advancedTracks.forEach((track) => {
+    insertAdvancedTrack.run(track[0], track[1], track[2], track[3]);
+  });
+
+  const advancedTrackMap: Record<string, number> = {};
+  const advancedTrackRows = db.prepare("SELECT id, slug FROM advanced_tracks").all() as {
+    id: number;
+    slug: string;
+  }[];
+  advancedTrackRows.forEach((row) => {
+    advancedTrackMap[row.slug] = row.id;
+  });
+
+  const advancedTopics = [
+    ["kubernetes", "k8s-fundamentals", "Cluster Fundamentals", "Pods, deployments, and rollout strategy.", "Beginner", 0],
+    ["kubernetes", "k8s-observability", "Observability", "Production logs, metrics, tracing, and probes.", "Advanced", 1],
+    ["devops", "linux-shell", "Linux and Shell", "Linux CLI, permissions, shell scripting, and process tools.", "Beginner", 0],
+    ["devops", "ansible-automation", "Ansible Automation", "Playbooks, roles, and idempotent infra tasks.", "Intermediate", 1],
+    ["system-design", "requirements-capacity", "Capacity Planning", "Estimating scale and sizing architecture choices.", "Beginner", 0],
+    ["system-design", "resilience-observability", "Reliability and Observability", "SLIs, alerts, and resilience engineering.", "Advanced", 1],
+  ] as const;
+
+  const insertAdvancedTopic = db.prepare(
+    `INSERT OR IGNORE INTO advanced_track_topics
+      (track_id, slug, name, description, level, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  );
+
+  advancedTopics.forEach((topic) => {
+    const trackId = advancedTrackMap[topic[0]];
+    if (!trackId) return;
+    insertAdvancedTopic.run(trackId, topic[1], topic[2], topic[3], topic[4], topic[5]);
+  });
+
+  const topicMap: Record<string, number> = {};
+  const topicRows = db.prepare("SELECT id, slug FROM advanced_track_topics").all() as {
+    id: number;
+    slug: string;
+  }[];
+  topicRows.forEach((row) => {
+    topicMap[row.slug] = row.id;
+  });
+
+  const insertAdvancedResource = db.prepare(
+    `INSERT OR IGNORE INTO advanced_track_resources
+      (id, track_id, topic_id, author_id, title, summary, resource_type, content_url, thumbnail_url, premium_only, featured, status, view_count, save_count)
+     VALUES (?, ?, ?, ?, ?, ?, 'link', ?, ?, 1, ?, ?, ?, ?)`
+  );
+
+  const insertAdvancedResourceTag = db.prepare(
+    "INSERT OR IGNORE INTO advanced_track_resource_tags (resource_id, tag) VALUES (?, ?)"
+  );
+
+  const sampleAdvancedResources = [
+    {
+      trackSlug: "devops",
+      topicSlug: "linux-shell",
+      title: "Linux Command-Line Operations Handbook",
+      summary: "Practical Linux operations checklist for DevOps onboarding.",
+      contentUrl: "https://example.com/advanced/linux-operations",
+      thumbnailUrl: "/api/og?title=Linux%20Command-Line%20Operations%20Handbook&category=DevOps&v=3",
+      featured: 1,
+      status: "approved",
+      viewCount: 188,
+      saveCount: 34,
+      tags: ["linux", "devops", "automation"],
+    },
+    {
+      trackSlug: "kubernetes",
+      topicSlug: "k8s-observability",
+      title: "Kubernetes Production Observability Playbook",
+      summary: "Runbook templates for metrics, logs, and incident debugging in Kubernetes.",
+      contentUrl: "https://example.com/advanced/kubernetes-observability",
+      thumbnailUrl: "/api/og?title=Kubernetes%20Production%20Observability%20Playbook&category=Kubernetes&v=3",
+      featured: 0,
+      status: "approved",
+      viewCount: 142,
+      saveCount: 27,
+      tags: ["kubernetes", "observability", "sre"],
+    },
+  ] as const;
+
+  sampleAdvancedResources.forEach((resource) => {
+    const trackId = advancedTrackMap[resource.trackSlug];
+    const topicId = topicMap[resource.topicSlug];
+    if (!trackId) return;
+
+    const resourceId = uuidv4();
+    insertAdvancedResource.run(
+      resourceId,
+      trackId,
+      topicId || null,
+      adminId,
+      resource.title,
+      resource.summary,
+      resource.contentUrl,
+      resource.thumbnailUrl,
+      resource.featured,
+      resource.status,
+      resource.viewCount,
+      resource.saveCount
+    );
+
+    resource.tags.forEach((tag) => {
+      insertAdvancedResourceTag.run(resourceId, tag);
+    });
+  });
+
+  console.log("✅ Seeded advanced tracks module");
 
   db.close();
   console.log("\n🎉 Database seeded successfully!");

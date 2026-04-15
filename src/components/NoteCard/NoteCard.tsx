@@ -1,4 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
+import { getTechIcon } from "@/lib/techIcons";
 import styles from "./NoteCard.module.css";
 
 interface NoteCardProps {
@@ -6,6 +8,7 @@ interface NoteCardProps {
   title: string;
   description: string;
   category: string;
+  categorySlug?: string;
   categoryColor?: string;
   author: string;
   authorId?: string;
@@ -26,11 +29,38 @@ function LinkedInIcon() { return <svg width="14" height="14" viewBox="0 0 24 24"
 function TwitterIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>; }
 function WebIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>; }
 
+function NoteCategoryPill({
+  category,
+  slug,
+}: {
+  category: string;
+  slug: string;
+}) {
+  const { Icon, color, bg } = getTechIcon(slug);
+
+  return (
+    <span
+      className={styles.noteCategoryPill}
+      style={{ background: bg, borderColor: `${color}33`, color }}
+    >
+      <Icon size={14} color={color} />
+      {category}
+    </span>
+  );
+}
+
+const normalizeSlug = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "");
+
 export default function NoteCard({
   id,
   title,
   description,
   category,
+  categorySlug,
   categoryColor = "default",
   author,
   authorId,
@@ -44,69 +74,68 @@ export default function NoteCard({
   tags,
   createdAt,
 }: NoteCardProps) {
-  const colorMap: Record<string, string> = {
-    python: "badge-blue",
-    javascript: "badge-yellow",
-    sql: "badge-green",
-    java: "badge-purple",
-    default: "",
-  };
-
-  const badgeClass = colorMap[categoryColor] || colorMap.default;
-
   const hasSocials = authorGithub || authorLinkedin || authorTwitter || authorWebsite;
   const authorProfileUrl = authorId ? `/user/${authorId}` : "#";
+  const effectiveCategorySlug = normalizeSlug(categorySlug || categoryColor || category);
 
   return (
-    <div className={styles.card} id={`note-card-${id}`}>
-      {/* Invisible link overlay covering the card */}
+    <article className={styles.noteCard} id={`note-card-${id}`}>
       <Link href={`/note/${id}`} className={styles.cardHitbox} aria-label={`View ${title}`} />
 
-      <div className={styles.thumbnailWrap}>
-        <div
-          className={styles.thumbnail}
-          style={{
-            backgroundImage: `url(${thumbnailUrl})`,
-          }}
-        />
-        <div className={styles.overlay}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-          <span>View Notes</span>
-        </div>
+      <div className={styles.noteMedia}>
+        {thumbnailUrl && !thumbnailUrl.includes("placeholder") ? (
+          <Image
+            src={thumbnailUrl}
+            alt={title}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, (max-width: 1700px) 33vw, 25vw"
+            className={styles.noteMediaImage}
+          />
+        ) : (
+          <div
+            className={styles.noteMediaOg}
+            style={{
+              backgroundImage: `url(/api/og?title=${encodeURIComponent(title)}&category=${encodeURIComponent(category)}&v=3)`,
+            }}
+          />
+        )}
       </div>
 
-      <div className={styles.content}>
-        <div className={styles.meta}>
-          <span className={`badge ${badgeClass}`}>{category}</span>
-          <span className={styles.date}>{createdAt}</span>
+      <div className={styles.noteCardContent}>
+        <div className={styles.noteCardTop}>
+          <NoteCategoryPill category={category} slug={effectiveCategorySlug} />
+          <span className={styles.noteDate}>{createdAt}</span>
         </div>
 
-        <h3 className={styles.title}>{title}</h3>
-        <p className={styles.description}>{description}</p>
+        <h3 className={styles.noteTitle}>
+          <span>{title}</span>
+        </h3>
+        <p className={styles.noteDesc}>{description}</p>
 
         {tags.length > 0 && (
-          <div className={styles.tags}>
+          <div className={styles.noteTags}>
             {tags.slice(0, 3).map((tag) => (
-              <span key={tag} className={styles.tag}>
+              <span key={tag} className={styles.noteTag}>
                 #{tag}
               </span>
             ))}
           </div>
         )}
 
-        <div className={styles.footer}>
-          <div className={styles.authorWrap}>
-            <Link href={authorProfileUrl} className={styles.author}>
-              <div className={styles.authorAvatar}>
+        <div className={styles.noteMetrics}>
+          <span className={styles.noteMetric}>{bookmarkCount} saves</span>
+          <span className={styles.noteMetric}>{tags.length} tags</span>
+        </div>
+
+        <div className={styles.noteFooter}>
+          <div className={styles.noteAuthorWrap}>
+            <Link href={authorProfileUrl} className={styles.noteAuthorGroup}>
+              <span className={styles.noteAuthorAvatar} aria-hidden="true">
                 {author.charAt(0).toUpperCase()}
-              </div>
-              <span className={styles.authorName}>{author}</span>
+              </span>
+              <span className={styles.noteAuthor}>{author}</span>
             </Link>
 
-            {/* Hover Popover */}
             <div className={styles.authorPopoverShell}>
               <div className={styles.authorPopover}>
                 <div className={styles.popoverHeader}>
@@ -137,23 +166,9 @@ export default function NoteCard({
             </div>
           </div>
 
-          <div className={styles.stats}>
-            <span className={styles.stat}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-              {viewCount}
-            </span>
-            <span className={styles.stat}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-              </svg>
-              {bookmarkCount}
-            </span>
-          </div>
+          <span className={styles.noteViews}>{viewCount} views</span>
         </div>
       </div>
-    </div>
+    </article>
   );
 }

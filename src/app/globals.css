@@ -533,3 +533,48 @@ ul, ol {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+
+/* ── Cross-device layout scaling ───────────────────────── */
+@media (max-width: 1366px) {
+  :root {
+    --max-width-wide: min(94vw, 1700px);
+  }
+}
+
+@media (max-width: 1199px) {
+  :root {
+    --max-width-wide: min(95vw, 1500px);
+  }
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --nav-height: 68px;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --nav-height: 64px;
+    --space-4xl: 80px;
+    --space-3xl: 56px;
+  }
+}
+
+@media (min-width: 1600px) {
+  :root {
+    --max-width-wide: min(94vw, 2100px);
+  }
+}
+
+@media (min-width: 1920px) {
+  html {
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 2560px) {
+  html {
+    font-size: 18px;
+  }
+}

@@ -4,13 +4,14 @@ import Navbar from "@/components/Navbar/Navbar";
 import Footer from "@/components/Footer/Footer";
 import AuthProvider from "@/components/AuthProvider";
 import ThemeProviderWrapper from "@/components/ThemeProvider";
+import { auth } from "@/lib/auth";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://xreso.dev";
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
   title: {
-    default: "xreso — Community Programming Notes",
+    default: "xreso — The Programmer's Library",
     template: "%s | xreso",
   },
   description:
@@ -28,7 +29,7 @@ export const metadata: Metadata = {
   authors: [{ name: "xreso", url: APP_URL }],
   creator: "xreso",
   openGraph: {
-    title: "xreso — Community Programming Notes",
+    title: "xreso — The Programmer's Library",
     description:
       "Access, read, and share handwritten programming notes. A community-driven educational resource platform.",
     url: APP_URL,
@@ -40,13 +41,13 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "xreso — Community Programming Notes",
+        alt: "xreso — The Programmer's Library",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "xreso — Community Programming Notes",
+    title: "xreso — The Programmer's Library",
     description: "Access, read, and share handwritten programming notes.",
     images: ["/og-image.png"],
   },
@@ -61,7 +62,12 @@ export const metadata: Metadata = {
       "max-snippet": -1,
     },
   },
-  manifest: "/manifest.json",
+  icons: {
+    icon: [{ url: "/icon.png?v=4", type: "image/png", sizes: "32x32" }],
+    shortcut: [{ url: "/icon.png?v=4", type: "image/png" }],
+    apple: [{ url: "/apple-icon.png?v=4", type: "image/png", sizes: "180x180" }],
+  },
+  manifest: "/manifest.json?v=4",
 };
 
 // JSON-LD structured data for the whole site
@@ -79,24 +85,30 @@ const jsonLd = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const session = await auth();
+
   return (
-    <html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
+    <html
+      lang="en"
+      data-theme="dark"
+      data-scroll-behavior="smooth"
+      suppressHydrationWarning
+    >
       <head>
         <meta name="theme-color" content="#0F0A1A" />
-        <link rel="apple-touch-icon" href="/logo.png" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         <ThemeProviderWrapper>
-          <AuthProvider>
+          <AuthProvider session={session}>
             <Navbar />
             <main>{children}</main>
             <Footer />

@@ -1,19 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, type MouseEvent } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
-import XresoLogo from "@/components/XresoLogo/XresoLogo";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
 import styles from "./Navbar.module.css";
+
+interface MegaMenuItem {
+  id: string;
+  label: string;
+  href: string;
+  description?: string;
+  count?: number;
+}
 
 export default function Navbar() {
   const { data: session, status } = useSession();
   const { theme, setTheme } = useTheme();
+  const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [megaMenuOpen, setMegaMenuOpen] = useState(false);
+  const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+  const [discoverItems, setDiscoverItems] = useState<MegaMenuItem[]>([]);
+  const [advancedItems, setAdvancedItems] = useState<MegaMenuItem[]>([]);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -38,8 +51,137 @@ export default function Navbar() {
     }
   }, [megaMenuOpen]);
 
+  useEffect(() => {
+    let active = true;
+
+    async function fetchProfileAvatar() {
+      if (!session?.user?.id) {
+        if (active) setProfileAvatar(null);
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/profile", { cache: "no-store" });
+        if (!res.ok) return;
+        const data = await res.json();
+        const nextAvatar =
+          data &&
+          data.user &&
+          typeof data.user.avatar === "string" &&
+          data.user.avatar.trim().length > 0
+            ? data.user.avatar
+            : null;
+
+        if (active) {
+          setProfileAvatar(nextAvatar);
+        }
+      } catch {
+        // Keep fallback avatar from session if profile fetch fails.
+      }
+    }
+
+    fetchProfileAvatar();
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.id, pathname]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadMegaMenu() {
+      try {
+        const [discoverRes, advancedRes] = await Promise.all([
+          fetch("/api/navigation/discover", { cache: "no-store" }),
+          fetch("/api/navigation/advanced-tracks", { cache: "no-store" }),
+        ]);
+
+        if (!discoverRes.ok || !advancedRes.ok) {
+          return;
+        }
+
+        const discoverPayload = (await discoverRes.json()) as {
+          items?: MegaMenuItem[];
+        };
+        const advancedPayload = (await advancedRes.json()) as {
+          items?: MegaMenuItem[];
+        };
+
+        if (!active) return;
+
+        setDiscoverItems(discoverPayload.items || []);
+        setAdvancedItems(advancedPayload.items || []);
+      } catch {
+        // Keep static fallbacks below if request fails.
+      }
+    }
+
+    loadMegaMenu();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const userRole = (session?.user as { role?: string })?.role;
   const isDark = theme === "dark";
+  const resolvedAvatar = profileAvatar || session?.user?.image || null;
+
+  const discoverFallback: MegaMenuItem[] = [
+    { id: "discover-all-notes", label: "All Notes", href: "/browse" },
+    { id: "discover-categories", label: "Categories", href: "/categories" },
+    {
+      id: "discover-featured",
+      label: "Featured Notes",
+      href: "/browse?featured=true",
+    },
+  ];
+
+  const advancedFallback: MegaMenuItem[] = [
+    { id: "advanced-library", label: "Open Tracks Library", href: "/tracks" },
+    {
+      id: "advanced-kubernetes",
+      label: "Kubernetes Notes",
+      href: "/tracks/notes?track=kubernetes",
+    },
+    {
+      id: "advanced-devops",
+      label: "DevOps Notes",
+      href: "/tracks/notes?track=devops",
+    },
+    {
+      id: "advanced-system-design",
+      label: "System Design Notes",
+      href: "/tracks/notes?track=system-design",
+    },
+  ];
+
+  const discoverMenu = discoverItems.length > 0 ? discoverItems : discoverFallback;
+  const advancedMenu = advancedItems.length > 0 ? advancedItems : advancedFallback;
+
+  const handleHomeLogoClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    setMobileMenuOpen(false);
+    setUserMenuOpen(false);
+    setMegaMenuOpen(false);
+
+    const isModifiedClick =
+      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
+    const isNonPrimaryClick = event.button !== 0;
+
+    // Let browser handle new-tab and modified clicks naturally.
+    if (event.defaultPrevented || isModifiedClick || isNonPrimaryClick) {
+      return;
+    }
+
+    if (pathname === "/") {
+      event.preventDefault();
+      const root = document.documentElement;
+      const previousScrollBehavior = root.style.scrollBehavior;
+      root.style.scrollBehavior = "auto";
+      window.scrollTo({ top: 0, left: 0 });
+      root.style.scrollBehavior = previousScrollBehavior;
+    }
+  };
 
   return (
     <header
@@ -47,8 +189,8 @@ export default function Navbar() {
       id="main-navbar"
     >
       <nav className={styles.nav}>
-        <Link href="/" className={styles.logo} id="nav-logo">
-          <XresoLogo size={34} />
+        <Link href="/" className={styles.logo} id="nav-logo" onClick={handleHomeLogoClick}>
+          <span className={styles.logoText}>xreso</span>
         </Link>
 
         <div className={styles.navLinks}>
@@ -75,15 +217,25 @@ export default function Navbar() {
                 <div className={styles.megaMenuInner}>
                   <div className={styles.megaColumn}>
                     <p className={styles.megaTitle}>Discover</p>
-                    <Link href="/browse" className={styles.megaItem}>All Notes</Link>
-                    <Link href="/categories" className={styles.megaItem}>Categories</Link>
-                    <Link href="/browse?sort=featured" className={styles.megaItem}>Featured Notes</Link>
+                    {discoverMenu.map((item) => (
+                      <Link key={item.id} href={item.href} className={styles.megaItem}>
+                        <span>{item.label}</span>
+                        {typeof item.count === "number" ? (
+                          <span className={styles.megaItemCount}>{item.count}</span>
+                        ) : null}
+                      </Link>
+                    ))}
                   </div>
                   <div className={styles.megaColumn}>
                     <p className={styles.megaTitle}>Cloud Native Tracks</p>
-                    <Link href="/browse?q=kubernetes" className={styles.megaItem}>Kubernetes</Link>
-                    <Link href="/browse?q=devops" className={styles.megaItem}>DevOps</Link>
-                    <Link href="/browse?q=system+design" className={styles.megaItem}>System Design</Link>
+                    {advancedMenu.map((item) => (
+                      <Link key={item.id} href={item.href} className={styles.megaItem}>
+                        <span>{item.label}</span>
+                        {typeof item.count === "number" ? (
+                          <span className={styles.megaItemCount}>{item.count}</span>
+                        ) : null}
+                      </Link>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -91,6 +243,9 @@ export default function Navbar() {
           </div>
           <Link href="/categories" className={styles.navLink} id="nav-categories">
             Categories
+          </Link>
+          <Link href="/tracks" className={styles.navLink} id="nav-tracks">
+            Tracks
           </Link>
           <Link href="/about" className={styles.navLink} id="nav-about">
             About
@@ -121,11 +276,9 @@ export default function Navbar() {
           </Link>
 
           {status === "loading" ? (
-            <div
-              className={styles.userAvatar}
-              style={{ opacity: 0.5, animation: "pulse 1.5s infinite" }}
-              aria-hidden="true"
-            />
+            <div className={styles.userMenu} aria-hidden="true">
+              <div className={`${styles.userAvatar} ${styles.userAvatarLoading}`} />
+            </div>
           ) : session?.user ? (
             <div className={styles.userMenu}>
               <button
@@ -136,7 +289,18 @@ export default function Navbar() {
                 }}
                 id="nav-user-menu"
               >
-                {session.user.name?.charAt(0).toUpperCase() || "U"}
+                {resolvedAvatar ? (
+                  <Image
+                    src={resolvedAvatar}
+                    alt={session.user.name || "User"}
+                    className={styles.userAvatarImage}
+                    width={36}
+                    height={36}
+                    unoptimized
+                  />
+                ) : (
+                  session.user.name?.charAt(0).toUpperCase() || "U"
+                )}
               </button>
               {userMenuOpen && (
                 <div className={styles.dropdown}>
@@ -240,6 +404,13 @@ export default function Navbar() {
           onClick={() => setMobileMenuOpen(false)}
         >
           Categories
+        </Link>
+        <Link
+          href="/tracks"
+          className={styles.mobileLink}
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          Tracks
         </Link>
         <Link
           href="/about"

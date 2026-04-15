@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import styles from "./page.module.css";
 
 interface UserNote {
@@ -20,6 +21,7 @@ interface UserProfile {
   id: string;
   name: string;
   email: string;
+  avatar: string | null;
   bio: string | null;
   github_url: string | null;
   linkedin_url: string | null;
@@ -69,6 +71,7 @@ interface EditModalProps {
 function EditProfileModal({ profile, onClose, onSave }: EditModalProps) {
   const [form, setForm] = useState({
     name: profile.name || "",
+    avatar: profile.avatar || "",
     bio: profile.bio || "",
     githubUrl: profile.github_url || "",
     linkedinUrl: profile.linkedin_url || "",
@@ -77,14 +80,63 @@ function EditProfileModal({ profile, onClose, onSave }: EditModalProps) {
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [removeAvatar, setRemoveAvatar] = useState(false);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (!selected) {
+      return;
+    }
+
+    if (!selected.type.startsWith("image/")) {
+      setError("Please choose an image file");
+      return;
+    }
+
+    if (selected.size > 2 * 1024 * 1024) {
+      setError("Profile image must be under 2MB");
+      return;
+    }
+
+    setAvatarFile(selected);
+    setRemoveAvatar(false);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      setForm((prev) => ({ ...prev, avatar: result }));
+      setError("");
+    };
+    reader.onerror = () => setError("Could not read image. Try another file.");
+    reader.readAsDataURL(selected);
+  };
 
   const handleSave = async () => {
     setSaving(true); setError("");
     try {
+      const payload = new FormData();
+      payload.append("name", form.name);
+      payload.append("bio", form.bio);
+      payload.append("githubUrl", form.githubUrl);
+      payload.append("linkedinUrl", form.linkedinUrl);
+      payload.append("twitterUrl", form.twitterUrl);
+      payload.append("websiteUrl", form.websiteUrl);
+
+      if (avatarFile) {
+        payload.append("avatarFile", avatarFile);
+      } else if (!removeAvatar && form.avatar.startsWith("data:image/")) {
+        // Fallback: preserve selected preview image when file handle is unavailable.
+        payload.append("avatar", form.avatar);
+      }
+
+      if (removeAvatar) {
+        payload.append("removeAvatar", "true");
+      }
+
       const res = await fetch("/api/profile", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: payload,
       });
       const data = await res.json();
       if (res.ok) {
@@ -113,6 +165,48 @@ function EditProfileModal({ profile, onClose, onSave }: EditModalProps) {
 
         <div className={styles.modalBody}>
           {error && <div className={styles.modalError}>{error}</div>}
+
+          <div className="input-group">
+            <label className="input-label">Profile Photo</label>
+            <div className={styles.modalAvatarRow}>
+              <div className={styles.modalAvatarPreview}>
+                {form.avatar ? (
+                  <Image
+                    src={form.avatar}
+                    alt={form.name || "User"}
+                    className={styles.modalAvatarImage}
+                    width={68}
+                    height={68}
+                    unoptimized
+                  />
+                ) : (
+                  <span>{form.name?.charAt(0).toUpperCase() || "U"}</span>
+                )}
+              </div>
+              <div className={styles.modalAvatarActions}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className={styles.modalAvatarInput}
+                  onChange={handleAvatarChange}
+                />
+                {form.avatar ? (
+                  <button
+                    type="button"
+                    className={styles.modalAvatarRemove}
+                    onClick={() => {
+                      setForm((prev) => ({ ...prev, avatar: "" }));
+                      setAvatarFile(null);
+                      setRemoveAvatar(true);
+                      setError("");
+                    }}
+                  >
+                    Remove photo
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
 
           <div className="input-group">
             <label className="input-label">Display Name</label>
@@ -178,7 +272,7 @@ function EditProfileModal({ profile, onClose, onSave }: EditModalProps) {
 
 /* ── Main Profile Page ───────────────────────────────── */
 export default function ProfilePage() {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const [tab, setTab] = useState<"notes" | "bookmarks">("notes");
   const [userNotes, setUserNotes] = useState<UserNote[]>([]);
   const [bookmarks, setBookmarks] = useState<UserNote[]>([]);
@@ -238,6 +332,32 @@ export default function ProfilePage() {
 
   const totalViews = userNotes.reduce((s, n) => s + (n.view_count || 0), 0);
   const hasSocials = profile?.github_url || profile?.linkedin_url || profile?.twitter_url || profile?.website_url;
+  const handleProfileSave = async (updated: UserProfile) => {
+    setProfile(updated);
+
+    // Keep session payload lightweight: never pass base64 images here.
+    const nextName = updated.name?.trim() || session?.user?.name?.trim() || undefined;
+    const currentName = session?.user?.name?.trim() || undefined;
+
+    const nextImage =
+      updated.avatar && !updated.avatar.startsWith("data:image/")
+        ? updated.avatar
+        : null;
+    const currentImage = session?.user?.image || null;
+
+    if (nextName === currentName && nextImage === currentImage) {
+      return;
+    }
+
+    try {
+      await update({
+        name: nextName,
+        image: nextImage,
+      });
+    } catch {
+      // Non-blocking: UI still has latest profile state from API response.
+    }
+  };
 
   return (
     <div className={styles.page}>
@@ -247,6 +367,7 @@ export default function ProfilePage() {
             id: session.user.id,
             name: session.user.name || "",
             email: session.user.email || "",
+            avatar: null,
             bio: "",
             github_url: "",
             linkedin_url: "",
@@ -254,7 +375,7 @@ export default function ProfilePage() {
             website_url: ""
            } as UserProfile}
           onClose={() => setEditOpen(false)}
-          onSave={(updated) => setProfile(updated)}
+          onSave={handleProfileSave}
         />
       )}
 
@@ -263,7 +384,18 @@ export default function ProfilePage() {
         <div className={styles.profileHeader}>
           <div className={styles.avatarWrap}>
             <div className={styles.avatar}>
-              {(profile?.name || session.user.name)?.charAt(0).toUpperCase() || "U"}
+              {profile?.avatar ? (
+                <Image
+                  src={profile.avatar}
+                  alt={profile.name || "User"}
+                  className={styles.avatarImage}
+                  width={96}
+                  height={96}
+                  unoptimized
+                />
+              ) : (
+                (profile?.name || session.user.name)?.charAt(0).toUpperCase() || "U"
+              )}
             </div>
             <div className={styles.avatarGlow} />
           </div>
@@ -372,7 +504,7 @@ export default function ProfilePage() {
             ) : (
               userNotes.map(note => (
                 <Link key={note.id} href={`/note/${note.id}`} className={styles.noteRow}>
-                  <div className={styles.noteThumb} style={{ backgroundImage: `url(${note.thumbnail_url})` }} />
+                  <div className={styles.noteThumb} style={{ backgroundImage: `url(${(!note.thumbnail_url || note.thumbnail_url.includes("placeholder")) ? "/api/og?title=" + encodeURIComponent(note.title) + "&category=" + encodeURIComponent(note.category_name) + "&v=3" : note.thumbnail_url})` }} />
                   <div className={styles.noteInfo}>
                     <h3 className={styles.noteTitle}>{note.title}</h3>
                     <div className={styles.noteMeta}>
@@ -398,7 +530,7 @@ export default function ProfilePage() {
             ) : (
               bookmarks.map(note => (
                 <Link key={note.id} href={`/note/${note.id}`} className={styles.noteRow}>
-                  <div className={styles.noteThumb} style={{ backgroundImage: `url(${note.thumbnail_url})` }} />
+                  <div className={styles.noteThumb} style={{ backgroundImage: `url(${(!note.thumbnail_url || note.thumbnail_url.includes("placeholder")) ? "/api/og?title=" + encodeURIComponent(note.title) + "&category=" + encodeURIComponent(note.category_name) + "&v=3" : note.thumbnail_url})` }} />
                   <div className={styles.noteInfo}>
                     <h3 className={styles.noteTitle}>{note.title}</h3>
                     <div className={styles.noteMeta}>

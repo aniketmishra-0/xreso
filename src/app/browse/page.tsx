@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { CATEGORY_CATALOG } from "@/lib/techIcons";
 import NoteCard from "@/components/NoteCard/NoteCard";
 import styles from "./page.module.css";
 
@@ -24,10 +25,17 @@ interface Note {
   createdAt: string;
 }
 
-const CATEGORIES = [
+/* Quick-access tabs — top 8 popular categories */
+const QUICK_TABS = [
   "All", "Python", "JavaScript", "SQL", "Java",
   "Data Structures", "Web Dev", "C / C++", "DevOps",
 ];
+
+/* Full list derived from CATEGORY_CATALOG for the dropdown */
+const ALL_CATEGORIES = CATEGORY_CATALOG.map(cat => ({
+  slug: cat.slug,
+  name: cat.name,
+}));
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest First" },
@@ -55,15 +63,23 @@ const formatDate = (dateStr: string) => {
 function BrowseContent() {
   const searchParams = useSearchParams();
   const initialCategoryParam = searchParams.get("category");
+  const initialFeatured = searchParams.get("featured") === "true";
+  const initialQueryParam = searchParams.get("q") || "";
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [featuredOnly, setFeaturedOnly] = useState(initialFeatured);
+
+  const [searchQuery, setSearchQuery] = useState(initialQueryParam);
   const [activeCategory, setActiveCategory] = useState(() => {
     if (initialCategoryParam) {
-      const match = CATEGORIES.find(c => 
+      // Check quick tabs first
+      const tabMatch = QUICK_TABS.find(c =>
         c.toLowerCase().replace(/\s+/g, "-").replace("/", "-") === initialCategoryParam
         || c.toLowerCase() === initialCategoryParam
       );
-      return match || "All";
+      if (tabMatch) return tabMatch;
+      // Check full catalog
+      const catMatch = ALL_CATEGORIES.find(c => c.slug === initialCategoryParam);
+      if (catMatch) return catMatch.name;
     }
     return "All";
   });
@@ -71,6 +87,13 @@ function BrowseContent() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const activeSortLabel = SORT_OPTIONS.find((option) => option.value === sortBy)?.label || "Newest First";
+  const latestResultDate = notes[0] ? formatDate(notes[0].createdAt) : "No notes yet";
+  const focusAreaLabel = featuredOnly
+    ? "Featured only"
+    : activeCategory === "All"
+      ? "All categories"
+      : activeCategory;
 
   const fetchNotes = useCallback(async () => {
     setLoading(true);
@@ -84,6 +107,9 @@ function BrowseContent() {
       if (searchQuery.trim()) {
         params.set("q", searchQuery.trim());
       }
+      if (featuredOnly) {
+        params.set("featured", "true");
+      }
 
       const res = await fetch(`/api/notes?${params.toString()}`);
       if (res.ok) {
@@ -96,7 +122,34 @@ function BrowseContent() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, activeCategory, sortBy]);
+  }, [searchQuery, activeCategory, sortBy, featuredOnly]);
+
+  useEffect(() => {
+    const q = searchParams.get("q") || "";
+    const featured = searchParams.get("featured") === "true";
+    const categoryParam = searchParams.get("category");
+
+    setSearchQuery(q);
+    setFeaturedOnly(featured);
+
+    if (!categoryParam) {
+      setActiveCategory("All");
+      return;
+    }
+
+    const tabMatch = QUICK_TABS.find(
+      (c) =>
+        c.toLowerCase().replace(/\s+/g, "-").replace("/", "-") === categoryParam ||
+        c.toLowerCase() === categoryParam
+    );
+    if (tabMatch) {
+      setActiveCategory(tabMatch);
+      return;
+    }
+
+    const catMatch = ALL_CATEGORIES.find((c) => c.slug === categoryParam);
+    setActiveCategory(catMatch?.name || "All");
+  }, [searchParams]);
 
   useEffect(() => {
     const timer = setTimeout(fetchNotes, 300); // debounce search
@@ -109,9 +162,12 @@ function BrowseContent() {
       <div className={styles.header}>
         <div className={styles.headerBg} />
         <div className={styles.headerContent}>
-          <h1 className={styles.title}>Browse Notes</h1>
+          <h1 className={styles.title}>{featuredOnly ? "Curated Notes" : "Browse Notes"}</h1>
           <p className={styles.subtitle}>
-            Discover handwritten programming notes from our community
+            {featuredOnly
+              ? "Handpicked, premium notes selected by our moderators"
+              : "Discover handwritten programming notes from our community"
+            }
           </p>
 
           {/* Search Bar */}
@@ -123,7 +179,7 @@ function BrowseContent() {
             <input
               type="text"
               className={styles.searchInput}
-              placeholder="Search notes by title, topic, or tag..."
+              placeholder="Universal search: title, tags, category, language, author, file name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               id="browse-search-input"
@@ -144,17 +200,48 @@ function BrowseContent() {
       <div className={styles.content}>
         {/* Filters */}
         <div className={styles.filters}>
-          <div className={styles.categoryTabs}>
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                className={`${styles.categoryTab} ${activeCategory === cat ? styles.active : ""}`}
-                onClick={() => setActiveCategory(cat)}
-                id={`filter-${cat.toLowerCase().replace(/[\s\/]+/g, "-")}`}
+          <div className={styles.filterLeft}>
+            <div className={styles.categoryTabs}>
+              {QUICK_TABS.map((cat) => (
+                <button
+                  key={cat}
+                  className={`${styles.categoryTab} ${activeCategory === cat ? styles.active : ""}`}
+                  onClick={() => setActiveCategory(cat)}
+                  id={`filter-${cat.toLowerCase().replace(/[\s\/]+/g, "-")}`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            {/* Language dropdown for ALL categories */}
+            <div className={styles.langDropdownWrap}>
+              <select
+                className={styles.langDropdown}
+                value={
+                  activeCategory === "All"
+                    ? ""
+                    : ALL_CATEGORIES.find(c => c.name === activeCategory)?.slug || ""
+                }
+                onChange={(e) => {
+                  const slug = e.target.value;
+                  if (!slug) {
+                    setActiveCategory("All");
+                  } else {
+                    const cat = ALL_CATEGORIES.find(c => c.slug === slug);
+                    setActiveCategory(cat?.name || "All");
+                  }
+                }}
+                id="language-dropdown"
               >
-                {cat}
-              </button>
-            ))}
+                <option value="">All Languages</option>
+                {ALL_CATEGORIES.map((cat) => (
+                  <option key={cat.slug} value={cat.slug}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div className={styles.sortWrap}>
@@ -174,61 +261,90 @@ function BrowseContent() {
           </div>
         </div>
 
-        {/* Results Info */}
-        <div className={styles.resultsInfo}>
-          <span className={styles.resultsCount}>
-            {loading ? "Loading..." : `${total} note${total !== 1 ? "s" : ""} found`}
-          </span>
-          {activeCategory !== "All" && (
-            <button
-              className={styles.clearFilter}
-              onClick={() => setActiveCategory("All")}
-            >
-              Clear filter ×
-            </button>
-          )}
-        </div>
+        <div className={styles.resultsShell}>
+          <div className={styles.resultsSummary}>
+            <div className={styles.summaryCard}>
+              <span className={styles.summaryLabel}>Results</span>
+              <span className={styles.summaryValue}>{loading ? "..." : total}</span>
+            </div>
+            <div className={styles.summaryCard}>
+              <span className={styles.summaryLabel}>Latest addition</span>
+              <span className={styles.summaryValue}>{loading ? "Loading..." : latestResultDate}</span>
+            </div>
+            <div className={styles.summaryCard}>
+              <span className={styles.summaryLabel}>Focus area</span>
+              <span className={styles.summaryValue}>{focusAreaLabel}</span>
+            </div>
+          </div>
 
-        {/* Notes Grid */}
-        {loading ? (
-          <div className={styles.loadingGrid}>
-            {[1, 2, 3, 4, 5, 6].map((n) => (
-              <div key={n} className={styles.skeleton} />
-            ))}
+          {/* Results Info */}
+          <div className={styles.resultsInfo}>
+            <span className={styles.resultsCount}>
+              {loading ? "Loading..." : `${total} note${total !== 1 ? "s" : ""} found`}
+            </span>
+            <div className={styles.resultsActions}>
+              <span className={styles.activeSortChip}>{activeSortLabel}</span>
+              {activeCategory !== "All" && (
+                <button
+                  className={styles.clearFilter}
+                  onClick={() => setActiveCategory("All")}
+                >
+                  Clear filter ×
+                </button>
+              )}
+              {featuredOnly && (
+                <button
+                  className={styles.clearFilter}
+                  onClick={() => setFeaturedOnly(false)}
+                >
+                  ★ Curated only ×
+                </button>
+              )}
+            </div>
           </div>
-        ) : notes.length > 0 ? (
-          <div className={`${styles.notesGrid} stagger`}>
-            {notes.map((note) => (
-              <NoteCard
-                key={note.id}
-                id={note.id}
-                title={note.title}
-                description={note.description}
-                category={note.category}
-                categoryColor={getCategoryColor(note.categorySlug)}
-                author={note.author}
-                authorId={note.authorId}
-                authorGithub={note.authorGithub}
-                authorLinkedin={note.authorLinkedin}
-                authorTwitter={note.authorTwitter}
-                authorWebsite={note.authorWebsite}
-                thumbnailUrl={note.thumbnailUrl}
-                viewCount={note.viewCount}
-                bookmarkCount={note.bookmarkCount}
-                tags={note.tags}
-                createdAt={formatDate(note.createdAt)}
-              />
-            ))}
+
+          {/* Notes Grid */}
+          {loading ? (
+            <div className={styles.loadingGrid}>
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <div key={n} className={styles.skeleton} />
+              ))}
+            </div>
+          ) : notes.length > 0 ? (
+            <div className={`${styles.notesGrid} stagger`}>
+              {notes.map((note) => (
+                <NoteCard
+                  key={note.id}
+                  id={note.id}
+                  title={note.title}
+                  description={note.description}
+                  category={note.category}
+                  categorySlug={note.categorySlug}
+                  categoryColor={getCategoryColor(note.categorySlug)}
+                  author={note.author}
+                  authorId={note.authorId}
+                  authorGithub={note.authorGithub}
+                  authorLinkedin={note.authorLinkedin}
+                  authorTwitter={note.authorTwitter}
+                  authorWebsite={note.authorWebsite}
+                  thumbnailUrl={note.thumbnailUrl}
+                  viewCount={note.viewCount}
+                  bookmarkCount={note.bookmarkCount}
+                  tags={note.tags}
+                  createdAt={formatDate(note.createdAt)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className={styles.emptyState}>
+              <div className={styles.emptyIcon}>📝</div>
+              <h3 className={styles.emptyTitle}>No notes found</h3>
+              <p className={styles.emptyDesc}>
+                Try adjusting your search or filter to find what you&apos;re looking for.
+              </p>
+            </div>
+          )}
           </div>
-        ) : (
-          <div className={styles.emptyState}>
-            <div className={styles.emptyIcon}>📝</div>
-            <h3 className={styles.emptyTitle}>No notes found</h3>
-            <p className={styles.emptyDesc}>
-              Try adjusting your search or filter to find what you&apos;re looking for.
-            </p>
-          </div>
-        )}
       </div>
     </div>
   );

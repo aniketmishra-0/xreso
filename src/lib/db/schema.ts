@@ -134,6 +134,96 @@ export const reports = sqliteTable("reports", {
     .default(sql`(datetime('now'))`),
 });
 
+// ─── Advanced Tracks (Premium Module) ─────────────────
+export const advancedTracks = sqliteTable("advanced_tracks", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  slug: text("slug").notNull().unique(),
+  name: text("name").notNull().unique(),
+  description: text("description").notNull().default(""),
+  premium: integer("premium", { mode: "boolean" }).notNull().default(true),
+  status: text("status", { enum: ["active", "archived"] })
+    .notNull()
+    .default("active"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export const advancedTrackTopics = sqliteTable("advanced_track_topics", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  trackId: integer("track_id")
+    .notNull()
+    .references(() => advancedTracks.id, { onDelete: "cascade" }),
+  slug: text("slug").notNull(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  level: text("level", { enum: ["Beginner", "Intermediate", "Advanced"] })
+    .notNull()
+    .default("Beginner"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export const advancedTrackResources = sqliteTable("advanced_track_resources", {
+  id: text("id").primaryKey(),
+  trackId: integer("track_id")
+    .notNull()
+    .references(() => advancedTracks.id, { onDelete: "cascade" }),
+  topicId: integer("topic_id").references(() => advancedTrackTopics.id, {
+    onDelete: "set null",
+  }),
+  authorId: text("author_id")
+    .notNull()
+    .references(() => users.id),
+  title: text("title").notNull(),
+  summary: text("summary").notNull(),
+  resourceType: text("resource_type", {
+    enum: ["link", "pdf", "doc", "video"],
+  })
+    .notNull()
+    .default("link"),
+  contentUrl: text("content_url").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  premiumOnly: integer("premium_only", { mode: "boolean" })
+    .notNull()
+    .default(true),
+  featured: integer("featured", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  status: text("status", {
+    enum: ["draft", "pending", "approved", "rejected", "archived"],
+  })
+    .notNull()
+    .default("pending"),
+  viewCount: integer("view_count").notNull().default(0),
+  saveCount: integer("save_count").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
+export const advancedTrackResourceTags = sqliteTable(
+  "advanced_track_resource_tags",
+  {
+    resourceId: text("resource_id")
+      .notNull()
+      .references(() => advancedTrackResources.id, { onDelete: "cascade" }),
+    tag: text("tag").notNull(),
+  }
+);
+
 // ─── TypeScript Types ─────────────────────────────────
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -143,3 +233,9 @@ export type Category = typeof categories.$inferSelect;
 export type Tag = typeof tags.$inferSelect;
 export type Bookmark = typeof bookmarks.$inferSelect;
 export type Report = typeof reports.$inferSelect;
+export type AdvancedTrack = typeof advancedTracks.$inferSelect;
+export type NewAdvancedTrack = typeof advancedTracks.$inferInsert;
+export type AdvancedTrackTopic = typeof advancedTrackTopics.$inferSelect;
+export type NewAdvancedTrackTopic = typeof advancedTrackTopics.$inferInsert;
+export type AdvancedTrackResource = typeof advancedTrackResources.$inferSelect;
+export type NewAdvancedTrackResource = typeof advancedTrackResources.$inferInsert;

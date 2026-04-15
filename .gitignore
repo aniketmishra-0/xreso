@@ -49,5 +49,10 @@ next-env.d.ts
 # uploads
 /public/uploads/
 
-# drizzle
-/drizzle/
+# drizzle migrations are intentionally tracked
+
+# OneDrive token cache
+.onedrive-token.json
+
+# Local data (Excel fallback)
+/data/

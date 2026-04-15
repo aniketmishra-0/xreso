@@ -797,6 +797,9 @@
   border-radius: 50%;
   background: var(--gradient-brand);
   display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+  overflow: hidden;
+  background-clip: padding-box;
   font-size: 11px; font-weight: 700; color: white;
 }
 .previewCardAuthorName { font-size: 11px; color: var(--text-secondary); }
@@ -877,6 +880,9 @@
   width: 32px; height: 32px; border-radius: 50%;
   background: var(--gradient-brand);
   display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+  overflow: hidden;
+  background-clip: padding-box;
   font-size: 13px; font-weight: 700; color: white;
 }
 .previewSideAuthorName { font-size: var(--text-sm); font-weight: 600; color: var(--text-primary); }
@@ -1004,10 +1010,163 @@
   border-radius: var(--radius-sm);
 }
 
+@media (max-width: 1366px) and (min-width: 1101px) {
+  .formContainer {
+    max-width: 780px;
+  }
+
+  .previewDrawer {
+    width: 460px;
+  }
+}
+
+@media (max-width: 1100px) and (min-width: 769px) {
+  .formContainer {
+    max-width: 860px;
+  }
+
+  .modeToggle {
+    width: 100%;
+  }
+
+  .modeBtn {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .dropZone {
+    padding: var(--space-2xl) var(--space-lg);
+  }
+
+  .previewDrawer {
+    width: 460px;
+  }
+}
+
+@media (min-width: 1600px) {
+  .formContainer {
+    max-width: 920px;
+  }
+
+  .title {
+    font-size: clamp(2.4rem, 2.8vw, 3rem);
+  }
+
+  .section {
+    padding: calc(var(--space-xl) + var(--space-sm));
+  }
+
+  .previewDrawer {
+    width: 520px;
+  }
+
+  .previewBody {
+    padding: 24px;
+  }
+}
+
+@media (min-width: 1920px) {
+  .formContainer {
+    max-width: 1040px;
+  }
+
+  .floatingPreviewBtn {
+    bottom: 36px;
+    right: 36px;
+  }
+}
+
+@media (min-width: 2560px) {
+  .formContainer {
+    max-width: 1160px;
+  }
+
+  .previewDrawer {
+    width: 600px;
+  }
+}
+
 /* ── Mobile tweaks ─────────────── */
+@media (max-width: 768px) {
+  .header {
+    padding: var(--space-2xl) var(--space-md) var(--space-xl);
+  }
+
+  .formContainer {
+    padding: var(--space-xl) var(--space-md) var(--space-3xl);
+  }
+
+  .modeToggle {
+    width: 100%;
+  }
+
+  .modeBtn {
+    flex: 1;
+    justify-content: center;
+    padding: 10px 12px;
+  }
+
+  .dropZone {
+    padding: var(--space-2xl) var(--space-md);
+  }
+
+  .filePreview {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .fileInfo {
+    min-width: 0;
+    text-align: center;
+  }
+
+  .fileName {
+    word-break: break-word;
+  }
+
+  .submitBtn {
+    min-width: 100%;
+  }
+
+  .successActions {
+    flex-direction: column;
+  }
+
+  .successActions :global(.btn) {
+    width: 100%;
+  }
+
+  .previewHeader {
+    padding: 14px 16px;
+  }
+
+  .previewBody {
+    padding: 16px;
+    gap: 16px;
+  }
+}
+
 @media (max-width: 640px) {
   .previewDrawer { width: 100vw; }
-  .floatingPreviewBtn { bottom: 20px; right: 16px; padding: 10px 16px; }
+  .floatingPreviewBtn {
+    bottom: 20px;
+    right: 16px;
+    padding: 10px;
+    min-width: 46px;
+    border-radius: var(--radius-full);
+    justify-content: center;
+  }
+  .floatingPreviewBtn span { display: none; }
+  .modeToggle { flex-direction: column; }
+  .modeBtn { width: 100%; }
+  .section { padding: var(--space-md); }
+  .title { font-size: var(--text-xl); }
+  .subtitle { font-size: var(--text-sm); }
+  .previewCardBody { padding: 12px; }
+  .previewCardFooter { flex-wrap: wrap; gap: 8px; }
+  .previewResourceCard { align-items: flex-start; }
   .submitRow { flex-direction: column; align-items: stretch; }
   .previewBtn, .submitBtn { min-width: unset; width: 100%; }
 }

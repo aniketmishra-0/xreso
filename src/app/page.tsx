@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { getFeaturedNotes, getCategories } from "@/lib/db/queries";
 import { getTechIcon } from "@/lib/techIcons";
+import HeroDigitalLibraryDashboard from "@/components/HeroDigitalLibraryDashboard";
 import styles from "./page.module.css";
 
 /* ─── Static data ──────────────────────────────────────────────────── */
@@ -74,30 +75,6 @@ function LinkedInIcon() { return <svg width="14" height="14" viewBox="0 0 24 24"
 function TwitterIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>; }
 function WebIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>; }
 
-function TerminalGraphic() {
-  return (
-    <div className={styles.terminal} aria-hidden="true">
-      <div className={styles.terminalBar}>
-        <span className={styles.dot} style={{ background: "#FF5F57" }} />
-        <span className={styles.dot} style={{ background: "#FEBC2E" }} />
-        <span className={styles.dot} style={{ background: "#28C840" }} />
-        <span className={styles.terminalTitle}>xreso-control-plane</span>
-      </div>
-      <div className={styles.terminalBody}>
-        <p className={styles.cmd}>$ xreso search --stack &quot;cloud-native&quot;</p>
-        <p className={styles.ok}>✓ 128 resources indexed</p>
-        <p className={styles.highlight}>→ best match: Kubernetes Observability Essentials</p>
-        <div className={styles.tagRow}>
-          <span>tags:</span>
-          {["envoy", "istio", "otel", "wasm", "platform-eng"].map((t) => (
-            <span key={t} className={styles.tag}>{t}</span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 /* ─── Page ─────────────────────────────────────────────────────────── */
 export default async function Home() {
   const featuredNotes = await getFeaturedNotes(6);
@@ -122,19 +99,19 @@ export default async function Home() {
           <div className={styles.heroLeft}>
             <div className={styles.heroBadge}>
               <span className={styles.heroBadgeDot} />
-              Open Source Knowledge Infrastructure
+              Knowledge Infrastructure and Programmer Library Engine
             </div>
 
             <h1 className={styles.heroTitle}>
-              Build Faster With
+              Programmer&apos;s Library
               <span className={styles.heroGradient}>
-                {" "}Developer-Grade Notes
+                {" "}for Modern Stack Builders
               </span>
             </h1>
 
             <p className={styles.heroSubtitle}>
-              Discover curated, community-powered resources across languages,
-              cloud-native tooling, and systems architecture.
+              Navigate an immersive knowledge infrastructure where Rust, WebAssembly,
+              cloud-native systems, and community activity flow through one living engine.
             </p>
 
             <div className={styles.heroActions}>
@@ -156,6 +133,8 @@ export default async function Home() {
                 type="text"
                 placeholder="Search by topic, stack, language, or concept…"
                 className={styles.heroSearchInput}
+                autoComplete="off"
+                spellCheck={false}
               />
               <button type="submit" className={`btn btn-primary ${styles.heroSearchBtn}`}>
                 Search
@@ -173,9 +152,9 @@ export default async function Home() {
             </div>
           </div>
 
-          {/* Right — terminal */}
+          {/* Right — digital library dashboard */}
           <div className={styles.heroRight}>
-            <TerminalGraphic />
+            <HeroDigitalLibraryDashboard />
           </div>
         </div>
       </section>
@@ -277,7 +256,7 @@ export default async function Home() {
                 Premium picks from the community.
               </p>
             </div>
-            <Link href="/browse" className="btn btn-secondary btn-sm">
+            <Link href="/browse?featured=true" className="btn btn-secondary btn-sm">
               View all
             </Link>
           </div>
@@ -302,7 +281,8 @@ export default async function Home() {
                   </div>
                 </div>
 
-                <div className={styles.featuredGrid}>
+                <div className={styles.featuredScroller}>
+                  <div className={styles.featuredTrack}>
                   {featuredNotes.map((note) => {
                     const hasSocials = note.authorGithub || note.authorLinkedin || note.authorTwitter || note.authorWebsite;
                     const authorUrl = note.authorId ? `/user/${note.authorId}` : "#";
@@ -312,7 +292,7 @@ export default async function Home() {
                       <Link href={`/note/${note.id}`} className={styles.cardHitbox} aria-label={`View ${note.title}`} />
                       
                       <div className={styles.noteMedia}>
-                        {note.thumbnailUrl ? (
+                        {note.thumbnailUrl && !note.thumbnailUrl.includes("placeholder") ? (
                           <Image
                             src={note.thumbnailUrl}
                             alt={note.title}
@@ -321,10 +301,12 @@ export default async function Home() {
                             className={styles.noteMediaImage}
                           />
                         ) : (
-                          <div className={styles.noteMediaPlaceholder}>
-                            <span className={styles.noteMediaLabel}>{note.category}</span>
-                            <span className={styles.noteMediaHint}>Community-picked study note</span>
-                          </div>
+                          <div
+                            className={styles.noteMediaOg}
+                            style={{
+                              backgroundImage: `url(/api/og?title=${encodeURIComponent(note.title)}&category=${encodeURIComponent(note.category)}&v=3)`,
+                            }}
+                          />
                         )}
                       </div>
 
@@ -383,6 +365,7 @@ export default async function Home() {
                       </div>
                     </article>
                   )})}
+                  </div>
                 </div>
               </>
             ) : (

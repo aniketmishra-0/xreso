@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CATEGORY_CATALOG } from "@/lib/techIcons";
 import styles from "./page.module.css";
 
 /* ── Link type helper ─────────────────────── */
@@ -20,16 +21,22 @@ function detectLinkType(url: string): { label: string; icon: string } {
   return { label: "External Resource", icon: "🌐" };
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  python: "Python", javascript: "JavaScript", sql: "SQL", java: "Java",
-  "c-cpp": "C / C++", "data-structures": "Data Structures",
-  "web-dev": "Web Dev", devops: "DevOps", other: "Other",
+/* Build label/badge maps from the full catalog */
+const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  CATEGORY_CATALOG.map(cat => [cat.slug, cat.name])
+);
+
+const BADGE_COLOR_MAP: Record<string, string> = {
+  python: "badge-blue", javascript: "badge-yellow", sql: "badge-green",
+  java: "badge-purple", typescript: "badge-blue", react: "badge-blue",
+  go: "badge-blue", rust: "badge-orange", swift: "badge-orange",
+  kotlin: "badge-purple", ruby: "badge-orange", php: "badge-purple",
+  "data-structures": "badge-green", algorithms: "badge-pink",
 };
 
-const CATEGORY_BADGE: Record<string, string> = {
-  python: "badge-blue", javascript: "badge-yellow", sql: "badge-green",
-  java: "badge-purple", "c-cpp": "", "data-structures": "", "web-dev": "", devops: "", other: "",
-};
+const CATEGORY_BADGE: Record<string, string> = Object.fromEntries(
+  CATEGORY_CATALOG.map(cat => [cat.slug, BADGE_COLOR_MAP[cat.slug] || ""])
+);
 
 const INITIAL_FORM_DATA = {
   title: "",
@@ -454,7 +461,7 @@ export default function UploadPage() {
           {/* ── File / Link area ────────────── */}
           <div className={styles.section}>
             {uploadMode === "file" ? (
-              <>
+              <div key="mode-file">
                 <h2 className={styles.sectionTitle}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
@@ -531,9 +538,9 @@ export default function UploadPage() {
                     </span>
                   </button>
                 )}
-              </>
+              </div>
             ) : (
-              <>
+              <div key="mode-link">
                 <h2 className={styles.sectionTitle}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
@@ -568,7 +575,7 @@ export default function UploadPage() {
                     <span key={ex} className={styles.linkExampleChip}>{ex}</span>
                   ))}
                 </div>
-              </>
+              </div>
             )}
           </div>
 
@@ -598,15 +605,9 @@ export default function UploadPage() {
                 <label htmlFor="category" className="input-label">Category <span className={styles.required}>*</span></label>
                 <select id="category" name="category" className="input" value={formData.category ?? ""} onChange={handleInputChange} required>
                   <option value="">Select a category</option>
-                  <option value="python">Python</option>
-                  <option value="javascript">JavaScript</option>
-                  <option value="sql">SQL</option>
-                  <option value="java">Java</option>
-                  <option value="c-cpp">C / C++</option>
-                  <option value="data-structures">Data Structures</option>
-                  <option value="web-dev">Web Development</option>
-                  <option value="devops">DevOps</option>
-                  <option value="other">Other</option>
+                  {CATEGORY_CATALOG.map(cat => (
+                    <option key={cat.slug} value={cat.slug}>{cat.name}</option>
+                  ))}
                 </select>
               </div>
               <div className="input-group">

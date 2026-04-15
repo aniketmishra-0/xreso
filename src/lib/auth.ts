@@ -52,17 +52,31 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
         token.role = (user as { role?: string }).role || "user";
+        token.picture = (user as { image?: string | null }).image || null;
+        token.name = user.name;
       }
+
+      if (trigger === "update" && session) {
+        if (typeof session.name === "string") {
+          token.name = session.name;
+        }
+        if (typeof session.image === "string" || session.image === null) {
+          token.picture = session.image;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
         (session.user as { role?: string }).role = token.role as string;
+        session.user.name = (token.name as string | undefined) || session.user.name;
+        session.user.image = (token.picture as string | null | undefined) || null;
       }
       return session;
     },

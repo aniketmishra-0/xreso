@@ -92,3 +92,76 @@
 .card:hover .glowBg {
   opacity: 0.15;
 }
+
+@media (max-width: 1366px) and (min-width: 1025px) {
+  .card {
+    padding: var(--space-md) var(--space-lg);
+    gap: var(--space-md);
+  }
+}
+
+@media (max-width: 1024px) and (min-width: 769px) {
+  .card {
+    padding: var(--space-md) var(--space-lg);
+    gap: var(--space-md);
+  }
+
+  .name {
+    font-size: var(--text-sm);
+  }
+}
+
+@media (max-width: 768px) {
+  .card {
+    padding: var(--space-md) var(--space-lg);
+    gap: var(--space-md);
+  }
+
+  .iconWrap {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    font-size: 20px;
+  }
+
+  .name {
+    font-size: var(--text-sm);
+  }
+
+  .description {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .arrow {
+    display: none;
+  }
+}
+
+@media (min-width: 1920px) {
+  .card {
+    padding: calc(var(--space-lg) + var(--space-xs)) var(--space-xl);
+  }
+
+  .name {
+    font-size: var(--text-lg);
+  }
+}
+
+@media (min-width: 2560px) {
+  .card {
+    padding: var(--space-xl) calc(var(--space-xl) + var(--space-sm));
+  }
+
+  .iconWrap {
+    width: 60px;
+    height: 60px;
+    min-width: 60px;
+  }
+
+  .count {
+    font-size: var(--text-sm);
+  }
+}

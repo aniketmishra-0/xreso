@@ -1,0 +1,470 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import styles from "./page.module.css";
+
+interface AdvancedTrackTopic {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+  level: "Beginner" | "Intermediate" | "Advanced";
+}
+
+interface AdvancedTrack {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+  premium: boolean;
+  approvedCount: number;
+  topics: AdvancedTrackTopic[];
+}
+
+interface AdvancedResource {
+  id: string;
+  title: string;
+  summary: string;
+  resourceType: "link" | "pdf" | "doc" | "video";
+  contentUrl: string | null;
+  accessLocked: boolean;
+  thumbnailUrl: string | null;
+  premiumOnly: boolean;
+  featured: boolean;
+  status: string;
+  viewCount: number;
+  saveCount: number;
+  createdAt: string;
+  trackSlug: string;
+  trackName: string;
+  topicSlug: string | null;
+  topicName: string | null;
+  authorId: string;
+  authorName: string;
+  tags: string[];
+}
+
+type SortValue = "newest" | "popular" | "featured";
+
+const SORT_OPTIONS: Array<{ value: SortValue; label: string }> = [
+  { value: "newest", label: "Newest First" },
+  { value: "popular", label: "Most Popular" },
+  { value: "featured", label: "Featured First" },
+];
+
+const formatDate = (dateStr: string) => {
+  try {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+};
+
+export default function TrackNotesPage() {
+  const searchParams = useSearchParams();
+
+  const [tracks, setTracks] = useState<AdvancedTrack[]>([]);
+  const [resources, setResources] = useState<AdvancedResource[]>([]);
+  const [viewer, setViewer] = useState({
+    isAuthenticated: false,
+    hasPremiumAccess: false,
+  });
+  const [loadingTracks, setLoadingTracks] = useState(true);
+  const [loadingResources, setLoadingResources] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("q") ?? "");
+  const [sortBy, setSortBy] = useState<SortValue>("newest");
+
+  const selectedTrackSlug = searchParams.get("track") ?? "";
+  const selectedTopicSlug = searchParams.get("topic") ?? "";
+
+  const selectedTrack = useMemo(
+    () => tracks.find((track) => track.slug === selectedTrackSlug) || null,
+    [tracks, selectedTrackSlug]
+  );
+
+  const selectedTopic = useMemo(() => {
+    if (!selectedTrack) return null;
+    if (!selectedTopicSlug) return null;
+    return selectedTrack.topics.find((topic) => topic.slug === selectedTopicSlug) || null;
+  }, [selectedTopicSlug, selectedTrack]);
+
+  const fetchTracks = useCallback(async () => {
+    setLoadingTracks(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/advanced-tracks", { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error("Failed to fetch tracks");
+      }
+
+      const data = (await response.json()) as { tracks?: AdvancedTrack[] };
+      setTracks(data.tracks || []);
+    } catch {
+      setError("Could not load advanced tracks.");
+      setTracks([]);
+    } finally {
+      setLoadingTracks(false);
+    }
+  }, []);
+
+  const fetchResources = useCallback(async () => {
+    if (!selectedTrackSlug) {
+      setResources([]);
+      setViewer({ isAuthenticated: false, hasPremiumAccess: false });
+      setTotal(0);
+      setLoadingResources(false);
+      return;
+    }
+
+    setLoadingResources(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams();
+      params.set("track", selectedTrackSlug);
+      params.set("sort", sortBy);
+      params.set("limit", "20");
+
+      if (selectedTopicSlug) {
+        params.set("topic", selectedTopicSlug);
+      }
+
+      const normalizedQuery = searchQuery.trim();
+      if (normalizedQuery) {
+        params.set("q", normalizedQuery);
+      }
+
+      const response = await fetch(`/api/advanced-tracks/resources?${params.toString()}`, {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch resources");
+      }
+
+      const data = (await response.json()) as {
+        resources?: AdvancedResource[];
+        viewer?: {
+          isAuthenticated?: boolean;
+          hasPremiumAccess?: boolean;
+        };
+        pagination?: { total?: number };
+      };
+
+      setResources(data.resources || []);
+      setViewer({
+        isAuthenticated: Boolean(data.viewer?.isAuthenticated),
+        hasPremiumAccess: Boolean(data.viewer?.hasPremiumAccess),
+      });
+      setTotal(data.pagination?.total || 0);
+    } catch {
+      setError("Could not load advanced resources.");
+      setResources([]);
+      setViewer({ isAuthenticated: false, hasPremiumAccess: false });
+      setTotal(0);
+    } finally {
+      setLoadingResources(false);
+    }
+  }, [searchQuery, selectedTopicSlug, selectedTrackSlug, sortBy]);
+
+  useEffect(() => {
+    void fetchTracks();
+  }, [fetchTracks]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void fetchResources();
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [fetchResources]);
+
+  const latestResultDate = resources[0] ? formatDate(resources[0].createdAt) : "No resources yet";
+  const lockedResourceCount = useMemo(
+    () => resources.filter((resource) => resource.accessLocked).length,
+    [resources]
+  );
+  const unlockHref = useMemo(() => {
+    const callbackPath =
+      searchParams.toString().length > 0
+        ? `/tracks/notes?${searchParams.toString()}`
+        : "/tracks/notes";
+
+    return `/login?callbackUrl=${encodeURIComponent(callbackPath)}`;
+  }, [searchParams]);
+
+  const buildTrackHref = (trackSlug: string) => {
+    const params = new URLSearchParams();
+    params.set("track", trackSlug);
+
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) {
+      params.set("q", trimmedQuery);
+    }
+
+    return `/tracks/notes?${params.toString()}`;
+  };
+
+  const buildTopicHref = (topicSlug?: string) => {
+    if (!selectedTrack) return "/tracks";
+
+    const params = new URLSearchParams();
+    params.set("track", selectedTrack.slug);
+
+    if (topicSlug) {
+      params.set("topic", topicSlug);
+    }
+
+    const trimmedQuery = searchQuery.trim();
+    if (trimmedQuery) {
+      params.set("q", trimmedQuery);
+    }
+
+    return `/tracks/notes?${params.toString()}`;
+  };
+
+  const isLoading = loadingTracks || loadingResources;
+
+  return (
+    <section className={styles.page} id="advanced-track-notes-page">
+      <div className={styles.container}>
+        <header className={styles.header}>
+          <Link href="/tracks" className={styles.backLink}>
+            ← Back to Tracks
+          </Link>
+          <h1 className={styles.title}>Advanced Track Resources</h1>
+          <p className={styles.subtitle}>
+            This module is isolated from standard notes, categories, and regular uploads.
+          </p>
+
+          <div className={styles.controls}>
+            <div className={styles.searchWrap}>
+              <svg
+                className={styles.searchIcon}
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                className={styles.searchInput}
+                type="text"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search inside premium tracks"
+              />
+              {searchQuery ? (
+                <button
+                  className={styles.searchClear}
+                  onClick={() => setSearchQuery("")}
+                  aria-label="Clear search"
+                >
+                  x
+                </button>
+              ) : null}
+            </div>
+
+            <div className={styles.sortWrap}>
+              <label className={styles.sortLabel} htmlFor="advanced-sort-select">
+                Sort by
+              </label>
+              <select
+                id="advanced-sort-select"
+                className={styles.sortSelect}
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value as SortValue)}
+              >
+                {SORT_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </header>
+
+        <div className={styles.tabsSection}>
+          <div className={styles.trackTabs}>
+            {tracks.map((track) => (
+              <Link
+                key={track.slug}
+                href={buildTrackHref(track.slug)}
+                className={`${styles.trackTab} ${
+                  selectedTrack?.slug === track.slug ? styles.trackTabActive : ""
+                }`}
+              >
+                {track.name}
+              </Link>
+            ))}
+          </div>
+
+          {selectedTrack ? (
+            <div className={styles.topicTabs}>
+              <Link
+                href={buildTopicHref()}
+                className={`${styles.topicTab} ${!selectedTopic ? styles.topicTabActive : ""}`}
+              >
+                All {selectedTrack.name}
+              </Link>
+              {selectedTrack.topics.map((topic) => (
+                <Link
+                  key={topic.slug}
+                  href={buildTopicHref(topic.slug)}
+                  className={`${styles.topicTab} ${
+                    selectedTopic?.slug === topic.slug ? styles.topicTabActive : ""
+                  }`}
+                >
+                  {topic.name}
+                </Link>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div className={styles.summaryRow}>
+          <div className={styles.summaryCard}>
+            <p className={styles.summaryLabel}>Results</p>
+            <p className={styles.summaryValue}>{isLoading ? "..." : total}</p>
+          </div>
+          <div className={styles.summaryCard}>
+            <p className={styles.summaryLabel}>Latest addition</p>
+            <p className={styles.summaryValue}>{isLoading ? "Loading..." : latestResultDate}</p>
+          </div>
+          <div className={styles.summaryCard}>
+            <p className={styles.summaryLabel}>Scope</p>
+            <p className={styles.summaryValue}>
+              {selectedTopic
+                ? `Topic: ${selectedTopic.name}`
+                : selectedTrack
+                  ? `Track: ${selectedTrack.name}`
+                  : "Choose a track"}
+            </p>
+          </div>
+        </div>
+
+        {lockedResourceCount > 0 && !viewer.hasPremiumAccess ? (
+          <div className={styles.accessNotice}>
+            <h2 className={styles.accessTitle}>Some resources are premium-only</h2>
+            <p className={styles.accessText}>
+              {viewer.isAuthenticated
+                ? `${lockedResourceCount} premium resource links are hidden for this account.`
+                : `Sign in with an entitled account to unlock ${lockedResourceCount} premium resource links.`}
+            </p>
+            {!viewer.isAuthenticated ? (
+              <Link href={unlockHref} className="btn btn-secondary btn-sm">
+                Sign In to Unlock
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
+
+        {error ? (
+          <div className={styles.emptyState}>
+            <h2 className={styles.emptyTitle}>Could not load premium resources</h2>
+            <p className={styles.emptyText}>{error}</p>
+          </div>
+        ) : !selectedTrack ? (
+          <div className={styles.emptyState}>
+            <h2 className={styles.emptyTitle}>Choose a track</h2>
+            <p className={styles.emptyText}>
+              Select Kubernetes, DevOps, or System Design from the tabs above.
+            </p>
+          </div>
+        ) : isLoading ? (
+          <div className={styles.loadingGrid}>
+            {[1, 2, 3, 4, 5, 6].map((item) => (
+              <div key={item} className={styles.skeleton} />
+            ))}
+          </div>
+        ) : resources.length === 0 ? (
+          <div className={styles.emptyState}>
+            <h2 className={styles.emptyTitle}>No resources found</h2>
+            <p className={styles.emptyText}>
+              Try another topic, or clear the search keyword.
+            </p>
+            <button className="btn btn-secondary btn-sm" onClick={() => setSearchQuery("")}>
+              Clear Search
+            </button>
+          </div>
+        ) : (
+          <div className={styles.resourceGrid}>
+            {resources.map((resource) => (
+              <article key={resource.id} className={styles.resourceCard}>
+                <div className={styles.resourceMetaTop}>
+                  <span className={styles.trackBadge}>{resource.trackName}</span>
+                  {resource.topicName ? (
+                    <span className={styles.topicBadge}>{resource.topicName}</span>
+                  ) : null}
+                  {resource.premiumOnly ? (
+                    <span className={styles.premiumBadge}>Premium</span>
+                  ) : null}
+                </div>
+
+                <h3 className={styles.resourceTitle}>{resource.title}</h3>
+                <p className={styles.resourceSummary}>{resource.summary}</p>
+
+                <div className={styles.resourceMetaRow}>
+                  <span>{formatDate(resource.createdAt)}</span>
+                  <span>{resource.viewCount} views</span>
+                  <span>{resource.saveCount} saves</span>
+                </div>
+
+                {resource.tags.length > 0 ? (
+                  <div className={styles.resourceTags}>
+                    {resource.tags.slice(0, 4).map((tag) => (
+                      <span key={`${resource.id}-${tag}`} className={styles.resourceTag}>
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className={styles.resourceFooter}>
+                  <span className={styles.authorName}>{resource.authorName || "Unknown author"}</span>
+                  {resource.accessLocked ? (
+                    viewer.isAuthenticated ? (
+                      <span className={styles.lockedPill}>Premium Locked</span>
+                    ) : (
+                      <Link href={unlockHref} className="btn btn-secondary btn-sm">
+                        Sign In to Unlock
+                      </Link>
+                    )
+                  ) : resource.contentUrl ? (
+                    <a
+                      href={resource.contentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary btn-sm"
+                    >
+                      Open Resource
+                    </a>
+                  ) : (
+                    <span className={styles.lockedPill}>Unavailable</span>
+                  )}
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}

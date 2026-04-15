@@ -9,7 +9,7 @@ function getDb() {
   return sqlite;
 }
 
-export async function getFeaturedNotes(limit = 4) {
+export async function getFeaturedNotes(limit = 5) {
   try {
     const db = getDb();
     const rows = db.prepare(`

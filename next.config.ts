@@ -66,6 +66,7 @@ const nextConfig: NextConfig = {
               "font-src 'self' https://fonts.gstatic.com",
               "img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.amazonaws.com https://avatars.githubusercontent.com https://lh3.googleusercontent.com",
               "connect-src 'self' https://*.r2.cloudflarestorage.com https://*.amazonaws.com",
+              "frame-src 'self' https://drive.google.com https://docs.google.com",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",

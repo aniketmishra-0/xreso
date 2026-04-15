@@ -3,12 +3,14 @@
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import styles from "./page.module.css";
 
 interface PublicUser {
   id: string;
   name: string;
+  avatar: string | null;
   bio: string | null;
   github_url: string | null;
   linkedin_url: string | null;
@@ -116,7 +118,18 @@ export default function PublicUserPage() {
           <div className={styles.profileCardContent}>
             <div className={styles.avatarWrap}>
               <div className={styles.avatar}>
-                {user.name?.charAt(0).toUpperCase() || "U"}
+                {user.avatar ? (
+                  <Image
+                    src={user.avatar}
+                    alt={user.name || "User"}
+                    className={styles.avatarImage}
+                    width={96}
+                    height={96}
+                    unoptimized
+                  />
+                ) : (
+                  user.name?.charAt(0).toUpperCase() || "U"
+                )}
               </div>
               <div className={styles.avatarGlow} />
             </div>
@@ -218,7 +231,7 @@ export default function PublicUserPage() {
               {notes.map(note => (
                 <Link key={note.id} href={`/note/${note.id}`} className={styles.noteCard} id={`user-note-${note.id}`}>
                   <div className={styles.noteThumb}
-                    style={{ backgroundImage: `url(${note.thumbnail_url})` }}>
+                    style={{ backgroundImage: `url(${(!note.thumbnail_url || note.thumbnail_url.includes("placeholder")) ? "/api/og?title=" + encodeURIComponent(note.title) + "&category=" + encodeURIComponent(note.category_name) + "&v=3" : note.thumbnail_url})` }}>
                     <div className={styles.noteThumbOverlay}>
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     </div>

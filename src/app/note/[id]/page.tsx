@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -29,6 +29,46 @@ interface NoteDetail {
   createdAt: string;
 }
 
+function isSyntheticPlaceholderUrl(url: string): boolean {
+  return /\/placeholder-(note|thumb)-\d+\.png/i.test(url);
+}
+
+function getEmbeddableLink(link: string): string | null {
+  if (!link) return null;
+
+  try {
+    const url = new URL(link);
+    const host = url.hostname.toLowerCase();
+    const pathname = url.pathname.toLowerCase();
+
+    // Google Drive file links => preview iframe URL.
+    if (host.includes("drive.google.com")) {
+      const fileIdMatch = url.pathname.match(/\/file\/d\/([^/]+)/);
+      const fileId = fileIdMatch?.[1] || url.searchParams.get("id");
+      if (fileId) {
+        return `https://drive.google.com/file/d/${fileId}/preview`;
+      }
+
+      // Folder/share links are often blocked in iframes.
+      return null;
+    }
+
+    // Already a Google Docs viewer URL.
+    if (host.includes("docs.google.com") && pathname.includes("/gview")) {
+      return link;
+    }
+
+    // External PDF links may send restrictive frame headers; gview is more reliable.
+    if (pathname.endsWith(".pdf")) {
+      return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(link)}`;
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export default function NoteDetailPage() {
   const params = useParams();
   const { data: session } = useSession();
@@ -36,6 +76,9 @@ export default function NoteDetailPage() {
   const [loading, setLoading] = useState(true);
   const [bookmarked, setBookmarked] = useState(false);
   const [error, setError] = useState("");
+  const [zoom, setZoom] = useState(1);
+  const [imageLoadFailed, setImageLoadFailed] = useState(false);
+  const viewerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     async function fetchNote() {
@@ -55,6 +98,30 @@ export default function NoteDetailPage() {
     }
     if (params.id) fetchNote();
   }, [params.id]);
+
+  useEffect(() => {
+    if (!note || note.fileType === "application/pdf" || note.fileType === "link") {
+      setImageLoadFailed(false);
+      return;
+    }
+
+    const fileUrl = note.fileUrl || "";
+
+    if (!fileUrl || isSyntheticPlaceholderUrl(fileUrl)) {
+      setImageLoadFailed(true);
+      return;
+    }
+
+    const probeImage = new Image();
+    probeImage.onload = () => setImageLoadFailed(false);
+    probeImage.onerror = () => setImageLoadFailed(true);
+    probeImage.src = fileUrl;
+
+    return () => {
+      probeImage.onload = null;
+      probeImage.onerror = null;
+    };
+  }, [note]);
 
   const handleBookmark = async () => {
     if (!session?.user) {
@@ -91,6 +158,19 @@ export default function NoteDetailPage() {
     alert("Thank you for your report. We'll review it shortly.");
   };
 
+  const handleZoom = () => {
+    setZoom((prev) => (prev === 1 ? 1.5 : prev === 1.5 ? 2 : 1));
+  };
+
+  const handleFullscreen = () => {
+    if (!viewerRef.current) return;
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      viewerRef.current.requestFullscreen();
+    }
+  };
+
   if (loading) {
     return (
       <div className={styles.page}>
@@ -125,6 +205,15 @@ export default function NoteDetailPage() {
   const formattedDate = new Date(note.createdAt).toLocaleDateString("en-US", {
     month: "long", day: "numeric", year: "numeric",
   });
+  const embeddableLink = note.fileType === "link" ? getEmbeddableLink(note.fileUrl) : null;
+  const ogFallbackUrl = `/api/og?title=${encodeURIComponent(note.title)}&category=${encodeURIComponent(note.category)}&v=4`;
+  const hasUsableThumbnail = !!note.thumbnailUrl && !isSyntheticPlaceholderUrl(note.thumbnailUrl);
+  const imageSourceUrl =
+    !imageLoadFailed && note.fileUrl && !isSyntheticPlaceholderUrl(note.fileUrl)
+      ? note.fileUrl
+      : hasUsableThumbnail
+        ? note.thumbnailUrl
+        : ogFallbackUrl;
 
   return (
     <div className={styles.page}>
@@ -145,36 +234,92 @@ export default function NoteDetailPage() {
         <div className={styles.layout}>
           {/* Main Content */}
           <div className={styles.main}>
-            {/* Image Viewer */}
-            <div className={styles.viewer}>
-              <div
-                className={styles.viewerImage}
-                style={{ backgroundImage: `url(${note.fileUrl || note.thumbnailUrl})` }}
-              />
+            {/* File Viewer */}
+            <div className={styles.viewer} ref={viewerRef}>
+              {note.fileType === "application/pdf" ? (
+                <iframe
+                  src={note.fileUrl.startsWith("/api/files/") ? note.fileUrl : note.fileUrl}
+                  className={styles.viewerPdf}
+                  title={note.title}
+                />
+              ) : note.fileType === "link" && embeddableLink ? (
+                <iframe
+                  src={embeddableLink}
+                  className={styles.viewerPdf}
+                  title={note.title}
+                  allow="autoplay"
+                />
+              ) : note.fileType === "link" ? (
+                <div className={styles.viewerLink}>
+                  <div className={styles.linkIcon}>🔗</div>
+                  <h3>External Resource</h3>
+                  <a href={note.fileUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
+                    Open Link ↗
+                  </a>
+                </div>
+              ) : (
+                <div
+                  className={styles.viewerImage}
+                  style={{
+                    backgroundImage: `url(${imageSourceUrl})`,
+                    transform: `scale(${zoom})`,
+                    transformOrigin: "center center",
+                    transition: "transform 0.3s ease",
+                  }}
+                />
+              )}
               <div className={styles.viewerControls}>
-                <button className="btn btn-secondary btn-sm" id="zoom-in-btn">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="11" cy="11" r="8" />
-                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                    <line x1="11" y1="8" x2="11" y2="14" />
-                    <line x1="8" y1="11" x2="14" y2="11" />
-                  </svg>
-                  Zoom In
-                </button>
-                <a
-                  href={note.fileUrl}
-                  download={note.fileName}
-                  className="btn btn-secondary btn-sm"
-                  id="download-btn"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                  Download
-                </a>
-                <button className="btn btn-secondary btn-sm" id="fullscreen-btn">
+                {note.fileType !== "application/pdf" && note.fileType !== "link" && (
+                  <button className="btn btn-secondary btn-sm" id="zoom-btn" onClick={handleZoom}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <circle cx="11" cy="11" r="8" />
+                      {zoom === 1 ? (
+                        <>
+                          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                          <line x1="11" y1="8" x2="11" y2="14" />
+                          <line x1="8" y1="11" x2="14" y2="11" />
+                        </>
+                      ) : (
+                        <>
+                          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                          <line x1="8" y1="11" x2="14" y2="11" />
+                        </>
+                      )}
+                    </svg>
+                    {zoom === 1 ? "Zoom In" : "Zoom Out"}
+                  </button>
+                )}
+                {note.fileType !== "link" ? (
+                  <a
+                    href={`${note.fileUrl}?action=download`}
+                    download={note.fileName}
+                    className="btn btn-secondary btn-sm"
+                    id="download-btn"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download
+                  </a>
+                ) : (
+                  <a
+                    href={note.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-secondary btn-sm"
+                    id="open-link-btn"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" y1="14" x2="21" y2="3" />
+                    </svg>
+                    Open Link
+                  </a>
+                )}
+                <button className="btn btn-secondary btn-sm" id="fullscreen-btn" onClick={handleFullscreen}>
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="15 3 21 3 21 9" />
                     <polyline points="9 21 3 21 3 15" />

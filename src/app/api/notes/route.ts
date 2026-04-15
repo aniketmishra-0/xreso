@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Database from "better-sqlite3";
 import path from "path";
+import { auth } from "@/lib/auth";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
 
@@ -9,15 +10,23 @@ export async function GET(req: NextRequest) {
   try {
     const sqlite = new Database(DB_PATH, { readonly: true });
     const { searchParams } = new URL(req.url);
+    const session = await auth();
+    const requesterId = session?.user?.id || null;
+    const requesterRole = (session?.user as { role?: string } | undefined)?.role || "user";
 
     const category = searchParams.get("category");
     const search = searchParams.get("q");
     const tag = searchParams.get("tag");
+    const author = searchParams.get("author");
     const sort = searchParams.get("sort") || "newest";
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "12");
     const featured = searchParams.get("featured");
-    const status = searchParams.get("status") || "approved";
+    const requestedStatus = searchParams.get("status") || "approved";
+    const canViewAllStatuses =
+      requestedStatus === "all" &&
+      (requesterRole === "admin" || (Boolean(author) && requesterId === author));
+    const status = requestedStatus === "all" && !canViewAllStatuses ? "approved" : requestedStatus;
     const offset = (page - 1) * limit;
 
     let query = `
@@ -29,9 +38,19 @@ export async function GET(req: NextRequest) {
       LEFT JOIN users u ON n.author_id = u.id
       LEFT JOIN note_tags nt ON n.id = nt.note_id
       LEFT JOIN tags t ON nt.tag_id = t.id
-      WHERE n.status = ?
+      WHERE 1 = 1
     `;
-    const params: (string | number)[] = [status];
+    const params: (string | number)[] = [];
+
+    if (author) {
+      query += " AND n.author_id = ?";
+      params.push(author);
+    }
+
+    if (status !== "all") {
+      query += " AND n.status = ?";
+      params.push(status);
+    }
 
     if (category && category !== "All") {
       query += " AND c.slug = ?";
@@ -44,8 +63,38 @@ export async function GET(req: NextRequest) {
     }
 
     if (search) {
-      query += " AND (n.title LIKE ? OR n.description LIKE ?)";
-      params.push(`%${search}%`, `%${search}%`);
+      query += ` AND (
+        n.title LIKE ? OR
+        n.description LIKE ? OR
+        c.name LIKE ? OR
+        c.slug LIKE ? OR
+        n.author_credit LIKE ? OR
+        u.name LIKE ? OR
+        n.file_name LIKE ? OR
+        n.file_type LIKE ? OR
+        n.source_url LIKE ? OR
+        EXISTS (
+          SELECT 1
+          FROM note_tags nt2
+          JOIN tags t2 ON nt2.tag_id = t2.id
+          WHERE nt2.note_id = n.id
+            AND (t2.name LIKE ? OR t2.slug LIKE ?)
+        )
+      )`;
+      const like = `%${search}%`;
+      params.push(
+        like,
+        like,
+        like,
+        like,
+        like,
+        like,
+        like,
+        like,
+        like,
+        like,
+        like
+      );
     }
 
     if (featured === "true") {
@@ -68,9 +117,17 @@ export async function GET(req: NextRequest) {
         query += " ORDER BY n.created_at DESC";
     }
 
-    const countQuery = `SELECT COUNT(DISTINCT n.id) as total FROM notes n LEFT JOIN categories c ON n.category_id = c.id LEFT JOIN note_tags nt ON n.id = nt.note_id LEFT JOIN tags t ON nt.tag_id = t.id WHERE n.status = ?${category && category !== "All" ? " AND c.slug = ?" : ""}${search ? " AND (n.title LIKE ? OR n.description LIKE ?)" : ""}${featured === "true" ? " AND n.featured = 1" : ""}`;
-    const countParams = params.filter((_, i) => i < (1 + (category && category !== "All" ? 1 : 0) + (search ? 2 : 0)));
-    const total = (sqlite.prepare(countQuery).get(...countParams) as { total: number })?.total || 0;
+    const countQuery = query
+      .replace(
+        `SELECT n.*, c.name as category_name, c.slug as category_slug, u.name as author_name,
+        u.github_url as author_github, u.linkedin_url as author_linkedin, u.twitter_url as author_twitter, u.website_url as author_website,
+        GROUP_CONCAT(DISTINCT t.name) as tag_names`,
+        "SELECT COUNT(DISTINCT n.id) as total"
+      )
+      .replace(" GROUP BY n.id", "");
+    const total =
+      (sqlite.prepare(countQuery).get(...params) as { total: number } | undefined)
+        ?.total || 0;
 
     query += " LIMIT ? OFFSET ?";
     params.push(limit, offset);

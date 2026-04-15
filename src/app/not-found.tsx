@@ -4,6 +4,12 @@ import styles from "./not-found.module.css";
 const GITHUB_ISSUES_URL = "https://github.com/aniketmishra-0/xreso/issues/new/choose";
 const CONTRIBUTING_URL =
   "https://github.com/aniketmishra-0/xreso/blob/main/CONTRIBUTING.md";
+const QUICK_LINKS = [
+  { href: "/browse", label: "Browse Notes" },
+  { href: "/tracks/library", label: "Cloud Native Tracks" },
+  { href: "/guidelines", label: "Community Guidelines" },
+  { href: "/contact", label: "Contact Support" },
+];
 
 export default function NotFound() {
   return (
@@ -16,6 +22,14 @@ export default function NotFound() {
         <p className={styles.description}>
           Lost? Help us map this area by reporting a bug or contributing.
         </p>
+
+        <div className={styles.quickLinks}>
+          {QUICK_LINKS.map((item) => (
+            <Link key={item.href} href={item.href} className={styles.quickLink}>
+              {item.label}
+            </Link>
+          ))}
+        </div>
 
         <div className={styles.actions}>
           <Link href="/" className="btn btn-primary">

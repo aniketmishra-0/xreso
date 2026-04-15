@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import styles from "./page.module.css";
@@ -66,7 +66,7 @@ const formatDate = (dateStr: string) => {
   }
 };
 
-export default function TrackNotesPage() {
+function TrackNotesContent() {
   const searchParams = useSearchParams();
 
   const [tracks, setTracks] = useState<AdvancedTrack[]>([]);
@@ -495,5 +495,21 @@ export default function TrackNotesPage() {
         )}
       </div>
     </section>
+  );
+}
+
+function TrackNotesFallback() {
+  return (
+    <section className={styles.page}>
+      <div className={styles.container} aria-busy="true" style={{ minHeight: 560 }} />
+    </section>
+  );
+}
+
+export default function TrackNotesPage() {
+  return (
+    <Suspense fallback={<TrackNotesFallback />}>
+      <TrackNotesContent />
+    </Suspense>
   );
 }

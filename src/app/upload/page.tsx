@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { Suspense, useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -414,7 +414,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
 /* ──────────────────────────────────────────────────────────
    MAIN UPLOAD PAGE
 ──────────────────────────────────────────────────────────── */
-export default function UploadPage() {
+function UploadPageContent() {
   const { data: session } = useSession();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1440,5 +1440,22 @@ export default function UploadPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+function UploadPageFallback() {
+  return (
+    <div className={styles.page}>
+      <div className={styles.header} aria-hidden="true" />
+      <div className={styles.formContainer} aria-busy="true" style={{ minHeight: 560 }} />
+    </div>
+  );
+}
+
+export default function UploadPage() {
+  return (
+    <Suspense fallback={<UploadPageFallback />}>
+      <UploadPageContent />
+    </Suspense>
   );
 }

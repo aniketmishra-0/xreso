@@ -86,21 +86,33 @@ xreso now keeps submission/audit exports split by responsibility:
   - `Admin Users`
   - `Admin Actions`
 
-When OneDrive is configured:
+Routing map:
 
-- live workbook writes go to OneDrive
-- local workbook files in `data/` act as mirrors or pending fallbacks
-- any `*.pending.xlsx` file means a workbook write is queued locally and should be reviewed
+- Community submissions (`/api/upload`) -> `Community_Links.xlsx`
+- Advanced track submissions (`/api/admin/advanced-tracks`) -> `Advanced_Tracks.xlsx`
+- Admin audit events (logins/moderation actions/admin user sync) -> `Admin_Audit.xlsx`
 
-When OneDrive is not configured:
+Database vs Excel responsibility:
 
-- workbook writes go directly to local files in `data/`
+- SQLite (`xreso.db`) is the source of truth for app state (notes, users, tracks, moderation status, analytics)
+- Excel workbooks are operational exports and audit artifacts used for reporting/routing visibility
+
+Runtime behavior:
+
+- If OneDrive is configured:
+  - live workbook writes target OneDrive
+  - local files in `data/` are continuously refreshed mirrors
+  - if OneDrive is locked/unreachable, writes are queued in `*.pending.xlsx` and background retries continue automatically
+- If OneDrive is not configured:
+  - workbook writes go directly to local files in `data/`
 
 Useful commands:
 
 ```bash
 npm run excel:migrate-split # move legacy workbook data into the split workbook setup
 npm run verify:storage      # inspect workbook routing and fail on pending/missing live sheets
+npm run verify:flows        # verify admin login/community/advanced Excel write paths
+npm run verify:all          # run verify:flows + verify:storage
 ```
 
 Admins can also view the same routing status inside the admin dashboard.

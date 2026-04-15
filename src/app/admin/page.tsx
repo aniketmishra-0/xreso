@@ -80,6 +80,12 @@ const formatBytes = (value: number) => {
   return `${formatted.toFixed(formatted >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
 };
 
+const getStorageFlowLabel = (workbookKey: StorageWorkbook["key"]) => {
+  if (workbookKey === "community") return "Community uploads";
+  if (workbookKey === "advanced") return "Advanced uploads";
+  return "Admin audit events";
+};
+
 export default function AdminPage() {
   const { data: session } = useSession();
 
@@ -253,6 +259,9 @@ export default function AdminPage() {
 
   const nextPendingTitle = notes.find((note) => note.status === "pending")?.title;
   const storageModeLabel = storage?.mode === "onedrive" ? "OneDrive sync" : "Local workbooks";
+  const storageLiveStatus = storage?.mode === "onedrive" ? "OneDrive active" : "Local fallback active";
+  const pendingWorkbookCount =
+    storage?.workbooks.filter((workbook) => workbook.pendingSnapshot.exists).length ?? 0;
 
   const isActionBusy = (noteId: string, action: string) =>
     activeAction === `${noteId}:${action}`;
@@ -392,118 +401,147 @@ export default function AdminPage() {
                 {storage?.note || "Workbook routing status will appear here after the admin check succeeds."}
               </p>
 
+              {storage && (
+                <div className={styles.storageSignalRow}>
+                  <span className={styles.storageSignalText}>{storageLiveStatus}</span>
+                  <span
+                    className={`${styles.storageQueueBadge} ${
+                      pendingWorkbookCount > 0 ? styles.storageQueueWarn : ""
+                    }`}
+                  >
+                    Pending queue: {pendingWorkbookCount}
+                  </span>
+                </div>
+              )}
+
               {storageError && <div className={styles.storageError}>{storageError}</div>}
 
               {storage && (
-                <div className={styles.storageGrid}>
-                  {storage.workbooks.map((workbook) => {
-                    const liveSnapshot =
-                      storage.mode === "onedrive"
-                        ? workbook.remoteSnapshot
-                        : workbook.localSnapshot;
-
-                    return (
-                      <article key={workbook.key} className={styles.storageCard}>
-                        <div className={styles.storageCardHeader}>
-                          <div>
-                            <h3 className={styles.storageCardTitle}>{workbook.label}</h3>
-                            <p className={styles.storageCardPath}>
-                              {storage.mode === "onedrive"
-                                ? workbook.oneDrivePath
-                                : workbook.localPath}
-                            </p>
-                          </div>
-                          <span className={styles.storagePrimarySheet}>
-                            {workbook.primarySheet}
-                          </span>
+                <>
+                  <div className={styles.storageRoutingList}>
+                    {storage.workbooks.map((workbook) => (
+                      <div key={`${workbook.key}-route`} className={styles.storageRoutingRow}>
+                        <div className={styles.storageRoutingFlow}>
+                          <span>{getStorageFlowLabel(workbook.key)}</span>
+                          <strong>{workbook.label}</strong>
                         </div>
+                        <code className={styles.storageRoutingTarget}>
+                          {storage.mode === "onedrive" ? workbook.oneDrivePath : workbook.localPath}
+                        </code>
+                      </div>
+                    ))}
+                  </div>
 
-                        <div className={styles.storageBadgeRow}>
-                          {workbook.expectedSheets.map((sheet) => {
-                            const present = Boolean(
-                              liveSnapshot?.sheets.some((entry) => entry.name === sheet)
-                            );
+                  <div className={styles.storageGrid}>
+                    {storage.workbooks.map((workbook) => {
+                      const liveSnapshot =
+                        storage.mode === "onedrive"
+                          ? workbook.remoteSnapshot
+                          : workbook.localSnapshot;
 
-                            return (
-                              <span
-                                key={`${workbook.key}-${sheet}`}
-                                className={`${styles.storageSheetBadge} ${
-                                  present ? styles.storageSheetOk : styles.storageSheetMissing
-                                }`}
-                              >
-                                {sheet}
+                      return (
+                        <article key={workbook.key} className={styles.storageCard}>
+                          <div className={styles.storageCardHeader}>
+                            <div>
+                              <h3 className={styles.storageCardTitle}>{workbook.label}</h3>
+                              <p className={styles.storageCardPath}>
+                                {storage.mode === "onedrive"
+                                  ? workbook.oneDrivePath
+                                  : workbook.localPath}
+                              </p>
+                            </div>
+                            <span className={styles.storagePrimarySheet}>
+                              {workbook.primarySheet}
+                            </span>
+                          </div>
+
+                          <div className={styles.storageBadgeRow}>
+                            {workbook.expectedSheets.map((sheet) => {
+                              const present = Boolean(
+                                liveSnapshot?.sheets.some((entry) => entry.name === sheet)
+                              );
+
+                              return (
+                                <span
+                                  key={`${workbook.key}-${sheet}`}
+                                  className={`${styles.storageSheetBadge} ${
+                                    present ? styles.storageSheetOk : styles.storageSheetMissing
+                                  }`}
+                                >
+                                  {sheet}
+                                </span>
+                              );
+                            })}
+                          </div>
+
+                          <div className={styles.storageMetaGrid}>
+                            <div className={styles.storageMetaItem}>
+                              <span className={styles.storageMetaLabel}>
+                                {storage.mode === "onedrive" ? "Live workbook" : "Local workbook"}
                               </span>
-                            );
-                          })}
-                        </div>
-
-                        <div className={styles.storageMetaGrid}>
-                          <div className={styles.storageMetaItem}>
-                            <span className={styles.storageMetaLabel}>
-                              {storage.mode === "onedrive" ? "Live workbook" : "Local workbook"}
-                            </span>
-                            <strong className={styles.storageMetaValue}>
-                              {liveSnapshot?.exists ? formatBytes(liveSnapshot.sizeBytes) : "Not found"}
-                            </strong>
-                            <span className={styles.storageMetaHint}>
-                              {liveSnapshot?.exists
-                                ? `${liveSnapshot.sheets.length} sheet${liveSnapshot.sheets.length === 1 ? "" : "s"}`
-                                : storage.mode === "onedrive"
-                                  ? "No live OneDrive snapshot yet"
-                                  : "Workbook has not been created yet"}
-                            </span>
-                          </div>
-
-                          <div className={styles.storageMetaItem}>
-                            <span className={styles.storageMetaLabel}>Local mirror</span>
-                            <strong className={styles.storageMetaValue}>
-                              {workbook.localSnapshot.exists
-                                ? formatBytes(workbook.localSnapshot.sizeBytes)
-                                : "None"}
-                            </strong>
-                            <span className={styles.storageMetaHint}>
-                              {workbook.localSnapshot.exists
-                                ? `${workbook.localSnapshot.sheets.length} local sheet${workbook.localSnapshot.sheets.length === 1 ? "" : "s"}`
-                                : "No local mirror file"}
-                            </span>
-                          </div>
-
-                          <div className={styles.storageMetaItem}>
-                            <span className={styles.storageMetaLabel}>Pending fallback</span>
-                            <strong className={styles.storageMetaValue}>
-                              {workbook.pendingSnapshot.exists
-                                ? formatBytes(workbook.pendingSnapshot.sizeBytes)
-                                : "Clear"}
-                            </strong>
-                            <span className={styles.storageMetaHint}>
-                              {workbook.pendingSnapshot.exists
-                                ? "Workbook write is queued locally"
-                                : "No pending sync file"}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className={styles.storageSheetsList}>
-                          {(liveSnapshot?.sheets || []).map((sheet) => (
-                            <div
-                              key={`${workbook.key}-${sheet.name}`}
-                              className={styles.storageSheetRow}
-                            >
-                              <span>{sheet.name}</span>
-                              <span>{sheet.rows} rows</span>
+                              <strong className={styles.storageMetaValue}>
+                                {liveSnapshot?.exists ? formatBytes(liveSnapshot.sizeBytes) : "Not found"}
+                              </strong>
+                              <span className={styles.storageMetaHint}>
+                                {liveSnapshot?.exists
+                                  ? `${liveSnapshot.sheets.length} sheet${liveSnapshot.sheets.length === 1 ? "" : "s"}`
+                                  : storage.mode === "onedrive"
+                                    ? "No live OneDrive snapshot yet"
+                                    : "Workbook has not been created yet"}
+                              </span>
                             </div>
-                          ))}
 
-                          {(!liveSnapshot || liveSnapshot.sheets.length === 0) && (
-                            <div className={styles.storageSheetEmpty}>
-                              No sheet snapshot available yet.
+                            <div className={styles.storageMetaItem}>
+                              <span className={styles.storageMetaLabel}>Local mirror</span>
+                              <strong className={styles.storageMetaValue}>
+                                {workbook.localSnapshot.exists
+                                  ? formatBytes(workbook.localSnapshot.sizeBytes)
+                                  : "None"}
+                              </strong>
+                              <span className={styles.storageMetaHint}>
+                                {workbook.localSnapshot.exists
+                                  ? `${workbook.localSnapshot.sheets.length} local sheet${workbook.localSnapshot.sheets.length === 1 ? "" : "s"}`
+                                  : "No local mirror file"}
+                              </span>
                             </div>
-                          )}
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
+
+                            <div className={styles.storageMetaItem}>
+                              <span className={styles.storageMetaLabel}>Pending fallback</span>
+                              <strong className={styles.storageMetaValue}>
+                                {workbook.pendingSnapshot.exists
+                                  ? formatBytes(workbook.pendingSnapshot.sizeBytes)
+                                  : "Clear"}
+                              </strong>
+                              <span className={styles.storageMetaHint}>
+                                {workbook.pendingSnapshot.exists
+                                  ? "Workbook write is queued locally"
+                                  : "No pending sync file"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className={styles.storageSheetsList}>
+                            {(liveSnapshot?.sheets || []).map((sheet) => (
+                              <div
+                                key={`${workbook.key}-${sheet.name}`}
+                                className={styles.storageSheetRow}
+                              >
+                                <span>{sheet.name}</span>
+                                <span>{sheet.rows} rows</span>
+                              </div>
+                            ))}
+
+                            {(!liveSnapshot || liveSnapshot.sheets.length === 0) && (
+                              <div className={styles.storageSheetEmpty}>
+                                No sheet snapshot available yet.
+                              </div>
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </section>
           </>

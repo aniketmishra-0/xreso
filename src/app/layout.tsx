@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import Navbar from "@/components/Navbar/Navbar";
 import Footer from "@/components/Footer/Footer";
 import AuthProvider from "@/components/AuthProvider";
 import ThemeProviderWrapper from "@/components/ThemeProvider";
-import { auth } from "@/lib/auth";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://xreso.dev";
 
@@ -85,13 +85,11 @@ const jsonLd = {
   },
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
-
   return (
     <html
       lang="en"
@@ -108,8 +106,10 @@ export default async function RootLayout({
       </head>
       <body suppressHydrationWarning>
         <ThemeProviderWrapper>
-          <AuthProvider session={session}>
-            <Navbar />
+          <AuthProvider>
+            <Suspense fallback={<div style={{ height: "var(--nav-height)" }} aria-hidden="true" />}>
+              <Navbar />
+            </Suspense>
             <main>{children}</main>
             <Footer />
           </AuthProvider>

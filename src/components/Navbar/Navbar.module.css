@@ -75,6 +75,9 @@
 }
 
 .modeToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   background: transparent;
   color: var(--text-tertiary);
@@ -86,6 +89,12 @@
   cursor: pointer;
   transition: all var(--transition-fast);
   font-family: inherit;
+  text-decoration: none;
+}
+
+.modeToggleBtn:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+  outline-offset: 2px;
 }
 
 .modeToggleBtn:hover {
@@ -110,6 +119,15 @@
 .navLink:hover {
   color: var(--primary-light);
   background: var(--primary-subtle);
+}
+
+.modeAwareLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .megaMenuWrap {

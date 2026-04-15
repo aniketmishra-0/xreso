@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import styles from "./page.module.css";
@@ -31,7 +31,7 @@ const LEVEL_CLASS: Record<AdvancedTrackTopic["level"], string> = {
   Advanced: styles.levelAdvanced,
 };
 
-export default function TracksPage() {
+function TracksPageContent() {
   const searchParams = useSearchParams();
 
   const [tracks, setTracks] = useState<AdvancedTrack[]>([]);
@@ -253,5 +253,21 @@ export default function TracksPage() {
         )}
       </div>
     </section>
+  );
+}
+
+function TracksPageFallback() {
+  return (
+    <section className={styles.page}>
+      <div className={styles.container} aria-busy="true" style={{ minHeight: 560 }} />
+    </section>
+  );
+}
+
+export default function TracksPage() {
+  return (
+    <Suspense fallback={<TracksPageFallback />}>
+      <TracksPageContent />
+    </Suspense>
   );
 }

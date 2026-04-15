@@ -168,6 +168,42 @@
   line-height: 1.6;
 }
 
+.storageSignalRow {
+  margin-top: var(--space-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.storageSignalText {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+}
+
+.storageQueueBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(125, 211, 252, 0.24);
+  background: rgba(125, 211, 252, 0.1);
+  color: #bae6fd;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.storageQueueWarn {
+  border-color: rgba(251, 191, 36, 0.28);
+  background: rgba(251, 191, 36, 0.14);
+  color: #fde68a;
+}
+
 .storageError {
   margin-top: var(--space-md);
   padding: 10px 12px;
@@ -176,6 +212,58 @@
   background: rgba(248, 113, 113, 0.08);
   color: #fca5a5;
   font-size: var(--text-sm);
+}
+
+.storageRoutingList {
+  margin-top: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.storageRoutingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: color-mix(in srgb, var(--bg-surface) 95%, transparent);
+}
+
+.storageRoutingFlow {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.storageRoutingFlow span {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.storageRoutingFlow strong {
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.storageRoutingTarget {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #bae6fd;
+  background: rgba(14, 165, 233, 0.08);
+  border: 1px solid rgba(125, 211, 252, 0.24);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+  white-space: nowrap;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .storageGrid {
@@ -808,6 +896,16 @@
   .rowActions {
     justify-content: flex-start;
   }
+
+  .storageRoutingRow {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .storageRoutingTarget {
+    max-width: 100%;
+    width: 100%;
+  }
 }
 
 @media (max-width: 768px) {
@@ -827,6 +925,10 @@
   .storageHeader,
   .storageCardHeader {
     flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .storageSignalRow {
     align-items: flex-start;
   }
 

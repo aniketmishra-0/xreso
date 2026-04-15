@@ -15,7 +15,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${APP_URL}/admin/advanced-tracks`, lastModified: new Date(), changeFrequency: "weekly", priority: 0.3 },
     { url: `${APP_URL}/upload`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
     { url: `${APP_URL}/about`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
+    { url: `${APP_URL}/guidelines`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.4 },
+    { url: `${APP_URL}/api`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.4 },
+    { url: `${APP_URL}/contact`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.35 },
     { url: `${APP_URL}/terms`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
+    { url: `${APP_URL}/privacy`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
+    { url: `${APP_URL}/dmca`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.25 },
+    { url: `${APP_URL}/licenses`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.25 },
     { url: `${APP_URL}/login`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
   ];
 

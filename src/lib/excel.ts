@@ -86,6 +86,13 @@ export type ExcelStorageStatus = {
   workbooks: ExcelStorageWorkbookStatus[];
 };
 
+const ONE_DRIVE_RETRYABLE_STATUSES = new Set([408, 409, 423, 429, 500, 502, 503, 504]);
+const ONE_DRIVE_UPLOAD_MAX_ATTEMPTS = 6;
+const BACKGROUND_SYNC_MAX_ATTEMPTS = 12;
+const MAX_RETRY_DELAY_MS = 60_000;
+const pendingRetryTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const pendingRetryAttempts = new Map<string, number>();
+
 /* ── Column headers for the sheet ───────────────────────── */
 const HEADERS = [
   { header: "Date", key: "date", width: 18 },
@@ -323,10 +330,99 @@ function loadPendingOneDriveBuffer(target: WorkbookTarget): Buffer | undefined {
   return fs.readFileSync(target.pendingPath);
 }
 
+function getWorkbookRetryKey(target: WorkbookTarget) {
+  return target.oneDrivePath;
+}
+
+function clearPendingRetryState(target: WorkbookTarget) {
+  const key = getWorkbookRetryKey(target);
+  const timer = pendingRetryTimers.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    pendingRetryTimers.delete(key);
+  }
+  pendingRetryAttempts.delete(key);
+}
+
 function clearPendingOneDriveBuffer(target: WorkbookTarget) {
   if (fs.existsSync(target.pendingPath)) {
     fs.unlinkSync(target.pendingPath);
   }
+}
+
+function getRetryDelayMs(attempt: number, retryAfterHeader?: string | null) {
+  if (retryAfterHeader) {
+    const retryAfterSeconds = Number.parseInt(retryAfterHeader, 10);
+    if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+      return Math.min(retryAfterSeconds * 1000, MAX_RETRY_DELAY_MS);
+    }
+  }
+
+  const baseDelay = Math.min(1200 * (2 ** (attempt - 1)), MAX_RETRY_DELAY_MS);
+  const jitter = Math.floor(Math.random() * 400);
+  return baseDelay + jitter;
+}
+
+function isRetryableOneDriveError(status: number, body: string) {
+  if (ONE_DRIVE_RETRYABLE_STATUSES.has(status)) {
+    return true;
+  }
+
+  const normalizedBody = body.toLowerCase();
+  return (
+    normalizedBody.includes("resourcelocked") ||
+    normalizedBody.includes('"code":"notallowed"') ||
+    normalizedBody.includes("gatewaytimeout") ||
+    normalizedBody.includes("serviceunavailable") ||
+    normalizedBody.includes("timeout")
+  );
+}
+
+function schedulePendingOneDriveSync(target: WorkbookTarget) {
+  const key = getWorkbookRetryKey(target);
+  if (pendingRetryTimers.has(key)) return;
+
+  const attempt = (pendingRetryAttempts.get(key) ?? 0) + 1;
+  if (attempt > BACKGROUND_SYNC_MAX_ATTEMPTS) {
+    console.warn(
+      `[Excel] Pending sync retry limit reached for ${getWorkbookLabel(target)}. Keeping pending workbook for manual retry.`
+    );
+    return;
+  }
+
+  pendingRetryAttempts.set(key, attempt);
+  const delayMs = getRetryDelayMs(attempt);
+  const timer = setTimeout(() => {
+    pendingRetryTimers.delete(key);
+    void (async () => {
+      const pendingBuffer = loadPendingOneDriveBuffer(target);
+      if (!pendingBuffer || pendingBuffer.length === 0) {
+        clearPendingRetryState(target);
+        return;
+      }
+
+      try {
+        await uploadExcelToOneDrive(target, pendingBuffer, {
+          maxAttempts: 3,
+          sourceLabel: "background pending sync",
+        });
+        saveBufferToPath(target.localPath, pendingBuffer);
+        clearPendingOneDriveBuffer(target);
+        clearPendingRetryState(target);
+        console.log(
+          `[Excel] Pending workbook synced successfully to OneDrive ${getWorkbookLabel(target)}.`
+        );
+      } catch (error) {
+        console.warn(
+          `[Excel] Pending workbook sync attempt ${attempt}/${BACKGROUND_SYNC_MAX_ATTEMPTS} failed for ${getWorkbookLabel(target)}:`,
+          error
+        );
+        schedulePendingOneDriveSync(target);
+      }
+    })();
+  }, delayMs);
+
+  pendingRetryTimers.set(key, timer);
 }
 
 function applyCommunitySheetSchema(sheet: ExcelJS.Worksheet) {
@@ -418,7 +514,10 @@ async function loadExistingWorkbookBuffer(
 ): Promise<Buffer | undefined> {
   if (useOneDrive) {
     const pendingBuffer = loadPendingOneDriveBuffer(target);
-    if (pendingBuffer) return pendingBuffer;
+    if (pendingBuffer) {
+      schedulePendingOneDriveSync(target);
+      return pendingBuffer;
+    }
     return downloadExcelFromOneDrive(target);
   }
 
@@ -437,13 +536,21 @@ async function saveWorkbook(
   deferredLabel: string
 ) {
   if (useOneDrive) {
+    // Always keep local mirrors fresh for diagnostics and local recovery.
+    saveBufferToPath(target.localPath, buffer);
+
     try {
-      await uploadExcelToOneDrive(target, buffer);
+      await uploadExcelToOneDrive(target, buffer, {
+        maxAttempts: ONE_DRIVE_UPLOAD_MAX_ATTEMPTS,
+        sourceLabel: successLabel,
+      });
       clearPendingOneDriveBuffer(target);
+      clearPendingRetryState(target);
       console.log(`[Excel] ${successLabel} synced to OneDrive ${getWorkbookLabel(target)}`);
     } catch (error) {
       saveBufferToPath(target.pendingPath, buffer);
       console.warn(`[Excel] ${deferredLabel}, saved pending workbook locally:`, error);
+      schedulePendingOneDriveSync(target);
     }
     return;
   }
@@ -1013,41 +1120,63 @@ async function downloadExcelFromOneDrive(target: WorkbookTarget): Promise<Buffer
   }
 }
 
-async function uploadExcelToOneDrive(target: WorkbookTarget, buffer: Buffer): Promise<void> {
+async function uploadExcelToOneDrive(
+  target: WorkbookTarget,
+  buffer: Buffer,
+  options?: { maxAttempts?: number; sourceLabel?: string }
+): Promise<void> {
   const token = await getToken();
 
   // Ensure Xreso folder exists
   await import("@/lib/onedrive").catch(() => null);
 
   const url = `${GRAPH_BASE}/me/drive/root:/${target.oneDrivePath}:/content`;
-  const maxAttempts = 5;
+  const maxAttempts = options?.maxAttempts ?? ONE_DRIVE_UPLOAD_MAX_ATTEMPTS;
+  const sourceLabel = options?.sourceLabel || "workbook upload";
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    const res = await fetch(url, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      },
-      body: new Uint8Array(buffer),
-    });
+    try {
+      const res = await fetch(url, {
+        method: "PUT",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        },
+        body: new Uint8Array(buffer),
+      });
 
-    if (res.ok) {
-      return;
-    }
+      if (res.ok) {
+        return;
+      }
 
-    const err = await res.text();
-    const isLocked = err.includes("resourceLocked") || err.includes('"code":"notAllowed"');
+      const err = await res.text();
+      const retryable = isRetryableOneDriveError(res.status, err);
 
-    if (isLocked && attempt < maxAttempts) {
-      const waitMs = attempt * 1200;
-      console.warn(`[Excel] OneDrive workbook locked, retrying upload (${attempt}/${maxAttempts}) in ${waitMs}ms`);
+      if (retryable && attempt < maxAttempts) {
+        const waitMs = getRetryDelayMs(attempt, res.headers.get("retry-after"));
+        console.warn(
+          `[Excel] OneDrive ${sourceLabel} retry ${attempt}/${maxAttempts} for ${getWorkbookLabel(target)} in ${waitMs}ms (status ${res.status}).`
+        );
+        await new Promise<void>((resolve) => {
+          setTimeout(() => resolve(), waitMs);
+        });
+        continue;
+      }
+
+      throw new Error(`Excel upload failed (${res.status}): ${err}`);
+    } catch (error) {
+      if (attempt >= maxAttempts) {
+        throw error;
+      }
+
+      const waitMs = getRetryDelayMs(attempt);
+      console.warn(
+        `[Excel] OneDrive ${sourceLabel} network retry ${attempt}/${maxAttempts} for ${getWorkbookLabel(target)} in ${waitMs}ms.`,
+        error
+      );
       await new Promise<void>((resolve) => {
         setTimeout(() => resolve(), waitMs);
       });
-      continue;
     }
-
-    throw new Error(`Excel upload failed: ${err}`);
   }
 }

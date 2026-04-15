@@ -64,8 +64,18 @@ export default function Navbar() {
         return;
       }
 
+      const sessionAvatar =
+        typeof session.user.image === "string" && session.user.image.trim().length > 0
+          ? session.user.image
+          : null;
+
+      if (sessionAvatar) {
+        if (active) setProfileAvatar(sessionAvatar);
+        return;
+      }
+
       try {
-        const res = await fetch("/api/profile", { cache: "no-store" });
+        const res = await fetch("/api/profile");
         if (!res.ok) return;
         const data = await res.json();
         const nextAvatar =
@@ -88,7 +98,7 @@ export default function Navbar() {
     return () => {
       active = false;
     };
-  }, [session?.user?.id, pathname]);
+  }, [session?.user?.id, session?.user?.image]);
 
   useEffect(() => {
     let active = true;
@@ -126,6 +136,11 @@ export default function Navbar() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    router.prefetch("/");
+    router.prefetch("/tracks");
+  }, [router]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -224,19 +239,11 @@ export default function Navbar() {
       browseHref: "/tracks",
       browseLabel: "Browse Advanced Notes",
       secondaryHref: "/tracks/library",
-      secondaryLabel: "Tracks",
+      secondaryLabel: "Categories",
     },
   };
 
   const activeBrowseMode = browseModeConfig[browseMode];
-
-  const handleBrowseModeChange = (mode: BrowseMode) => {
-    if (mode === browseMode) return;
-
-    setMobileMenuOpen(false);
-    setMegaMenuOpen(false);
-    router.push(mode === "advanced" ? "/tracks" : "/");
-  };
 
   const handleHomeLogoClick = (event: MouseEvent<HTMLAnchorElement>) => {
     setMobileMenuOpen(false);
@@ -313,30 +320,36 @@ export default function Navbar() {
           </div>
           <Link
             href={activeBrowseMode.secondaryHref}
-            className={styles.navLink}
+            className={`${styles.navLink} ${styles.modeAwareLink}`}
             id={browseMode === "advanced" ? "nav-tracks" : "nav-categories"}
           >
             {activeBrowseMode.secondaryLabel}
           </Link>
           <div className={styles.modeToggle} role="group" aria-label="Browse mode toggle">
-            <button
-              type="button"
+            <Link
+              href="/"
               className={`${styles.modeToggleBtn} ${browseMode === "programming" ? styles.modeToggleBtnActive : ""}`}
               id="nav-mode-programming"
-              onClick={() => handleBrowseModeChange("programming")}
-              aria-pressed={browseMode === "programming"}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setMegaMenuOpen(false);
+              }}
+              aria-current={browseMode === "programming" ? "page" : undefined}
             >
               Programming
-            </button>
-            <button
-              type="button"
+            </Link>
+            <Link
+              href="/tracks"
               className={`${styles.modeToggleBtn} ${browseMode === "advanced" ? styles.modeToggleBtnActive : ""}`}
               id="nav-mode-advanced"
-              onClick={() => handleBrowseModeChange("advanced")}
-              aria-pressed={browseMode === "advanced"}
+              onClick={() => {
+                setMobileMenuOpen(false);
+                setMegaMenuOpen(false);
+              }}
+              aria-current={browseMode === "advanced" ? "page" : undefined}
             >
               Advanced
-            </button>
+            </Link>
           </div>
           <Link href="/about" className={styles.navLink} id="nav-about">
             About
@@ -483,22 +496,28 @@ export default function Navbar() {
         className={`${styles.mobileMenu} ${mobileMenuOpen ? styles.mobileMenuOpen : ""}`}
       >
         <div className={`${styles.modeToggle} ${styles.mobileModeToggle}`} role="group" aria-label="Browse mode toggle">
-          <button
-            type="button"
+          <Link
+            href="/"
             className={`${styles.modeToggleBtn} ${browseMode === "programming" ? styles.modeToggleBtnActive : ""}`}
-            onClick={() => handleBrowseModeChange("programming")}
-            aria-pressed={browseMode === "programming"}
+            onClick={() => {
+              setMobileMenuOpen(false);
+              setMegaMenuOpen(false);
+            }}
+            aria-current={browseMode === "programming" ? "page" : undefined}
           >
             Programming
-          </button>
-          <button
-            type="button"
+          </Link>
+          <Link
+            href="/tracks"
             className={`${styles.modeToggleBtn} ${browseMode === "advanced" ? styles.modeToggleBtnActive : ""}`}
-            onClick={() => handleBrowseModeChange("advanced")}
-            aria-pressed={browseMode === "advanced"}
+            onClick={() => {
+              setMobileMenuOpen(false);
+              setMegaMenuOpen(false);
+            }}
+            aria-current={browseMode === "advanced" ? "page" : undefined}
           >
             Advanced
-          </button>
+          </Link>
         </div>
         <Link
           href={activeBrowseMode.browseHref}

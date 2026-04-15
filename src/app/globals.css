@@ -389,6 +389,7 @@ ul, ol {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
+  min-width: 0;
 }
 
 .input-label {
@@ -398,6 +399,10 @@ ul, ol {
 }
 
 .input {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   padding: 12px 16px;
   background: var(--bg-surface);
   border: 1px solid var(--border-primary);

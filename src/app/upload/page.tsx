@@ -959,7 +959,7 @@ export default function UploadPage() {
               {[
                 { key: "ownership", text: <>I confirm that I am the <strong>original author</strong> of this content, or I have explicit permission to share it on this platform.</> },
                 { key: "license",   text: <>I understand that I <strong>retain all copyright</strong> to my work. By submitting, I grant xreso a non-exclusive, royalty-free license to host and share this content.</> },
-                { key: "tos",       text: <>I have read and agree to the <a href="/terms" className={styles.legalLink}>Terms of Service</a> and <a href="/terms" className={styles.legalLink}>Community Guidelines</a>.</> },
+                { key: "tos",       text: <>I have read and agree to the <Link href="/terms" className={styles.legalLink}>Terms of Service</Link> and <Link href="/terms" className={styles.legalLink}>Community Guidelines</Link>.</> },
               ].map(({ key, text }) => (
                 <label key={key} className={styles.checkLabel} id={`check-${key}`}>
                   <input type="checkbox" className={styles.checkbox}

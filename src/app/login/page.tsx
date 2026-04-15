@@ -1,18 +1,97 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { getProviders, signIn } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { FaGithub, FaGoogle, FaLinkedinIn } from "react-icons/fa";
 import styles from "./page.module.css";
+
+type SocialProviderConfig = {
+  id: string;
+  name: string;
+  Icon: React.ComponentType<{ className?: string }>;
+};
+
+const SOCIAL_PROVIDERS: SocialProviderConfig[] = [
+  { id: "google", name: "Google", Icon: FaGoogle },
+  { id: "github", name: "GitHub", Icon: FaGithub },
+  { id: "linkedin", name: "LinkedIn", Icon: FaLinkedinIn },
+];
+
+function getSafeCallbackUrl(rawCallbackUrl: string | null) {
+  if (!rawCallbackUrl || !rawCallbackUrl.startsWith("/")) {
+    return "/";
+  }
+
+  try {
+    const baseUrl = new URL("https://xreso.local");
+    const resolvedUrl = new URL(rawCallbackUrl, baseUrl);
+
+    if (resolvedUrl.origin !== baseUrl.origin) {
+      return "/";
+    }
+
+    return `${resolvedUrl.pathname}${resolvedUrl.search}${resolvedUrl.hash}`;
+  } catch {
+    return "/";
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = getSafeCallbackUrl(searchParams.get("callbackUrl"));
   const [mode, setMode] = useState<"login" | "register">("login");
   const [form, setForm] = useState({ name: "", email: "", password: "", avatar: "" });
+  const [configuredProviderIds, setConfiguredProviderIds] = useState<string[]>([]);
+  const [socialLoadingProvider, setSocialLoadingProvider] = useState<string | null>(
+    null
+  );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const hasSocialProviders = configuredProviderIds.length > 0;
+
+  useEffect(() => {
+    let mounted = true;
+
+    getProviders()
+      .then((providers) => {
+        if (!mounted || !providers) return;
+
+        const preferredOrder = ["google", "github", "linkedin"];
+        const list = preferredOrder
+          .map((id) => providers[id])
+          .filter((provider): provider is NonNullable<typeof provider> => Boolean(provider))
+          .map((provider) => provider.id);
+
+        setConfiguredProviderIds(list);
+      })
+      .catch(() => {
+        setConfiguredProviderIds([]);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleOAuthSignIn = async (providerId: string) => {
+    if (!configuredProviderIds.includes(providerId)) {
+      return;
+    }
+
+    setError("");
+    setSocialLoadingProvider(providerId);
+
+    try {
+      await signIn(providerId, { callbackUrl });
+    } catch {
+      setError("Social sign-in failed. Please try again.");
+      setSocialLoadingProvider(null);
+    }
+  };
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -79,7 +158,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/");
+      router.push(callbackUrl);
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");
@@ -110,16 +189,73 @@ export default function LoginPage() {
           <div className={styles.tabs}>
             <button
               className={`${styles.tab} ${mode === "login" ? styles.tabActive : ""}`}
+              type="button"
               onClick={() => { setMode("login"); setError(""); }}
             >
               Sign In
             </button>
             <button
               className={`${styles.tab} ${mode === "register" ? styles.tabActive : ""}`}
+              type="button"
               onClick={() => { setMode("register"); setError(""); }}
             >
               Create Account
             </button>
+          </div>
+
+          <div className={styles.socialSection}>
+            <div className={styles.socialButtons}>
+              {SOCIAL_PROVIDERS.map((provider) => {
+                const isConfigured = configuredProviderIds.includes(provider.id);
+                const isDisabled =
+                  loading || socialLoadingProvider !== null || !isConfigured;
+                const providerClassName =
+                  provider.id === "google"
+                    ? styles.socialBtnGoogle
+                    : provider.id === "github"
+                    ? styles.socialBtnGitHub
+                    : styles.socialBtnLinkedIn;
+
+                return (
+                  <button
+                    key={provider.id}
+                    type="button"
+                    className={`${styles.socialBtn} ${providerClassName} ${
+                      !isConfigured ? styles.socialBtnUnavailable : ""
+                    }`}
+                    disabled={isDisabled}
+                    onClick={() => {
+                      void handleOAuthSignIn(provider.id);
+                    }}
+                  >
+                    <provider.Icon className={styles.socialIcon} />
+                    <span>
+                      {socialLoadingProvider === provider.id
+                        ? "Redirecting..."
+                        : isConfigured
+                        ? `Continue with ${provider.name}`
+                        : `${provider.name} not configured`}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {hasSocialProviders ? (
+              <div className={styles.divider}>
+                <span>or continue with email</span>
+              </div>
+            ) : (
+              <div className={styles.socialHintBlock}>
+                <p className={styles.socialHint}>
+                  Social sign-in is not configured yet. Add Google, GitHub, or LinkedIn
+                  OAuth credentials in your environment file to enable these buttons.
+                </p>
+                <p className={styles.socialTip}>
+                  Tip: restart your dev server after updating environment variables.
+                </p>
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className={styles.form}>
@@ -200,7 +336,12 @@ export default function LoginPage() {
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 required
-                minLength={6}
+                minLength={mode === "register" ? 10 : undefined}
+                title={
+                  mode === "register"
+                    ? "Use 10+ characters with uppercase, lowercase, number, and special character"
+                    : undefined
+                }
               />
             </div>
 

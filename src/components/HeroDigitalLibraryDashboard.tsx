@@ -4,11 +4,18 @@ import { motion, useReducedMotion } from "framer-motion";
 import { FaJava } from "react-icons/fa6";
 import type { IconType } from "react-icons";
 import {
+  SiAnsible,
   SiCplusplus,
+  SiDocker,
+  SiGrafana,
   SiGo,
   SiJavascript,
+  SiKubernetes,
+  SiLinux,
+  SiPrometheus,
   SiPython,
   SiRust,
+  SiTerraform,
   SiTypescript,
 } from "react-icons/si";
 import { useEffect, useState } from "react";
@@ -26,7 +33,9 @@ type OrbitNode = {
 
 const ORBIT_DURATION = 38;
 
-const NODES: OrbitNode[] = [
+export type HeroOrbitMode = "programming" | "advanced";
+
+const PROGRAMMING_NODES: OrbitNode[] = [
   { id: "rust", label: "Rust", x: 50, y: 14, size: 88, Icon: SiRust, color: "#DEA584", delay: 0 },
   { id: "go", label: "Go", x: 74, y: 28, size: 84, Icon: SiGo, color: "#00ADD8", delay: 0.12 },
   { id: "typescript", label: "TypeScript", x: 75, y: 56, size: 86, Icon: SiTypescript, color: "#3178C6", delay: 0.24 },
@@ -36,8 +45,25 @@ const NODES: OrbitNode[] = [
   { id: "java", label: "Java", x: 64, y: 43, size: 78, Icon: FaJava, color: "#ED8B00", delay: 0.72 },
 ];
 
-export default function HeroDigitalLibraryDashboard() {
+const ADVANCED_NODES: OrbitNode[] = [
+  { id: "kubernetes", label: "Kubernetes", x: 50, y: 14, size: 88, Icon: SiKubernetes, color: "#326CE5", delay: 0 },
+  { id: "linux", label: "Linux", x: 74, y: 28, size: 84, Icon: SiLinux, color: "#FCC624", delay: 0.12 },
+  { id: "docker", label: "Docker", x: 75, y: 56, size: 86, Icon: SiDocker, color: "#2496ED", delay: 0.24 },
+  { id: "terraform", label: "Terraform", x: 50, y: 74, size: 90, Icon: SiTerraform, color: "#844FBA", delay: 0.36 },
+  { id: "ansible", label: "Ansible", x: 25, y: 56, size: 86, Icon: SiAnsible, color: "#EE0000", delay: 0.48 },
+  { id: "prometheus", label: "Prometheus", x: 26, y: 28, size: 84, Icon: SiPrometheus, color: "#E6522C", delay: 0.6 },
+  { id: "grafana", label: "Grafana", x: 64, y: 43, size: 78, Icon: SiGrafana, color: "#F46800", delay: 0.72 },
+];
+
+interface HeroDigitalLibraryDashboardProps {
+  mode?: HeroOrbitMode;
+}
+
+export default function HeroDigitalLibraryDashboard({
+  mode = "programming",
+}: HeroDigitalLibraryDashboardProps) {
   const reducedMotion = useReducedMotion() ?? false;
+  const nodes = mode === "advanced" ? ADVANCED_NODES : PROGRAMMING_NODES;
   const [active, setActive] = useState(0);
 
   useEffect(() => {
@@ -46,13 +72,13 @@ export default function HeroDigitalLibraryDashboard() {
     }
 
     const intervalId = window.setInterval(() => {
-      setActive((prev) => (prev + 1) % NODES.length);
+      setActive((prev) => (prev + 1) % nodes.length);
     }, 1700);
 
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [reducedMotion]);
+  }, [reducedMotion, nodes.length]);
 
   const orbitGlowBackground =
     "radial-gradient(circle, color-mix(in srgb, var(--primary) 26%, transparent) 0%, color-mix(in srgb, var(--primary) 8%, transparent) 42%, transparent 74%)";
@@ -75,7 +101,7 @@ export default function HeroDigitalLibraryDashboard() {
               ease: "easeInOut",
             }
       }
-      aria-label="Floating tech logos constellation"
+      aria-label={`${mode === "advanced" ? "Advanced stack" : "Programming stack"} logos constellation`}
     >
       <div
         className="pointer-events-none absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 blur-[36px]"
@@ -107,7 +133,7 @@ export default function HeroDigitalLibraryDashboard() {
               }
         }
       >
-        {NODES.map((node, index) => {
+        {nodes.map((node, index) => {
           const isActive = active === index;
 
           return (

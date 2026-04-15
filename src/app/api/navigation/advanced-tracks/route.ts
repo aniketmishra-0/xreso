@@ -36,7 +36,7 @@ export async function GET() {
         id: "advanced-library",
         label: "Open Tracks Library",
         description: "Premium advanced learning paths",
-        href: "/tracks",
+        href: "/tracks/library",
         count: rows.reduce((sum, row) => sum + (row.approved_count || 0), 0),
       },
       ...rows.map((row) => ({

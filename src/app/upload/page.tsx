@@ -96,6 +96,104 @@ interface AdvancedTrack {
   topics: AdvancedTrackTopic[];
 }
 
+interface SelectOption {
+  value: string;
+  label: string;
+}
+
+interface MobilePickerState {
+  name: keyof typeof INITIAL_FORM_DATA;
+  title: string;
+  placeholder: string;
+  options: SelectOption[];
+  value: string;
+}
+
+function getSelectLabel(
+  options: SelectOption[],
+  value: string,
+  placeholder: string
+) {
+  return options.find((option) => option.value === value)?.label || placeholder;
+}
+
+function MobilePickerSheet({
+  picker,
+  onClose,
+  onSelect,
+}: {
+  picker: MobilePickerState | null;
+  onClose: () => void;
+  onSelect: (value: string) => void;
+}) {
+  if (!picker) return null;
+
+  return (
+    <>
+      <div
+        className={styles.mobileSelectOverlay}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        className={styles.mobileSelectSheet}
+        role="dialog"
+        aria-modal="true"
+        aria-label={picker.title}
+      >
+        <div className={styles.mobileSelectSheetHandle} />
+        <div className={styles.mobileSelectSheetHeader}>
+          <div>
+            <p className={styles.mobileSelectSheetLabel}>Choose One</p>
+            <h3 className={styles.mobileSelectSheetTitle}>{picker.title}</h3>
+          </div>
+          <button
+            type="button"
+            className={styles.mobileSelectSheetClose}
+            onClick={onClose}
+            aria-label="Close picker"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+        <div className={styles.mobileSelectOptions}>
+          {[{ value: "", label: picker.placeholder }, ...picker.options].map((option) => {
+            const isSelected = option.value === picker.value;
+
+            return (
+              <button
+                key={`${picker.name}-${option.value || "empty"}`}
+                type="button"
+                className={`${styles.mobileSelectOption} ${
+                  isSelected ? styles.mobileSelectOptionActive : ""
+                }`}
+                onClick={() => {
+                  onSelect(option.value);
+                  onClose();
+                }}
+              >
+                <span className={styles.mobileSelectOptionText}>
+                  {option.label}
+                </span>
+                <span className={styles.mobileSelectOptionCheck} aria-hidden="true">
+                  {isSelected ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : null}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
+
 /* ──────────────────────────────────────────────────────────
    PREVIEW DRAWER — renders live as user fills the form
 ──────────────────────────────────────────────────────────── */
@@ -328,6 +426,7 @@ export default function UploadPage() {
   const [resourceTier, setResourceTier] = useState<"standard" | "advanced">("standard");
   const [uploadMode, setUploadMode] = useState<"file" | "link">("file");
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [mobilePicker, setMobilePicker] = useState<MobilePickerState | null>(null);
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [advancedTracks, setAdvancedTracks] = useState<AdvancedTrack[]>([]);
   const [advancedCatalogLoading, setAdvancedCatalogLoading] = useState(false);
@@ -383,6 +482,29 @@ export default function UploadPage() {
     "data-gramm_editor": "false",
     "data-enable-grammarly": "false",
   } as const;
+  const standardCategoryOptions: SelectOption[] = STANDARD_CATEGORY_CATALOG.map((cat) => ({
+    value: cat.slug,
+    label: cat.name,
+  }));
+  const advancedTrackOptions: SelectOption[] = advancedTracks.map((track) => ({
+    value: track.slug,
+    label: track.name,
+  }));
+  const advancedTopicOptions: SelectOption[] = selectedAdvancedTopics.map((topic) => ({
+    value: topic.slug,
+    label: topic.name,
+  }));
+  const advancedResourceTypeOptions: SelectOption[] = [
+    { value: "link", label: "Link" },
+    { value: "pdf", label: "PDF" },
+    { value: "doc", label: "Document" },
+    { value: "video", label: "Video" },
+  ];
+  const licenseOptions: SelectOption[] = [
+    { value: "CC-BY-4.0", label: "CC BY 4.0 — Others can share with credit" },
+    { value: "CC-BY-SA-4.0", label: "CC BY-SA 4.0 — Share alike with credit" },
+    { value: "all-rights-reserved", label: "All Rights Reserved — View only on xreso" },
+  ];
 
   useEffect(() => {
     if (!sessionName) return;
@@ -447,20 +569,132 @@ export default function UploadPage() {
     if (fileObjectUrl) URL.revokeObjectURL(fileObjectUrl);
   }, [fileObjectUrl]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
+  useEffect(() => {
+    if (!mobilePicker) return;
 
-    if (name === "advancedTrackSlug") {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobilePicker(null);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [mobilePicker]);
+
+  const updateFormField = useCallback(
+    (name: keyof typeof INITIAL_FORM_DATA, value: string) => {
+      if (name === "advancedTrackSlug") {
+        setFormData((current) => ({
+          ...current,
+          advancedTrackSlug: value,
+          advancedTopicSlug: "",
+        }));
+        return;
+      }
+
       setFormData((current) => ({
         ...current,
-        advancedTrackSlug: value,
-        advancedTopicSlug: "",
+        [name]: value,
       }));
+    },
+    []
+  );
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    updateFormField(e.target.name as keyof typeof INITIAL_FORM_DATA, e.target.value);
+  };
+
+  const openMobilePickerForField = useCallback(
+    (picker: MobilePickerState) => {
+      setMobilePicker(picker);
+    },
+    []
+  );
+
+  const handleMobilePickerSelect = useCallback(
+    (value: string) => {
+      if (!mobilePicker) return;
+      updateFormField(mobilePicker.name, value);
+    },
+    [mobilePicker, updateFormField]
+  );
+
+  useEffect(() => {
+    if (!mobilePicker) return;
+
+    if (resourceTier !== "advanced" && (
+      mobilePicker.name === "advancedTrackSlug" ||
+      mobilePicker.name === "advancedTopicSlug" ||
+      mobilePicker.name === "advancedResourceType"
+    )) {
+      setMobilePicker(null);
       return;
     }
 
-    setFormData((current) => ({ ...current, [name]: value }));
-  };
+    if (resourceTier !== "standard" && mobilePicker.name === "category") {
+      setMobilePicker(null);
+      return;
+    }
+
+    if (uploadMode !== "file" && mobilePicker.name === "sourceUrl") {
+      setMobilePicker(null);
+    }
+  }, [mobilePicker, resourceTier, uploadMode]);
+
+  const renderMobileSelect = ({
+    name,
+    title,
+    placeholder,
+    value,
+    options,
+    disabled = false,
+  }: {
+    name: keyof typeof INITIAL_FORM_DATA;
+    title: string;
+    placeholder: string;
+    value: string;
+    options: SelectOption[];
+    disabled?: boolean;
+  }) => (
+    <div className={styles.mobileSelect}>
+      <button
+        type="button"
+        className={`${styles.mobileSelectTrigger} ${
+          !value ? styles.mobileSelectTriggerPlaceholder : ""
+        } ${disabled ? styles.mobileSelectTriggerDisabled : ""}`}
+        onClick={() => {
+          if (disabled) return;
+          openMobilePickerForField({
+            name,
+            title,
+            placeholder,
+            options,
+            value,
+          });
+        }}
+        disabled={disabled}
+        aria-haspopup="dialog"
+        aria-expanded={mobilePicker?.name === name}
+      >
+        <span className={styles.mobileSelectTriggerValue}>
+          {getSelectLabel(options, value, placeholder)}
+        </span>
+        <span className={styles.mobileSelectTriggerIcon} aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </span>
+      </button>
+    </div>
+  );
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault(); e.stopPropagation();
@@ -544,6 +778,7 @@ export default function UploadPage() {
         advancedBody.append("topicSlug", formData.advancedTopicSlug || "");
         advancedBody.append("resourceType", formData.advancedResourceType);
         advancedBody.append("tags", formData.tags);
+        advancedBody.append("licenseType", formData.licenseType);
         advancedBody.append("status", "pending");
         advancedBody.append("premiumOnly", "true");
         advancedBody.append("featured", "false");
@@ -635,6 +870,11 @@ export default function UploadPage() {
         fileObjectUrl={fileObjectUrl}
         formData={formData}
         session={session}
+      />
+      <MobilePickerSheet
+        picker={mobilePicker}
+        onClose={() => setMobilePicker(null)}
+        onSelect={handleMobilePickerSelect}
       />
 
       {/* Floating Preview Button */}
@@ -935,10 +1175,17 @@ export default function UploadPage() {
               >
                 <div className="input-group">
                   <label htmlFor="category" className="input-label">Programming Language / Topic <span className={styles.required}>*</span></label>
+                  {renderMobileSelect({
+                    name: "category",
+                    title: "Programming Language / Topic",
+                    placeholder: "Select a programming topic",
+                    value: formData.category,
+                    options: standardCategoryOptions,
+                  })}
                   <select
                     id="category"
                     name="category"
-                    className="input"
+                    className={`input ${styles.desktopSelect}`}
                     value={formData.category ?? ""}
                     onChange={handleInputChange}
                     required={resourceTier === "standard"}
@@ -961,10 +1208,17 @@ export default function UploadPage() {
               >
                 <div className="input-group">
                     <label htmlFor="advancedTrackSlug" className="input-label">{SPECIALIZED_RESOURCE_LABEL} Category <span className={styles.required}>*</span></label>
+                    {renderMobileSelect({
+                      name: "advancedTrackSlug",
+                      title: `${SPECIALIZED_RESOURCE_LABEL} Category`,
+                      placeholder: `Select a ${SPECIALIZED_RESOURCE_LABEL} category`,
+                      value: formData.advancedTrackSlug,
+                      options: advancedTrackOptions,
+                    })}
                     <select
                       id="advancedTrackSlug"
                       name="advancedTrackSlug"
-                      className="input"
+                      className={`input ${styles.desktopSelect}`}
                       value={formData.advancedTrackSlug ?? ""}
                       onChange={handleInputChange}
                       required={resourceTier === "advanced"}
@@ -985,10 +1239,25 @@ export default function UploadPage() {
 
                   <div className="input-group">
                     <label htmlFor="advancedTopicSlug" className="input-label">Track Topic <span className={styles.optional}>(optional)</span></label>
+                    {renderMobileSelect({
+                      name: "advancedTopicSlug",
+                      title: "Track Topic",
+                      placeholder: selectedAdvancedTrack
+                        ? selectedAdvancedTopics.length > 0
+                          ? "Select a topic"
+                          : "No topics available"
+                        : "Choose a track first",
+                      value: formData.advancedTopicSlug,
+                      options: advancedTopicOptions,
+                      disabled:
+                        resourceTier !== "advanced" ||
+                        !selectedAdvancedTrack ||
+                        selectedAdvancedTopics.length === 0,
+                    })}
                     <select
                       id="advancedTopicSlug"
                       name="advancedTopicSlug"
-                      className="input"
+                      className={`input ${styles.desktopSelect}`}
                       value={formData.advancedTopicSlug ?? ""}
                       onChange={handleInputChange}
                       disabled={
@@ -1013,10 +1282,18 @@ export default function UploadPage() {
 
                   <div className="input-group">
                     <label htmlFor="advancedResourceType" className="input-label">Resource Type</label>
+                    {renderMobileSelect({
+                      name: "advancedResourceType",
+                      title: "Resource Type",
+                      placeholder: "Select a resource type",
+                      value: formData.advancedResourceType,
+                      options: advancedResourceTypeOptions,
+                      disabled: resourceTier !== "advanced",
+                    })}
                     <select
                       id="advancedResourceType"
                       name="advancedResourceType"
-                      className="input"
+                      className={`input ${styles.desktopSelect}`}
                       value={formData.advancedResourceType ?? "link"}
                       onChange={handleInputChange}
                       disabled={resourceTier !== "advanced"}
@@ -1068,7 +1345,14 @@ export default function UploadPage() {
               </div>
               <div className={`input-group ${styles.fullWidth}`}>
                 <label htmlFor="licenseType" className="input-label">License</label>
-                <select id="licenseType" name="licenseType" className="input" value={formData.licenseType ?? "CC-BY-4.0"} onChange={handleInputChange} {...fieldShieldProps}>
+                {renderMobileSelect({
+                  name: "licenseType",
+                  title: "License",
+                  placeholder: "Select a license",
+                  value: formData.licenseType,
+                  options: licenseOptions,
+                })}
+                <select id="licenseType" name="licenseType" className={`input ${styles.desktopSelect}`} value={formData.licenseType ?? "CC-BY-4.0"} onChange={handleInputChange} {...fieldShieldProps}>
                   <option value="CC-BY-4.0">CC BY 4.0 — Others can share with credit</option>
                   <option value="CC-BY-SA-4.0">CC BY-SA 4.0 — Share alike with credit</option>
                   <option value="all-rights-reserved">All Rights Reserved — View only on xreso</option>

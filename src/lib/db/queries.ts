@@ -206,6 +206,198 @@ export async function getAboutMilestoneStats() {
   }
 }
 
+export async function getAdvancedTrackHighlights(
+  limitTracks = 3,
+  topicsPerTrack = 5
+) {
+  try {
+    const db = getDb();
+
+    const tracks = db
+      .prepare(
+        `SELECT
+          at.id,
+          at.slug,
+          at.name,
+          at.description,
+          COUNT(CASE WHEN atr.status = 'approved' THEN 1 END) as approved_count
+         FROM advanced_tracks at
+         LEFT JOIN advanced_track_resources atr ON atr.track_id = at.id
+         WHERE at.status = 'active'
+         GROUP BY at.id
+         ORDER BY at.sort_order ASC, at.name ASC
+         LIMIT ?`
+      )
+      .all(limitTracks) as Array<{
+      id: number;
+      slug: string;
+      name: string;
+      description: string;
+      approved_count: number;
+    }>;
+
+    const topics = db
+      .prepare(
+        `SELECT
+          track_id,
+          slug,
+          name,
+          level
+         FROM advanced_track_topics
+         ORDER BY sort_order ASC, name ASC`
+      )
+      .all() as Array<{
+      track_id: number;
+      slug: string;
+      name: string;
+      level: "Beginner" | "Intermediate" | "Advanced";
+    }>;
+
+    db.close();
+
+    return tracks.map((track) => ({
+      id: track.id,
+      slug: track.slug,
+      name: track.name,
+      description: track.description,
+      resourceCount: track.approved_count || 0,
+      topics: topics
+        .filter((topic) => topic.track_id === track.id)
+        .slice(0, topicsPerTrack)
+        .map((topic) => ({
+          slug: topic.slug,
+          name: topic.name,
+          level: topic.level,
+        })),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getAdvancedHeroStats() {
+  try {
+    const db = getDb();
+
+    const row = db
+      .prepare(
+        `SELECT
+          (SELECT COUNT(*) FROM advanced_tracks at WHERE at.status = 'active') as track_count,
+          (
+            SELECT COUNT(*)
+            FROM advanced_track_resources atr
+            JOIN advanced_tracks at ON atr.track_id = at.id
+            WHERE atr.status = 'approved' AND at.status = 'active'
+          ) as resource_count,
+          (
+            SELECT COUNT(*)
+            FROM advanced_track_topics att
+            JOIN advanced_tracks at ON att.track_id = at.id
+            WHERE at.status = 'active'
+          ) as topic_count,
+          (
+            SELECT COUNT(DISTINCT atr.author_id)
+            FROM advanced_track_resources atr
+            JOIN advanced_tracks at ON atr.track_id = at.id
+            WHERE atr.status = 'approved' AND at.status = 'active'
+          ) as contributor_count`
+      )
+      .get() as
+      | {
+          track_count: number;
+          resource_count: number;
+          topic_count: number;
+          contributor_count: number;
+        }
+      | undefined;
+
+    db.close();
+
+    return {
+      trackCount: Number(row?.track_count || 0),
+      resourceCount: Number(row?.resource_count || 0),
+      topicCount: Number(row?.topic_count || 0),
+      contributorCount: Number(row?.contributor_count || 0),
+    };
+  } catch {
+    return {
+      trackCount: 0,
+      resourceCount: 0,
+      topicCount: 0,
+      contributorCount: 0,
+    };
+  }
+}
+
+export async function getFeaturedAdvancedResources(limit = 6) {
+  try {
+    const db = getDb();
+
+    const rows = db
+      .prepare(
+        `SELECT
+          atr.id,
+          atr.title,
+          atr.summary,
+          atr.thumbnail_url,
+          atr.view_count,
+          atr.save_count,
+          atr.created_at,
+          at.slug as track_slug,
+          at.name as track_name,
+          att.slug as topic_slug,
+          att.name as topic_name,
+          u.name as author_name,
+          GROUP_CONCAT(DISTINCT atrt.tag) as tag_names
+         FROM advanced_track_resources atr
+         JOIN advanced_tracks at ON atr.track_id = at.id
+         LEFT JOIN advanced_track_topics att ON atr.topic_id = att.id
+         LEFT JOIN users u ON atr.author_id = u.id
+         LEFT JOIN advanced_track_resource_tags atrt ON atr.id = atrt.resource_id
+         WHERE atr.status = 'approved'
+           AND at.status = 'active'
+         GROUP BY atr.id
+         ORDER BY atr.featured DESC, atr.created_at DESC
+         LIMIT ?`
+      )
+      .all(limit) as Array<{
+      id: string;
+      title: string;
+      summary: string;
+      thumbnail_url: string | null;
+      view_count: number;
+      save_count: number;
+      created_at: string;
+      track_slug: string;
+      track_name: string;
+      topic_slug: string | null;
+      topic_name: string | null;
+      author_name: string | null;
+      tag_names: string | null;
+    }>;
+
+    db.close();
+
+    return rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      summary: row.summary,
+      thumbnailUrl: row.thumbnail_url,
+      viewCount: row.view_count || 0,
+      saveCount: row.save_count || 0,
+      createdAt: row.created_at,
+      trackSlug: row.track_slug,
+      trackName: row.track_name,
+      topicSlug: row.topic_slug,
+      topicName: row.topic_name,
+      authorName: row.author_name || "Unknown",
+      tags: row.tag_names ? row.tag_names.split(",") : [],
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getNoteById(id: string) {
   try {
     const db = getDb();

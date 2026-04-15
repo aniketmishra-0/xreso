@@ -1,0 +1,316 @@
+.page {
+  min-height: calc(100vh - var(--nav-height));
+  padding: calc(var(--nav-height) + var(--space-2xl)) 0 var(--space-4xl);
+}
+
+.container {
+  width: 100%;
+  max-width: var(--max-width-wide);
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+}
+
+.header {
+  margin-bottom: var(--space-2xl);
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-primary);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--primary-light);
+  background: var(--primary-subtle);
+}
+
+.title {
+  margin-top: 12px;
+  font-size: var(--text-4xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.subtitle {
+  margin-top: 10px;
+  color: var(--text-secondary);
+  max-width: 72ch;
+  line-height: var(--leading-relaxed);
+}
+
+.searchWrap {
+  position: relative;
+  margin-top: var(--space-lg);
+  max-width: 620px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 44px 12px 48px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  transition: all var(--transition-fast);
+}
+
+.searchInput::placeholder {
+  color: var(--text-tertiary);
+}
+
+.searchInput:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-subtle);
+}
+
+.searchClear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-primary);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 14px;
+  transition: all var(--transition-fast);
+}
+
+.searchClear:hover {
+  color: var(--text-primary);
+  border-color: var(--primary);
+}
+
+.trackTabs {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.trackTab {
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.trackTab:hover {
+  color: var(--text-primary);
+  border-color: var(--border-hover);
+}
+
+.trackTabActive {
+  color: var(--primary-light);
+  border-color: rgba(139, 92, 246, 0.35);
+  background: var(--primary-subtle);
+}
+
+.trackGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.trackCard {
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-xl);
+  background: var(--bg-surface);
+  padding: var(--space-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.trackCardHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  align-items: flex-start;
+}
+
+.trackName {
+  font-size: var(--text-xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.trackDescription {
+  margin-top: 8px;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.topicCount {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--bg-elevated);
+}
+
+.trackGoal {
+  margin-top: 12px;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.topicList {
+  margin-top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.topicItem {
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  background: var(--bg-elevated);
+}
+
+.topicHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  align-items: flex-start;
+}
+
+.topicName {
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.levelBadge {
+  padding: 4px 8px;
+  border-radius: var(--radius-full);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.levelBeginner {
+  background: rgba(74, 222, 128, 0.14);
+  color: #7ee6a6;
+  border-color: rgba(74, 222, 128, 0.3);
+}
+
+.levelIntermediate {
+  background: rgba(56, 189, 248, 0.14);
+  color: #7fd3f7;
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.levelAdvanced {
+  background: rgba(249, 115, 22, 0.14);
+  color: #ffbc8d;
+  border-color: rgba(249, 115, 22, 0.3);
+}
+
+.topicBlurb {
+  margin-top: 8px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.topicLink {
+  margin-top: 10px;
+  display: inline-flex;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary-light);
+}
+
+.topicLink:hover {
+  color: var(--accent-orange-light);
+}
+
+.trackFooter {
+  margin-top: auto;
+  padding-top: var(--space-lg);
+}
+
+.emptyState {
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-xl);
+  padding: var(--space-3xl) var(--space-xl);
+  text-align: center;
+  background: var(--bg-surface);
+}
+
+.emptyTitle {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+}
+
+.emptyText {
+  margin-top: 8px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 1280px) {
+  .trackGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .page {
+    padding: calc(var(--nav-height) + var(--space-xl)) 0 var(--space-3xl);
+  }
+
+  .container {
+    padding: 0 var(--space-md);
+  }
+
+  .title {
+    font-size: var(--text-3xl);
+  }
+
+  .subtitle {
+    font-size: var(--text-sm);
+  }
+
+  .searchInput {
+    min-height: 46px;
+    font-size: var(--text-sm);
+  }
+
+  .trackGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .trackCard {
+    padding: var(--space-md);
+  }
+}

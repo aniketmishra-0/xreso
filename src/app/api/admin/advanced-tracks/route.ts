@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import Database from "better-sqlite3";
 import { v4 as uuidv4 } from "uuid";
@@ -9,10 +9,13 @@ import {
   isOneDriveConfigured,
   uploadToOneDrive,
 } from "@/lib/onedrive";
+import { appendAdvancedLinkToExcel } from "@/lib/excel";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
 const ADVANCED_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "advanced");
 const ADVANCED_MAX_FILE_SIZE = 25 * 1024 * 1024;
+
+export const maxDuration = 300;
 
 type AdminRole = "admin" | "moderator" | "user";
 type ResourceType = "link" | "pdf" | "doc" | "video";
@@ -98,6 +101,81 @@ function inferResourceTypeFromFile(file: File): Exclude<ResourceType, "link"> | 
 function getSafeFileExtension(fileName: string, fallback: string): string {
   const ext = path.extname(fileName).slice(1).toLowerCase().replace(/[^a-z0-9]/g, "");
   return ext || fallback;
+}
+
+function ensureDir(targetDir: string) {
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+}
+
+function syncAdvancedResourceToOneDriveInBackground(params: {
+  resourceId: string;
+  fileBuffer: Buffer;
+  fileName: string;
+  mimeType: string;
+  trackSlug: string;
+}) {
+  after(async () => {
+    try {
+      const uploaded = await uploadToOneDrive(
+        params.fileBuffer,
+        params.fileName,
+        params.mimeType,
+        params.trackSlug
+      );
+
+      const sqlite = new Database(DB_PATH);
+      sqlite.pragma("foreign_keys = ON");
+
+      try {
+        sqlite
+          .prepare(
+            "UPDATE advanced_track_resources SET content_url = ?, updated_at = datetime('now') WHERE id = ?"
+          )
+          .run(`onedrive://${uploaded.driveItemId}`, params.resourceId);
+      } finally {
+        sqlite.close();
+      }
+
+      console.log(
+        `[AdvancedTracks] Background OneDrive sync complete for resource ${params.resourceId}`
+      );
+    } catch (error) {
+      console.error(
+        `[AdvancedTracks] Background OneDrive sync failed for resource ${params.resourceId}:`,
+        error
+      );
+    }
+  });
+}
+
+function deleteAdvancedLocalBackups(resourceId: string, contentUrl?: string) {
+  const candidatePaths = new Set<string>();
+
+  if (contentUrl?.startsWith("/uploads/advanced/")) {
+    candidatePaths.add(
+      path.join(process.cwd(), "public", contentUrl.replace(/^\/+/, ""))
+    );
+  }
+
+  if (fs.existsSync(ADVANCED_UPLOAD_DIR)) {
+    for (const entry of fs.readdirSync(ADVANCED_UPLOAD_DIR)) {
+      if (entry.startsWith(`${resourceId}.`)) {
+        candidatePaths.add(path.join(ADVANCED_UPLOAD_DIR, entry));
+      }
+    }
+  }
+
+  for (const candidatePath of candidatePaths) {
+    if (!fs.existsSync(candidatePath)) continue;
+
+    try {
+      fs.unlinkSync(candidatePath);
+    } catch {
+      // Best effort cleanup; resource deletion already succeeded.
+    }
+  }
 }
 
 async function requireAdminSession() {
@@ -208,7 +286,6 @@ export async function POST(req: NextRequest) {
   }
 
   let uploadedFilePath: string | null = null;
-  let uploadedDriveItemId: string | null = null;
 
   try {
     let uploadedFile: File | null = null;
@@ -217,6 +294,7 @@ export async function POST(req: NextRequest) {
       title: undefined as unknown,
       summary: undefined as unknown,
       contentUrl: undefined as unknown,
+      licenseType: undefined as unknown,
       trackSlug: undefined as unknown,
       topicSlug: undefined as unknown,
       thumbnailUrl: undefined as unknown,
@@ -236,6 +314,7 @@ export async function POST(req: NextRequest) {
       payload.title = formData.get("title");
       payload.summary = formData.get("summary");
       payload.contentUrl = formData.get("contentUrl");
+      payload.licenseType = formData.get("licenseType");
       payload.trackSlug = formData.get("trackSlug");
       payload.topicSlug = formData.get("topicSlug");
       payload.thumbnailUrl = formData.get("thumbnailUrl");
@@ -249,6 +328,7 @@ export async function POST(req: NextRequest) {
         title?: unknown;
         summary?: unknown;
         contentUrl?: unknown;
+        licenseType?: unknown;
         trackSlug?: unknown;
         topicSlug?: unknown;
         thumbnailUrl?: unknown;
@@ -262,6 +342,7 @@ export async function POST(req: NextRequest) {
       payload.title = jsonPayload.title;
       payload.summary = jsonPayload.summary;
       payload.contentUrl = jsonPayload.contentUrl;
+      payload.licenseType = jsonPayload.licenseType;
       payload.trackSlug = jsonPayload.trackSlug;
       payload.topicSlug = jsonPayload.topicSlug;
       payload.thumbnailUrl = jsonPayload.thumbnailUrl;
@@ -275,6 +356,7 @@ export async function POST(req: NextRequest) {
     const title = toTrimmedString(payload.title);
     const summary = toTrimmedString(payload.summary);
     let contentUrl = toTrimmedString(payload.contentUrl);
+    const licenseType = toTrimmedString(payload.licenseType) || "CC-BY-4.0";
     const trackSlug = toTrimmedString(payload.trackSlug);
     const topicSlug = toTrimmedString(payload.topicSlug);
     let thumbnailUrl = toTrimmedString(payload.thumbnailUrl);
@@ -318,28 +400,37 @@ export async function POST(req: NextRequest) {
     }
 
     const track = sqlite
-      .prepare("SELECT id FROM advanced_tracks WHERE slug = ?")
-      .get(trackSlug) as { id: number } | undefined;
+      .prepare("SELECT id, name FROM advanced_tracks WHERE slug = ?")
+      .get(trackSlug) as { id: number; name: string } | undefined;
 
     if (!track) {
       return NextResponse.json({ error: "Invalid trackSlug" }, { status: 400 });
     }
 
     let topicId: number | null = null;
+    let topicName = "";
     if (topicSlug) {
       const topic = sqlite
         .prepare(
-          "SELECT id FROM advanced_track_topics WHERE track_id = ? AND slug = ?"
+          "SELECT id, name FROM advanced_track_topics WHERE track_id = ? AND slug = ?"
         )
-        .get(track.id, topicSlug) as { id: number } | undefined;
+        .get(track.id, topicSlug) as { id: number; name: string } | undefined;
 
       if (!topic) {
         return NextResponse.json({ error: "Invalid topicSlug" }, { status: 400 });
       }
       topicId = topic.id;
+      topicName = topic.name;
     }
 
     const resourceId = uuidv4();
+    let backgroundSyncPayload:
+      | {
+          fileBuffer: Buffer;
+          fileName: string;
+          mimeType: string;
+        }
+      | null = null;
 
     if (uploadedFile) {
       const fallbackExtension =
@@ -347,40 +438,25 @@ export async function POST(req: NextRequest) {
       const extension = getSafeFileExtension(uploadedFile.name, fallbackExtension);
       const fileName = `${resourceId}.${extension}`;
       const fileBuffer = Buffer.from(await uploadedFile.arrayBuffer());
+      const mimeType = uploadedFile.type || "application/octet-stream";
 
-      if (isOneDriveConfigured()) {
-        try {
-          const mimeType = uploadedFile.type || "application/octet-stream";
-          const uploaded = await uploadToOneDrive(
-            fileBuffer,
-            fileName,
-            mimeType,
-            trackSlug
-          );
+      ensureDir(ADVANCED_UPLOAD_DIR);
 
-          uploadedDriveItemId = uploaded.driveItemId;
-          contentUrl = `onedrive://${uploaded.driveItemId}`;
-        } catch (oneDriveError) {
-          console.error(
-            "POST /api/admin/advanced-tracks OneDrive upload failed, falling back to local storage:",
-            oneDriveError
-          );
-        }
+      const filePath = path.join(ADVANCED_UPLOAD_DIR, fileName);
+      fs.writeFileSync(filePath, fileBuffer);
+      uploadedFilePath = filePath;
+
+      contentUrl = `/uploads/advanced/${fileName}`;
+      if (!thumbnailUrl && uploadedFile.type.startsWith("image/")) {
+        thumbnailUrl = contentUrl;
       }
 
-      if (!contentUrl.startsWith("onedrive://")) {
-        if (!fs.existsSync(ADVANCED_UPLOAD_DIR)) {
-          fs.mkdirSync(ADVANCED_UPLOAD_DIR, { recursive: true });
-        }
-
-        const filePath = path.join(ADVANCED_UPLOAD_DIR, fileName);
-        fs.writeFileSync(filePath, fileBuffer);
-        uploadedFilePath = filePath;
-
-        contentUrl = `/uploads/advanced/${fileName}`;
-        if (!thumbnailUrl && uploadedFile.type.startsWith("image/")) {
-          thumbnailUrl = contentUrl;
-        }
+      if (isOneDriveConfigured()) {
+        backgroundSyncPayload = {
+          fileBuffer,
+          fileName,
+          mimeType,
+        };
       }
     }
 
@@ -412,16 +488,49 @@ export async function POST(req: NextRequest) {
       tags.forEach((tag) => insertTag.run(resourceId, tag));
     }
 
-    return NextResponse.json({ success: true, resourceId });
-  } catch (error) {
-    if (uploadedDriveItemId) {
-      try {
-        await deleteOneDriveItem(uploadedDriveItemId);
-      } catch {
-        // Best effort rollback for partially saved OneDrive uploads.
-      }
+    const excelLink =
+      contentUrl.startsWith("http://") || contentUrl.startsWith("https://")
+        ? contentUrl
+        : `${req.nextUrl.origin}/api/advanced-tracks/resource/${resourceId}`;
+    const excelCategory = topicName
+      ? `${track.name} / ${topicName}`
+      : track.name;
+
+    try {
+      await appendAdvancedLinkToExcel({
+        noteId: resourceId,
+        title,
+        description: summary,
+        category: excelCategory,
+        link: excelLink,
+        author: session.user.name || "Admin",
+        authorEmail: session.user.email || "",
+        tags: tags.join(", "),
+        license: licenseType,
+        status,
+      });
+    } catch (excelError) {
+      console.error("[Excel] append failed for advanced upload:", excelError);
     }
 
+    if (backgroundSyncPayload) {
+      syncAdvancedResourceToOneDriveInBackground({
+        resourceId,
+        fileBuffer: backgroundSyncPayload.fileBuffer,
+        fileName: backgroundSyncPayload.fileName,
+        mimeType: backgroundSyncPayload.mimeType,
+        trackSlug,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      resourceId,
+      message: backgroundSyncPayload
+        ? "Advanced resource saved locally and queued for background cloud sync."
+        : "Advanced resource saved successfully.",
+    });
+  } catch (error) {
     if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
       try {
         fs.unlinkSync(uploadedFilePath);
@@ -550,17 +659,7 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    if (contentUrl.startsWith("/uploads/advanced/")) {
-      const relativeFilePath = contentUrl.replace(/^\/+/, "");
-      const absoluteFilePath = path.join(process.cwd(), "public", relativeFilePath);
-      if (fs.existsSync(absoluteFilePath)) {
-        try {
-          fs.unlinkSync(absoluteFilePath);
-        } catch {
-          // Best effort cleanup; record deletion already succeeded.
-        }
-      }
-    }
+    deleteAdvancedLocalBackups(resourceId, contentUrl);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -92,11 +92,15 @@ export async function POST(req: NextRequest) {
     sqlite.close();
 
     // ── Append to Excel sheet (Tracking Registered Users) ──
-    appendUserToExcel({
-      userId,
-      name: safeName,
-      email: safeEmail,
-    }).catch((err) => console.error("[Excel] Failed to append user:", err));
+    try {
+      await appendUserToExcel({
+        userId,
+        name: safeName,
+        email: safeEmail,
+      });
+    } catch (err) {
+      console.error("[Excel] Failed to append user:", err);
+    }
 
     return NextResponse.json({
       success: true,

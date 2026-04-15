@@ -8,6 +8,7 @@ import { compareSync } from "bcryptjs";
 import { randomUUID } from "crypto";
 import Database from "better-sqlite3";
 import path from "path";
+import { appendAdminLoginToExcel } from "@/lib/excel";
 import { isRateLimited, loginLimiter } from "@/lib/ratelimit";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
@@ -66,6 +67,32 @@ function hasActivePremiumEntitlement(
   }
 
   return expiryTime > Date.now();
+}
+
+async function logAdminLogin(data: {
+  id: string;
+  name: string;
+  email: string;
+  role: AppRole;
+  provider: string;
+  ipAddress?: string;
+}) {
+  if (data.role !== "admin" && data.role !== "moderator") {
+    return;
+  }
+
+  try {
+    await appendAdminLoginToExcel({
+      adminId: data.id,
+      adminName: data.name,
+      adminEmail: data.email,
+      role: data.role,
+      provider: data.provider,
+      ipAddress: data.ipAddress,
+    });
+  } catch (error) {
+    console.error("[Excel] Failed to log admin login:", error);
+  }
 }
 
 function getFallbackOAuthEmail(account: {
@@ -211,12 +238,22 @@ const providers: Provider[] = [
         user.premium_access,
         user.premium_expires_at
       );
+      const role = normalizeRole(user.role);
+
+      await logAdminLogin({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role,
+        provider: "credentials",
+        ipAddress: ip,
+      });
 
       return {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: normalizeRole(user.role),
+        role,
         image: user.avatar,
         premium,
         premiumExpiresAt: user.premium_expires_at,
@@ -301,6 +338,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       mutableUser.role = normalizeRole(syncedUser.role);
       mutableUser.premium = premium;
       mutableUser.premiumExpiresAt = syncedUser.premium_expires_at;
+
+      await logAdminLogin({
+        id: syncedUser.id,
+        name: syncedUser.name,
+        email: syncedUser.email,
+        role: mutableUser.role,
+        provider: account.provider || "oauth",
+      });
 
       return true;
     },

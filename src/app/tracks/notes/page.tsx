@@ -117,22 +117,17 @@ export default function TrackNotesPage() {
   }, []);
 
   const fetchResources = useCallback(async () => {
-    if (!selectedTrackSlug) {
-      setResources([]);
-      setViewer({ isAuthenticated: false, hasPremiumAccess: false });
-      setTotal(0);
-      setLoadingResources(false);
-      return;
-    }
-
     setLoadingResources(true);
     setError(null);
 
     try {
       const params = new URLSearchParams();
-      params.set("track", selectedTrackSlug);
       params.set("sort", sortBy);
       params.set("limit", "20");
+
+      if (selectedTrackSlug) {
+        params.set("track", selectedTrackSlug);
+      }
 
       if (selectedTopicSlug) {
         params.set("topic", selectedTopicSlug);
@@ -202,20 +197,23 @@ export default function TrackNotesPage() {
     return `/login?callbackUrl=${encodeURIComponent(callbackPath)}`;
   }, [searchParams]);
 
-  const buildTrackHref = (trackSlug: string) => {
+  const buildTrackHref = (trackSlug?: string) => {
     const params = new URLSearchParams();
-    params.set("track", trackSlug);
+    if (trackSlug) {
+      params.set("track", trackSlug);
+    }
 
     const trimmedQuery = searchQuery.trim();
     if (trimmedQuery) {
       params.set("q", trimmedQuery);
     }
 
-    return `/tracks/notes?${params.toString()}`;
+    const queryString = params.toString();
+    return queryString ? `/tracks/notes?${queryString}` : "/tracks/notes";
   };
 
   const buildTopicHref = (topicSlug?: string) => {
-    if (!selectedTrack) return "/tracks";
+    if (!selectedTrack) return "/tracks/library";
 
     const params = new URLSearchParams();
     params.set("track", selectedTrack.slug);
@@ -232,18 +230,27 @@ export default function TrackNotesPage() {
     return `/tracks/notes?${params.toString()}`;
   };
 
+  const trackFilters: Array<{ slug: string; label: string }> = [
+    { slug: "", label: "All" },
+    ...tracks.map((track) => ({ slug: track.slug, label: track.name })),
+  ];
+
+  const activeSortLabel =
+    SORT_OPTIONS.find((option) => option.value === sortBy)?.label || "Newest First";
+  const focusAreaLabel = selectedTopic
+    ? `Topic: ${selectedTopic.name}`
+    : selectedTrack
+      ? `Track: ${selectedTrack.name}`
+      : "All tracks";
   const isLoading = loadingTracks || loadingResources;
 
   return (
     <section className={styles.page} id="advanced-track-notes-page">
       <div className={styles.container}>
         <header className={styles.header}>
-          <Link href="/tracks" className={styles.backLink}>
-            ← Back to Tracks
-          </Link>
-          <h1 className={styles.title}>Advanced Track Resources</h1>
+          <h1 className={styles.title}>Browse Advanced Notes</h1>
           <p className={styles.subtitle}>
-            This module is isolated from standard notes, categories, and regular uploads.
+            Discover production-focused notes across Kubernetes, Linux, DevOps, and System Design.
           </p>
 
           <div className={styles.controls}>
@@ -303,23 +310,32 @@ export default function TrackNotesPage() {
 
         <div className={styles.tabsSection}>
           <div className={styles.trackTabs}>
-            {tracks.map((track) => (
-              <Link
-                key={track.slug}
-                href={buildTrackHref(track.slug)}
-                className={`${styles.trackTab} ${
-                  selectedTrack?.slug === track.slug ? styles.trackTabActive : ""
-                }`}
-              >
-                {track.name}
-              </Link>
-            ))}
+            {trackFilters.map((track) => {
+              const isAll = track.slug.length === 0;
+              const isActive = isAll
+                ? !selectedTrackSlug
+                : selectedTrack?.slug === track.slug;
+
+              return (
+                <Link
+                  key={isAll ? "all-tracks" : track.slug}
+                  href={buildTrackHref(track.slug || undefined)}
+                  replace
+                  scroll={false}
+                  className={`${styles.trackTab} ${isActive ? styles.trackTabActive : ""}`}
+                >
+                  {track.label}
+                </Link>
+              );
+            })}
           </div>
 
           {selectedTrack ? (
             <div className={styles.topicTabs}>
               <Link
                 href={buildTopicHref()}
+                replace
+                scroll={false}
                 className={`${styles.topicTab} ${!selectedTopic ? styles.topicTabActive : ""}`}
               >
                 All {selectedTrack.name}
@@ -328,6 +344,8 @@ export default function TrackNotesPage() {
                 <Link
                   key={topic.slug}
                   href={buildTopicHref(topic.slug)}
+                  replace
+                  scroll={false}
                   className={`${styles.topicTab} ${
                     selectedTopic?.slug === topic.slug ? styles.topicTabActive : ""
                   }`}
@@ -350,13 +368,31 @@ export default function TrackNotesPage() {
           </div>
           <div className={styles.summaryCard}>
             <p className={styles.summaryLabel}>Scope</p>
-            <p className={styles.summaryValue}>
-              {selectedTopic
-                ? `Topic: ${selectedTopic.name}`
-                : selectedTrack
-                  ? `Track: ${selectedTrack.name}`
-                  : "Choose a track"}
-            </p>
+            <p className={styles.summaryValue}>{focusAreaLabel}</p>
+          </div>
+        </div>
+
+        <div className={styles.resultsInfo}>
+          <span className={styles.resultsCount}>
+            {isLoading ? "Loading..." : `${total} resource${total !== 1 ? "s" : ""} found`}
+          </span>
+          <div className={styles.resultsActions}>
+            <span className={styles.activeSortChip}>{activeSortLabel}</span>
+            {selectedTrack ? (
+              <Link className={styles.clearFilter} href={buildTrackHref()} replace scroll={false}>
+                Clear track ×
+              </Link>
+            ) : null}
+            {selectedTopic && selectedTrack ? (
+              <Link className={styles.clearFilter} href={buildTopicHref()} replace scroll={false}>
+                Clear topic ×
+              </Link>
+            ) : null}
+            {searchQuery ? (
+              <button className={styles.clearFilter} onClick={() => setSearchQuery("")}>
+                Clear search ×
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -380,13 +416,6 @@ export default function TrackNotesPage() {
           <div className={styles.emptyState}>
             <h2 className={styles.emptyTitle}>Could not load premium resources</h2>
             <p className={styles.emptyText}>{error}</p>
-          </div>
-        ) : !selectedTrack ? (
-          <div className={styles.emptyState}>
-            <h2 className={styles.emptyTitle}>Choose a track</h2>
-            <p className={styles.emptyText}>
-              Select Kubernetes, DevOps, or System Design from the tabs above.
-            </p>
           </div>
         ) : isLoading ? (
           <div className={styles.loadingGrid}>

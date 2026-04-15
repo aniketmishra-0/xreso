@@ -18,7 +18,7 @@ async function main() {
   const pendingWorkbookPath = path.join(
     process.cwd(),
     "data",
-    "Community_Links.pending.xlsx"
+    "Admin_Audit.pending.xlsx"
   );
 
   if (fs.existsSync(pendingWorkbookPath)) {
@@ -28,7 +28,7 @@ async function main() {
     return;
   }
 
-  console.log("Admin data synced to Community_Links.xlsx");
+  console.log("Admin data synced to Admin_Audit.xlsx");
 }
 
 main().catch((error) => {

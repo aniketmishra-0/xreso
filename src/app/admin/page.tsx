@@ -30,6 +30,31 @@ interface Stats {
   recentViews: number;
 }
 
+interface WorkbookSnapshot {
+  exists: boolean;
+  sizeBytes: number;
+  sheets: Array<{ name: string; rows: number }>;
+}
+
+interface StorageWorkbook {
+  key: string;
+  label: string;
+  primarySheet: string;
+  expectedSheets: string[];
+  localPath: string;
+  oneDrivePath: string;
+  pendingPath: string;
+  localSnapshot: WorkbookSnapshot;
+  pendingSnapshot: WorkbookSnapshot;
+  remoteSnapshot: WorkbookSnapshot | null;
+}
+
+interface StorageStatus {
+  mode: "local" | "onedrive";
+  note: string;
+  workbooks: StorageWorkbook[];
+}
+
 const FILTERS = ["all", "pending", "approved", "rejected"] as const;
 type FilterValue = (typeof FILTERS)[number];
 
@@ -47,17 +72,27 @@ const getNoteThumbnail = (note: AdminNote) =>
     ? `/api/og?title=${encodeURIComponent(note.title)}&category=${encodeURIComponent(note.category_name)}&v=3`
     : note.thumbnail_url;
 
+const formatBytes = (value: number) => {
+  if (value <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const exponent = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+  const formatted = value / 1024 ** exponent;
+  return `${formatted.toFixed(formatted >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+};
+
 export default function AdminPage() {
   const { data: session } = useSession();
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [notes, setNotes] = useState<AdminNote[]>([]);
+  const [storage, setStorage] = useState<StorageStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterValue>("all");
   const [query, setQuery] = useState("");
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [storageError, setStorageError] = useState("");
 
   const userRole = (session?.user as { role?: string })?.role;
 
@@ -68,11 +103,13 @@ export default function AdminPage() {
       setLoading(true);
     }
     setError("");
+    setStorageError("");
 
     try {
-      const [statsRes, notesRes] = await Promise.all([
+      const [statsRes, notesRes, storageRes] = await Promise.all([
         fetch("/api/admin/stats"),
         fetch("/api/admin/notes"),
+        fetch("/api/admin/storage-status"),
       ]);
 
       if (!statsRes.ok || !notesRes.ok) {
@@ -84,6 +121,14 @@ export default function AdminPage() {
 
       setStats(statsPayload.stats ?? null);
       setNotes(notesPayload.notes ?? []);
+
+      if (storageRes.ok) {
+        const storagePayload = (await storageRes.json()) as { storage?: StorageStatus };
+        setStorage(storagePayload.storage ?? null);
+      } else {
+        setStorage(null);
+        setStorageError("Storage routing status could not be loaded.");
+      }
     } catch {
       setError("Could not load admin data. Please refresh and try again.");
     } finally {
@@ -207,6 +252,7 @@ export default function AdminPage() {
       : 0;
 
   const nextPendingTitle = notes.find((note) => note.status === "pending")?.title;
+  const storageModeLabel = storage?.mode === "onedrive" ? "OneDrive sync" : "Local workbooks";
 
   const isActionBusy = (noteId: string, action: string) =>
     activeAction === `${noteId}:${action}`;
@@ -330,6 +376,136 @@ export default function AdminPage() {
                 </p>
               </article>
             </div>
+
+            <section className={styles.storagePanel}>
+              <div className={styles.storageHeader}>
+                <div>
+                  <span className={styles.storageEyebrow}>Storage Routing</span>
+                  <h2 className={styles.storageTitle}>{storageModeLabel}</h2>
+                </div>
+                <span className={styles.storageModeBadge}>
+                  {storage?.mode === "onedrive" ? "Live: OneDrive" : "Live: Local"}
+                </span>
+              </div>
+
+              <p className={styles.storageNote}>
+                {storage?.note || "Workbook routing status will appear here after the admin check succeeds."}
+              </p>
+
+              {storageError && <div className={styles.storageError}>{storageError}</div>}
+
+              {storage && (
+                <div className={styles.storageGrid}>
+                  {storage.workbooks.map((workbook) => {
+                    const liveSnapshot =
+                      storage.mode === "onedrive"
+                        ? workbook.remoteSnapshot
+                        : workbook.localSnapshot;
+
+                    return (
+                      <article key={workbook.key} className={styles.storageCard}>
+                        <div className={styles.storageCardHeader}>
+                          <div>
+                            <h3 className={styles.storageCardTitle}>{workbook.label}</h3>
+                            <p className={styles.storageCardPath}>
+                              {storage.mode === "onedrive"
+                                ? workbook.oneDrivePath
+                                : workbook.localPath}
+                            </p>
+                          </div>
+                          <span className={styles.storagePrimarySheet}>
+                            {workbook.primarySheet}
+                          </span>
+                        </div>
+
+                        <div className={styles.storageBadgeRow}>
+                          {workbook.expectedSheets.map((sheet) => {
+                            const present = Boolean(
+                              liveSnapshot?.sheets.some((entry) => entry.name === sheet)
+                            );
+
+                            return (
+                              <span
+                                key={`${workbook.key}-${sheet}`}
+                                className={`${styles.storageSheetBadge} ${
+                                  present ? styles.storageSheetOk : styles.storageSheetMissing
+                                }`}
+                              >
+                                {sheet}
+                              </span>
+                            );
+                          })}
+                        </div>
+
+                        <div className={styles.storageMetaGrid}>
+                          <div className={styles.storageMetaItem}>
+                            <span className={styles.storageMetaLabel}>
+                              {storage.mode === "onedrive" ? "Live workbook" : "Local workbook"}
+                            </span>
+                            <strong className={styles.storageMetaValue}>
+                              {liveSnapshot?.exists ? formatBytes(liveSnapshot.sizeBytes) : "Not found"}
+                            </strong>
+                            <span className={styles.storageMetaHint}>
+                              {liveSnapshot?.exists
+                                ? `${liveSnapshot.sheets.length} sheet${liveSnapshot.sheets.length === 1 ? "" : "s"}`
+                                : storage.mode === "onedrive"
+                                  ? "No live OneDrive snapshot yet"
+                                  : "Workbook has not been created yet"}
+                            </span>
+                          </div>
+
+                          <div className={styles.storageMetaItem}>
+                            <span className={styles.storageMetaLabel}>Local mirror</span>
+                            <strong className={styles.storageMetaValue}>
+                              {workbook.localSnapshot.exists
+                                ? formatBytes(workbook.localSnapshot.sizeBytes)
+                                : "None"}
+                            </strong>
+                            <span className={styles.storageMetaHint}>
+                              {workbook.localSnapshot.exists
+                                ? `${workbook.localSnapshot.sheets.length} local sheet${workbook.localSnapshot.sheets.length === 1 ? "" : "s"}`
+                                : "No local mirror file"}
+                            </span>
+                          </div>
+
+                          <div className={styles.storageMetaItem}>
+                            <span className={styles.storageMetaLabel}>Pending fallback</span>
+                            <strong className={styles.storageMetaValue}>
+                              {workbook.pendingSnapshot.exists
+                                ? formatBytes(workbook.pendingSnapshot.sizeBytes)
+                                : "Clear"}
+                            </strong>
+                            <span className={styles.storageMetaHint}>
+                              {workbook.pendingSnapshot.exists
+                                ? "Workbook write is queued locally"
+                                : "No pending sync file"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className={styles.storageSheetsList}>
+                          {(liveSnapshot?.sheets || []).map((sheet) => (
+                            <div
+                              key={`${workbook.key}-${sheet.name}`}
+                              className={styles.storageSheetRow}
+                            >
+                              <span>{sheet.name}</span>
+                              <span>{sheet.rows} rows</span>
+                            </div>
+                          ))}
+
+                          {(!liveSnapshot || liveSnapshot.sheets.length === 0) && (
+                            <div className={styles.storageSheetEmpty}>
+                              No sheet snapshot available yet.
+                            </div>
+                          )}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
           </>
         )}
 

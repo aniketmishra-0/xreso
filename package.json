@@ -13,7 +13,9 @@
     "db:seed": "npx tsx scripts/seed.ts",
     "db:studio": "npx drizzle-kit studio",
     "user:make-admin": "npx tsx scripts/make-admin.ts",
-    "excel:add-admin": "npx tsx scripts/add-admin-to-excel.ts"
+    "excel:add-admin": "npx tsx scripts/add-admin-to-excel.ts",
+    "excel:migrate-split": "npx tsx scripts/migrate-excel-workbooks.ts",
+    "verify:storage": "npx tsx scripts/verify-storage-routing.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",

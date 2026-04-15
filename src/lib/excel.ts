@@ -1,9 +1,8 @@
 /**
- * Excel sheet manager for community links
- * ─────────────────────────────────────────
- * Maintains a "Community_Links.xlsx" file in OneDrive
- * under Xreso/ folder. Every shared link gets appended
- * as a new row automatically.
+ * Excel workbook manager
+ * ──────────────────────
+ * Keeps community submissions, advanced submissions, and
+ * admin audit activity in separate Excel workbooks.
  *
  * If OneDrive is not configured, saves locally.
  */
@@ -12,9 +11,80 @@ import ExcelJS from "exceljs";
 import fs from "fs";
 import path from "path";
 
-const LOCAL_EXCEL_PATH = path.join(process.cwd(), "data", "Community_Links.xlsx");
-const ONEDRIVE_EXCEL_PATH = "Xreso/Community_Links.xlsx";
-const ONEDRIVE_PENDING_EXCEL_PATH = path.join(process.cwd(), "data", "Community_Links.pending.xlsx");
+type WorkbookTarget = {
+  localPath: string;
+  oneDrivePath: string;
+  pendingPath: string;
+};
+
+type WorkbookSnapshot = {
+  exists: boolean;
+  sizeBytes: number;
+  sheets: Array<{ name: string; rows: number }>;
+};
+
+const COMMUNITY_WORKBOOK: WorkbookTarget = {
+  localPath: path.join(process.cwd(), "data", "Community_Links.xlsx"),
+  oneDrivePath: "Xreso/Community_Links.xlsx",
+  pendingPath: path.join(process.cwd(), "data", "Community_Links.pending.xlsx"),
+};
+
+const ADVANCED_WORKBOOK: WorkbookTarget = {
+  localPath: path.join(process.cwd(), "data", "Advanced_Tracks.xlsx"),
+  oneDrivePath: "Xreso/Advanced_Tracks.xlsx",
+  pendingPath: path.join(process.cwd(), "data", "Advanced_Tracks.pending.xlsx"),
+};
+
+const ADMIN_WORKBOOK: WorkbookTarget = {
+  localPath: path.join(process.cwd(), "data", "Admin_Audit.xlsx"),
+  oneDrivePath: "Xreso/Admin_Audit.xlsx",
+  pendingPath: path.join(process.cwd(), "data", "Admin_Audit.pending.xlsx"),
+};
+
+const WORKBOOK_CONFIG = {
+  community: {
+    key: "community",
+    label: "Community",
+    primarySheet: "Community Links",
+    expectedSheets: ["Community Links", "Registered Users", "User Photos"],
+    target: COMMUNITY_WORKBOOK,
+  },
+  advanced: {
+    key: "advanced",
+    label: "Advanced",
+    primarySheet: "Advanced Uploads",
+    expectedSheets: ["Advanced Uploads"],
+    target: ADVANCED_WORKBOOK,
+  },
+  admin: {
+    key: "admin",
+    label: "Admin Audit",
+    primarySheet: "Admin Logins",
+    expectedSheets: ["Admin Logins", "Admin Users", "Admin Actions"],
+    target: ADMIN_WORKBOOK,
+  },
+} as const;
+
+export type ExcelWorkbookKey = keyof typeof WORKBOOK_CONFIG;
+
+export type ExcelStorageWorkbookStatus = {
+  key: ExcelWorkbookKey;
+  label: string;
+  primarySheet: string;
+  expectedSheets: string[];
+  localPath: string;
+  oneDrivePath: string;
+  pendingPath: string;
+  localSnapshot: WorkbookSnapshot;
+  pendingSnapshot: WorkbookSnapshot;
+  remoteSnapshot: WorkbookSnapshot | null;
+};
+
+export type ExcelStorageStatus = {
+  mode: "local" | "onedrive";
+  note: string;
+  workbooks: ExcelStorageWorkbookStatus[];
+};
 
 /* ── Column headers for the sheet ───────────────────────── */
 const HEADERS = [
@@ -75,6 +145,16 @@ const ADMIN_USER_HEADERS = [
   { header: "Notes", key: "notes", width: 44 },
 ];
 
+const ADMIN_LOGIN_HEADERS = [
+  { header: "Login At", key: "date", width: 22 },
+  { header: "Admin ID", key: "adminId", width: 38 },
+  { header: "Admin Name", key: "adminName", width: 28 },
+  { header: "Admin Email", key: "adminEmail", width: 36 },
+  { header: "Role", key: "role", width: 16 },
+  { header: "Provider", key: "provider", width: 18 },
+  { header: "IP Address", key: "ipAddress", width: 24 },
+];
+
 /* ── Detect link type ───────────────────────────────────── */
 function detectLinkType(url: string): string {
   if (!url) return "Unknown";
@@ -98,32 +178,33 @@ const CATEGORY_MAP: Record<string, string> = {
   ruby: "Ruby", php: "PHP", other: "Other",
 };
 
-/* ── Create a fresh workbook with styled headers ────────── */
-function createWorkbook(): ExcelJS.Workbook {
-  const workbook = new ExcelJS.Workbook();
-  workbook.creator = "Xreso";
-  workbook.created = new Date();
+function getWorkbookLabel(target: WorkbookTarget) {
+  return path.posix.basename(target.oneDrivePath);
+}
 
-  const sheet = workbook.addWorksheet("Community Links", {
-    properties: { tabColor: { argb: "8B5CF6" } },
-  });
-
-  sheet.columns = HEADERS;
-
-  // Style the header row
+function applySheetSchema(
+  sheet: ExcelJS.Worksheet,
+  columns: Array<Partial<ExcelJS.Column>>,
+  color: string
+) {
+  sheet.columns = columns;
   const headerRow = sheet.getRow(1);
   headerRow.font = { bold: true, color: { argb: "FFFFFF" }, size: 11 };
   headerRow.fill = {
     type: "pattern",
     pattern: "solid",
-    fgColor: { argb: "8B5CF6" },
+    fgColor: { argb: color },
   };
   headerRow.alignment = { vertical: "middle", horizontal: "center" };
   headerRow.height = 28;
-
-  // Freeze the header row
   sheet.views = [{ state: "frozen", ySplit: 1 }];
+}
 
+/* ── Create a fresh workbook ────────────────────────────── */
+function createWorkbook(): ExcelJS.Workbook {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = "Xreso";
+  workbook.created = new Date();
   return workbook;
 }
 
@@ -137,95 +218,143 @@ async function loadOrCreateWorkbook(existingBuffer?: Buffer): Promise<ExcelJS.Wo
   return createWorkbook();
 }
 
-function ensureLocalDataDir() {
-  const dir = path.dirname(LOCAL_EXCEL_PATH);
+function ensureLocalDataDir(targetPath: string) {
+  const dir = path.dirname(targetPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 }
 
 function saveBufferToPath(targetPath: string, buffer: Buffer) {
-  ensureLocalDataDir();
+  ensureLocalDataDir(targetPath);
   fs.writeFileSync(targetPath, buffer);
 }
 
-function loadPendingOneDriveBuffer(): Buffer | undefined {
-  if (!fs.existsSync(ONEDRIVE_PENDING_EXCEL_PATH)) return undefined;
-  return fs.readFileSync(ONEDRIVE_PENDING_EXCEL_PATH);
+async function inspectWorkbookSnapshot(filePath: string): Promise<WorkbookSnapshot> {
+  if (!fs.existsSync(filePath)) {
+    return {
+      exists: false,
+      sizeBytes: 0,
+      sheets: [],
+    };
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.readFile(filePath);
+
+  return {
+    exists: true,
+    sizeBytes: fs.statSync(filePath).size,
+    sheets: workbook.worksheets.map((sheet) => ({
+      name: sheet.name,
+      rows: sheet.rowCount,
+    })),
+  };
 }
 
-function clearPendingOneDriveBuffer() {
-  if (fs.existsSync(ONEDRIVE_PENDING_EXCEL_PATH)) {
-    fs.unlinkSync(ONEDRIVE_PENDING_EXCEL_PATH);
+async function inspectWorkbookBuffer(buffer?: Buffer): Promise<WorkbookSnapshot | null> {
+  if (!buffer || buffer.length === 0) {
+    return null;
+  }
+
+  const workbook = new ExcelJS.Workbook();
+  await workbook.xlsx.load(buffer as never);
+
+  return {
+    exists: true,
+    sizeBytes: buffer.length,
+    sheets: workbook.worksheets.map((sheet) => ({
+      name: sheet.name,
+      rows: sheet.rowCount,
+    })),
+  };
+}
+
+export function getExcelWorkbookTargets() {
+  return Object.values(WORKBOOK_CONFIG).map((config) => ({
+    key: config.key,
+    label: config.label,
+    primarySheet: config.primarySheet,
+    expectedSheets: [...config.expectedSheets],
+    localPath: config.target.localPath,
+    oneDrivePath: config.target.oneDrivePath,
+    pendingPath: config.target.pendingPath,
+  }));
+}
+
+export async function getExcelStorageStatus(): Promise<ExcelStorageStatus> {
+  const { isOneDriveConfigured } = await import("@/lib/onedrive");
+  const mode = isOneDriveConfigured() ? "onedrive" : "local";
+
+  const workbooks = await Promise.all(
+    Object.values(WORKBOOK_CONFIG).map(async (config) => {
+      const remoteSnapshot =
+        mode === "onedrive"
+          ? await inspectWorkbookBuffer(
+              await downloadExcelFromOneDrive(config.target)
+            )
+          : null;
+
+      return {
+        key: config.key,
+        label: config.label,
+        primarySheet: config.primarySheet,
+        expectedSheets: [...config.expectedSheets],
+        localPath: config.target.localPath,
+        oneDrivePath: config.target.oneDrivePath,
+        pendingPath: config.target.pendingPath,
+        localSnapshot: await inspectWorkbookSnapshot(config.target.localPath),
+        pendingSnapshot: await inspectWorkbookSnapshot(config.target.pendingPath),
+        remoteSnapshot,
+      };
+    })
+  );
+
+  return {
+    mode,
+    note:
+      mode === "onedrive"
+        ? "Live writes go to OneDrive. Local workbook files are mirrors or pending fallbacks."
+        : "Live writes go directly to local workbook files in the data directory.",
+    workbooks,
+  };
+}
+
+function loadPendingOneDriveBuffer(target: WorkbookTarget): Buffer | undefined {
+  if (!fs.existsSync(target.pendingPath)) return undefined;
+  return fs.readFileSync(target.pendingPath);
+}
+
+function clearPendingOneDriveBuffer(target: WorkbookTarget) {
+  if (fs.existsSync(target.pendingPath)) {
+    fs.unlinkSync(target.pendingPath);
   }
 }
 
 function applyCommunitySheetSchema(sheet: ExcelJS.Worksheet) {
-  sheet.columns = HEADERS;
-  const headerRow = sheet.getRow(1);
-  headerRow.font = { bold: true, color: { argb: "FFFFFF" }, size: 11 };
-  headerRow.fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "8B5CF6" },
-  };
-  headerRow.alignment = { vertical: "middle", horizontal: "center" };
-  headerRow.height = 28;
-  sheet.views = [{ state: "frozen", ySplit: 1 }];
+  applySheetSchema(sheet, HEADERS, "8B5CF6");
+}
+
+function applyAdvancedSheetSchema(sheet: ExcelJS.Worksheet) {
+  applySheetSchema(sheet, HEADERS, "0EA5E9");
 }
 
 function applyUserSheetSchema(sheet: ExcelJS.Worksheet) {
-  sheet.columns = USER_HEADERS;
-  const headerRow = sheet.getRow(1);
-  headerRow.font = { bold: true, color: { argb: "FFFFFF" }, size: 11 };
-  headerRow.fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "10B981" },
-  };
-  headerRow.alignment = { vertical: "middle", horizontal: "center" };
-  headerRow.height = 28;
-  sheet.views = [{ state: "frozen", ySplit: 1 }];
+  applySheetSchema(sheet, USER_HEADERS, "10B981");
 }
 
 function applyUserPhotoSheetSchema(sheet: ExcelJS.Worksheet) {
-  sheet.columns = USER_PHOTO_HEADERS;
-  const headerRow = sheet.getRow(1);
-  headerRow.font = { bold: true, color: { argb: "FFFFFF" }, size: 11 };
-  headerRow.fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "0284C7" },
-  };
-  headerRow.alignment = { vertical: "middle", horizontal: "center" };
-  headerRow.height = 28;
-  sheet.views = [{ state: "frozen", ySplit: 1 }];
+  applySheetSchema(sheet, USER_PHOTO_HEADERS, "0284C7");
 }
 
 function applyAdminActionSheetSchema(sheet: ExcelJS.Worksheet) {
-  sheet.columns = ADMIN_ACTION_HEADERS;
-  const headerRow = sheet.getRow(1);
-  headerRow.font = { bold: true, color: { argb: "FFFFFF" }, size: 11 };
-  headerRow.fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "DC2626" },
-  };
-  headerRow.alignment = { vertical: "middle", horizontal: "center" };
-  headerRow.height = 28;
-  sheet.views = [{ state: "frozen", ySplit: 1 }];
+  applySheetSchema(sheet, ADMIN_ACTION_HEADERS, "DC2626");
 }
 
 function applyAdminUserSheetSchema(sheet: ExcelJS.Worksheet) {
-  sheet.columns = ADMIN_USER_HEADERS;
-  const headerRow = sheet.getRow(1);
-  headerRow.font = { bold: true, color: { argb: "FFFFFF" }, size: 11 };
-  headerRow.fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "7C3AED" },
-  };
-  headerRow.alignment = { vertical: "middle", horizontal: "center" };
-  headerRow.height = 28;
-  sheet.views = [{ state: "frozen", ySplit: 1 }];
+  applySheetSchema(sheet, ADMIN_USER_HEADERS, "7C3AED");
+}
+
+function applyAdminLoginSheetSchema(sheet: ExcelJS.Worksheet) {
+  applySheetSchema(sheet, ADMIN_LOGIN_HEADERS, "F59E0B");
 }
 
 function ensureWorksheet(
@@ -264,8 +393,7 @@ function cellValueToText(value: ExcelJS.CellValue | null | undefined): string {
   return String(value);
 }
 
-/* ── Append a link row to the Excel sheet ───────────────── */
-export async function appendLinkToExcel(data: {
+type ExcelLinkRow = {
   noteId: string;
   title: string;
   description: string;
@@ -275,92 +403,146 @@ export async function appendLinkToExcel(data: {
   authorEmail?: string;
   tags: string;
   license: string;
-}): Promise<void> {
+  status?: string;
+};
+
+function formatExcelStatus(status?: string) {
+  const normalized = typeof status === "string" ? status.trim().toLowerCase() : "";
+  if (!normalized) return "Pending";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+async function loadExistingWorkbookBuffer(
+  target: WorkbookTarget,
+  useOneDrive: boolean
+): Promise<Buffer | undefined> {
+  if (useOneDrive) {
+    const pendingBuffer = loadPendingOneDriveBuffer(target);
+    if (pendingBuffer) return pendingBuffer;
+    return downloadExcelFromOneDrive(target);
+  }
+
+  if (fs.existsSync(target.localPath)) {
+    return fs.readFileSync(target.localPath);
+  }
+
+  return undefined;
+}
+
+async function saveWorkbook(
+  target: WorkbookTarget,
+  useOneDrive: boolean,
+  buffer: Buffer,
+  successLabel: string,
+  deferredLabel: string
+) {
+  if (useOneDrive) {
+    try {
+      await uploadExcelToOneDrive(target, buffer);
+      clearPendingOneDriveBuffer(target);
+      console.log(`[Excel] ${successLabel} synced to OneDrive ${getWorkbookLabel(target)}`);
+    } catch (error) {
+      saveBufferToPath(target.pendingPath, buffer);
+      console.warn(`[Excel] ${deferredLabel}, saved pending workbook locally:`, error);
+    }
+    return;
+  }
+
+  saveBufferToPath(target.localPath, buffer);
+  console.log(`[Excel] ${successLabel} synced to local ${path.basename(target.localPath)}`);
+}
+
+async function appendSubmissionToExcel(
+  target: WorkbookTarget,
+  sheetName: string,
+  schema: (sheet: ExcelJS.Worksheet) => void,
+  data: ExcelLinkRow
+) {
+  const { isOneDriveConfigured } = await import("@/lib/onedrive");
+  const useOneDrive = isOneDriveConfigured();
+  const existingBuffer = await loadExistingWorkbookBuffer(target, useOneDrive);
+  const workbook = await loadOrCreateWorkbook(existingBuffer);
+  const sheet = ensureWorksheet(
+    workbook,
+    sheetName,
+    sheetName === "Advanced Uploads" ? "0EA5E9" : "8B5CF6",
+    schema
+  );
+
+  const now = new Date().toLocaleString("en-IN", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Kolkata",
+  });
+
+  const categoryName = CATEGORY_MAP[data.category] || data.category;
+  const linkType = detectLinkType(data.link);
+
+  const newRow = sheet.addRow({
+    date: now,
+    title: data.title,
+    category: categoryName,
+    link: data.link,
+    linkType,
+    author: data.author,
+    description: data.description,
+    tags: data.tags,
+    license: data.license,
+    noteId: data.noteId,
+    status: formatExcelStatus(data.status),
+    authorEmail: data.authorEmail || "",
+  });
+
+  const linkCell = newRow.getCell("link");
+  linkCell.value = {
+    text: data.link,
+    hyperlink: data.link,
+  } as ExcelJS.CellHyperlinkValue;
+  linkCell.font = { color: { argb: "0563C1" }, underline: true };
+
+  if (newRow.number % 2 === 0) {
+    newRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: sheetName === "Advanced Uploads" ? "ECFEFF" : "F5F3FF" },
+    };
+  }
+
+  const outputBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
+  await saveWorkbook(
+    target,
+    useOneDrive,
+    outputBuffer,
+    `${sheetName} row appended`,
+    `${sheetName} sync deferred`
+  );
+}
+
+/* ── Append a link row to the Excel sheet ───────────────── */
+export async function appendLinkToExcel(data: ExcelLinkRow): Promise<void> {
   try {
-    const { isOneDriveConfigured } = await import("@/lib/onedrive");
-    const useOneDrive = isOneDriveConfigured();
-
-    let existingBuffer: Buffer | undefined;
-
-    if (useOneDrive) {
-      existingBuffer = loadPendingOneDriveBuffer();
-      if (!existingBuffer) {
-        // Try to download existing Excel from OneDrive
-        existingBuffer = await downloadExcelFromOneDrive();
-      }
-    } else {
-      // Try to load from local file
-      if (fs.existsSync(LOCAL_EXCEL_PATH)) {
-        existingBuffer = fs.readFileSync(LOCAL_EXCEL_PATH);
-      }
-    }
-
-    const workbook = await loadOrCreateWorkbook(existingBuffer);
-    const sheet = workbook.getWorksheet("Community Links") || workbook.addWorksheet("Community Links");
-    applyCommunitySheetSchema(sheet);
-
-    // Add the new row
-    const now = new Date().toLocaleString("en-IN", {
-      dateStyle: "medium",
-      timeStyle: "short",
-      timeZone: "Asia/Kolkata",
-    });
-
-    const categoryName = CATEGORY_MAP[data.category] || data.category;
-    const linkType = detectLinkType(data.link);
-
-    const newRow = sheet.addRow({
-      date: now,
-      title: data.title,
-      category: categoryName,
-      link: data.link,
-      linkType: linkType,
-      author: data.author,
-      description: data.description,
-      tags: data.tags,
-      license: data.license,
-      noteId: data.noteId,
-      status: "Pending",
-      authorEmail: data.authorEmail || "",
-    });
-
-    // Style the link cell as a hyperlink
-    const linkCell = newRow.getCell("link");
-    linkCell.value = {
-      text: data.link,
-      hyperlink: data.link,
-    } as ExcelJS.CellHyperlinkValue;
-    linkCell.font = { color: { argb: "0563C1" }, underline: true };
-
-    // Alternate row color
-    if (newRow.number % 2 === 0) {
-      newRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "F5F3FF" },
-      };
-    }
-
-    // Write back
-    const outputBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
-
-    if (useOneDrive) {
-      try {
-        await uploadExcelToOneDrive(outputBuffer);
-        clearPendingOneDriveBuffer();
-        console.log("[Excel] Link appended to OneDrive Community_Links.xlsx");
-      } catch (error) {
-        saveBufferToPath(ONEDRIVE_PENDING_EXCEL_PATH, outputBuffer);
-        console.warn("[Excel] OneDrive upload failed, saved pending changes locally for retry:", error);
-      }
-    } else {
-      // Save locally
-      saveBufferToPath(LOCAL_EXCEL_PATH, outputBuffer);
-      console.log("[Excel] Link appended to local Community_Links.xlsx");
-    }
+    await appendSubmissionToExcel(
+      COMMUNITY_WORKBOOK,
+      "Community Links",
+      applyCommunitySheetSchema,
+      data
+    );
   } catch (error) {
     console.error("[Excel] Failed to append link:", error);
     // Non-fatal — don't block the upload
+  }
+}
+
+export async function appendAdvancedLinkToExcel(data: ExcelLinkRow): Promise<void> {
+  try {
+    await appendSubmissionToExcel(
+      ADVANCED_WORKBOOK,
+      "Advanced Uploads",
+      applyAdvancedSheetSchema,
+      data
+    );
+  } catch (error) {
+    console.error("[Excel] Failed to append advanced upload:", error);
   }
 }
 
@@ -374,16 +556,7 @@ export async function updateLinkStatusInExcel(data: {
   try {
     const { isOneDriveConfigured } = await import("@/lib/onedrive");
     const useOneDrive = isOneDriveConfigured();
-
-    let existingBuffer: Buffer | undefined;
-    if (useOneDrive) {
-      existingBuffer = loadPendingOneDriveBuffer();
-      if (!existingBuffer) {
-        existingBuffer = await downloadExcelFromOneDrive();
-      }
-    } else if (fs.existsSync(LOCAL_EXCEL_PATH)) {
-      existingBuffer = fs.readFileSync(LOCAL_EXCEL_PATH);
-    }
+    const existingBuffer = await loadExistingWorkbookBuffer(COMMUNITY_WORKBOOK, useOneDrive);
 
     if (!existingBuffer || existingBuffer.length === 0) {
       return false;
@@ -414,17 +587,13 @@ export async function updateLinkStatusInExcel(data: {
     }
 
     const outputBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
-    if (useOneDrive) {
-      try {
-        await uploadExcelToOneDrive(outputBuffer);
-        clearPendingOneDriveBuffer();
-      } catch (error) {
-        saveBufferToPath(ONEDRIVE_PENDING_EXCEL_PATH, outputBuffer);
-        console.warn("[Excel] OneDrive status sync deferred, saved pending workbook locally:", error);
-      }
-    } else {
-      saveBufferToPath(LOCAL_EXCEL_PATH, outputBuffer);
-    }
+    await saveWorkbook(
+      COMMUNITY_WORKBOOK,
+      useOneDrive,
+      outputBuffer,
+      "Community status update",
+      "Community status sync deferred"
+    );
 
     return true;
   } catch (error) {
@@ -449,16 +618,7 @@ export async function appendAdminActionToExcel(data: {
   try {
     const { isOneDriveConfigured } = await import("@/lib/onedrive");
     const useOneDrive = isOneDriveConfigured();
-
-    let existingBuffer: Buffer | undefined;
-    if (useOneDrive) {
-      existingBuffer = loadPendingOneDriveBuffer();
-      if (!existingBuffer) {
-        existingBuffer = await downloadExcelFromOneDrive();
-      }
-    } else if (fs.existsSync(LOCAL_EXCEL_PATH)) {
-      existingBuffer = fs.readFileSync(LOCAL_EXCEL_PATH);
-    }
+    const existingBuffer = await loadExistingWorkbookBuffer(ADMIN_WORKBOOK, useOneDrive);
 
     const workbook = await loadOrCreateWorkbook(existingBuffer);
     const sheet = ensureWorksheet(workbook, "Admin Actions", "DC2626", applyAdminActionSheetSchema);
@@ -493,20 +653,13 @@ export async function appendAdminActionToExcel(data: {
     }
 
     const outputBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
-
-    if (useOneDrive) {
-      try {
-        await uploadExcelToOneDrive(outputBuffer);
-        clearPendingOneDriveBuffer();
-        console.log("[Excel] Admin action synced to OneDrive Community_Links.xlsx");
-      } catch (error) {
-        saveBufferToPath(ONEDRIVE_PENDING_EXCEL_PATH, outputBuffer);
-        console.warn("[Excel] OneDrive admin action sync failed, saved pending workbook locally:", error);
-      }
-    } else {
-      saveBufferToPath(LOCAL_EXCEL_PATH, outputBuffer);
-      console.log("[Excel] Admin action synced to local Community_Links.xlsx");
-    }
+    await saveWorkbook(
+      ADMIN_WORKBOOK,
+      useOneDrive,
+      outputBuffer,
+      "Admin action",
+      "Admin action sync deferred"
+    );
   } catch (error) {
     console.error("[Excel] Failed to append admin action:", error);
   }
@@ -522,16 +675,7 @@ export async function upsertAdminUserInExcel(data: {
   try {
     const { isOneDriveConfigured } = await import("@/lib/onedrive");
     const useOneDrive = isOneDriveConfigured();
-
-    let existingBuffer: Buffer | undefined;
-    if (useOneDrive) {
-      existingBuffer = loadPendingOneDriveBuffer();
-      if (!existingBuffer) {
-        existingBuffer = await downloadExcelFromOneDrive();
-      }
-    } else if (fs.existsSync(LOCAL_EXCEL_PATH)) {
-      existingBuffer = fs.readFileSync(LOCAL_EXCEL_PATH);
-    }
+    const existingBuffer = await loadExistingWorkbookBuffer(ADMIN_WORKBOOK, useOneDrive);
 
     const workbook = await loadOrCreateWorkbook(existingBuffer);
     const sheet = ensureWorksheet(workbook, "Admin Users", "7C3AED", applyAdminUserSheetSchema);
@@ -582,22 +726,67 @@ export async function upsertAdminUserInExcel(data: {
     }
 
     const outputBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
-
-    if (useOneDrive) {
-      try {
-        await uploadExcelToOneDrive(outputBuffer);
-        clearPendingOneDriveBuffer();
-        console.log("[Excel] Admin user synced to OneDrive Community_Links.xlsx");
-      } catch (error) {
-        saveBufferToPath(ONEDRIVE_PENDING_EXCEL_PATH, outputBuffer);
-        console.warn("[Excel] OneDrive admin user sync failed, saved pending workbook locally:", error);
-      }
-    } else {
-      saveBufferToPath(LOCAL_EXCEL_PATH, outputBuffer);
-      console.log("[Excel] Admin user synced to local Community_Links.xlsx");
-    }
+    await saveWorkbook(
+      ADMIN_WORKBOOK,
+      useOneDrive,
+      outputBuffer,
+      "Admin user",
+      "Admin user sync deferred"
+    );
   } catch (error) {
     console.error("[Excel] Failed to sync admin user:", error);
+  }
+}
+
+export async function appendAdminLoginToExcel(data: {
+  adminId: string;
+  adminName: string;
+  adminEmail: string;
+  role: string;
+  provider: string;
+  ipAddress?: string;
+}): Promise<void> {
+  try {
+    const { isOneDriveConfigured } = await import("@/lib/onedrive");
+    const useOneDrive = isOneDriveConfigured();
+    const existingBuffer = await loadExistingWorkbookBuffer(ADMIN_WORKBOOK, useOneDrive);
+    const workbook = await loadOrCreateWorkbook(existingBuffer);
+    const sheet = ensureWorksheet(workbook, "Admin Logins", "F59E0B", applyAdminLoginSheetSchema);
+
+    const now = new Date().toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Asia/Kolkata",
+    });
+
+    const row = sheet.addRow({
+      date: now,
+      adminId: data.adminId,
+      adminName: data.adminName,
+      adminEmail: data.adminEmail,
+      role: data.role,
+      provider: data.provider,
+      ipAddress: data.ipAddress || "",
+    });
+
+    if (row.number % 2 === 0) {
+      row.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFFBEB" },
+      };
+    }
+
+    const outputBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    await saveWorkbook(
+      ADMIN_WORKBOOK,
+      useOneDrive,
+      outputBuffer,
+      "Admin login",
+      "Admin login sync deferred"
+    );
+  } catch (error) {
+    console.error("[Excel] Failed to append admin login:", error);
   }
 }
 
@@ -610,15 +799,7 @@ export async function appendUserToExcel(data: {
   try {
     const { isOneDriveConfigured } = await import("@/lib/onedrive");
     const useOneDrive = isOneDriveConfigured();
-
-    let existingBuffer: Buffer | undefined;
-    if (useOneDrive) {
-      existingBuffer = await downloadExcelFromOneDrive();
-    } else {
-      if (fs.existsSync(LOCAL_EXCEL_PATH)) {
-        existingBuffer = fs.readFileSync(LOCAL_EXCEL_PATH);
-      }
-    }
+    const existingBuffer = await loadExistingWorkbookBuffer(COMMUNITY_WORKBOOK, useOneDrive);
 
     const workbook = await loadOrCreateWorkbook(existingBuffer);
     const sheetName = "Registered Users";
@@ -648,16 +829,13 @@ export async function appendUserToExcel(data: {
     }
 
     const outputBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
-
-    if (useOneDrive) {
-      await uploadExcelToOneDrive(outputBuffer);
-      console.log("[Excel] User appended to OneDrive Community_Links.xlsx");
-    } else {
-      const dir = path.dirname(LOCAL_EXCEL_PATH);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(LOCAL_EXCEL_PATH, outputBuffer);
-      console.log("[Excel] User appended to local Community_Links.xlsx");
-    }
+    await saveWorkbook(
+      COMMUNITY_WORKBOOK,
+      useOneDrive,
+      outputBuffer,
+      "Registered user",
+      "Registered user sync deferred"
+    );
   } catch (error) {
     console.error("[Excel] Failed to append user:", error);
   }
@@ -688,16 +866,7 @@ export async function upsertUserPhotoInExcel(data: {
   try {
     const { isOneDriveConfigured } = await import("@/lib/onedrive");
     const useOneDrive = isOneDriveConfigured();
-
-    let existingBuffer: Buffer | undefined;
-    if (useOneDrive) {
-      existingBuffer = loadPendingOneDriveBuffer();
-      if (!existingBuffer) {
-        existingBuffer = await downloadExcelFromOneDrive();
-      }
-    } else if (fs.existsSync(LOCAL_EXCEL_PATH)) {
-      existingBuffer = fs.readFileSync(LOCAL_EXCEL_PATH);
-    }
+    const existingBuffer = await loadExistingWorkbookBuffer(COMMUNITY_WORKBOOK, useOneDrive);
 
     const workbook = await loadOrCreateWorkbook(existingBuffer);
     const sheetName = "User Photos";
@@ -757,20 +926,13 @@ export async function upsertUserPhotoInExcel(data: {
     }
 
     const outputBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
-
-    if (useOneDrive) {
-      try {
-        await uploadExcelToOneDrive(outputBuffer);
-        clearPendingOneDriveBuffer();
-        console.log("[Excel] User photo synced to OneDrive Community_Links.xlsx");
-      } catch (error) {
-        saveBufferToPath(ONEDRIVE_PENDING_EXCEL_PATH, outputBuffer);
-        console.warn("[Excel] OneDrive user photo sync failed, saved pending workbook locally:", error);
-      }
-    } else {
-      saveBufferToPath(LOCAL_EXCEL_PATH, outputBuffer);
-      console.log("[Excel] User photo synced to local Community_Links.xlsx");
-    }
+    await saveWorkbook(
+      COMMUNITY_WORKBOOK,
+      useOneDrive,
+      outputBuffer,
+      "User photo",
+      "User photo sync deferred"
+    );
   } catch (error) {
     console.error("[Excel] Failed to sync user photo:", error);
   }
@@ -830,10 +992,10 @@ async function getToken(): Promise<string> {
   void mod;
 }
 
-async function downloadExcelFromOneDrive(): Promise<Buffer | undefined> {
+async function downloadExcelFromOneDrive(target: WorkbookTarget): Promise<Buffer | undefined> {
   try {
     const token = await getToken();
-    const url = `${GRAPH_BASE}/me/drive/root:/${ONEDRIVE_EXCEL_PATH}:/content`;
+    const url = `${GRAPH_BASE}/me/drive/root:/${target.oneDrivePath}:/content`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -851,13 +1013,13 @@ async function downloadExcelFromOneDrive(): Promise<Buffer | undefined> {
   }
 }
 
-async function uploadExcelToOneDrive(buffer: Buffer): Promise<void> {
+async function uploadExcelToOneDrive(target: WorkbookTarget, buffer: Buffer): Promise<void> {
   const token = await getToken();
 
   // Ensure Xreso folder exists
   await import("@/lib/onedrive").catch(() => null);
 
-  const url = `${GRAPH_BASE}/me/drive/root:/${ONEDRIVE_EXCEL_PATH}:/content`;
+  const url = `${GRAPH_BASE}/me/drive/root:/${target.oneDrivePath}:/content`;
   const maxAttempts = 5;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {

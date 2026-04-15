@@ -71,6 +71,55 @@ For production:
 - run database migrations in your deployment pipeline
 - deploy to your preferred platform (Vercel, self-hosted Node, container-based infra)
 
+## Storage routing and Excel workbooks 📚
+
+xreso now keeps submission/audit exports split by responsibility:
+
+- `Community_Links.xlsx`
+  - `Community Links`
+  - `Registered Users`
+  - `User Photos`
+- `Advanced_Tracks.xlsx`
+  - `Advanced Uploads`
+- `Admin_Audit.xlsx`
+  - `Admin Logins`
+  - `Admin Users`
+  - `Admin Actions`
+
+When OneDrive is configured:
+
+- live workbook writes go to OneDrive
+- local workbook files in `data/` act as mirrors or pending fallbacks
+- any `*.pending.xlsx` file means a workbook write is queued locally and should be reviewed
+
+When OneDrive is not configured:
+
+- workbook writes go directly to local files in `data/`
+
+Useful commands:
+
+```bash
+npm run excel:migrate-split # move legacy workbook data into the split workbook setup
+npm run verify:storage      # inspect workbook routing and fail on pending/missing live sheets
+```
+
+Admins can also view the same routing status inside the admin dashboard.
+
+## Upload behavior for large files ⏱️
+
+File uploads now use a two-step flow:
+
+1. The file is saved locally and the DB row is created immediately.
+2. If OneDrive is configured, cloud sync continues in the background after the API response.
+
+That means users no longer wait for the full cloud upload before seeing a success state.
+
+Notes:
+
+- browser-to-server upload time still depends on the file size and network speed
+- background sync reduces the server-side waiting time, especially for larger PDFs/videos/docs
+- if cloud sync fails, the local file stays available as the fallback copy
+
 ## Auth setup 🔐
 
 xreso supports email/password auth plus optional social login through Google, GitHub, and LinkedIn.

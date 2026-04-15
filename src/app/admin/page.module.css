@@ -112,6 +112,213 @@
   margin-bottom: var(--space-2xl);
 }
 
+.storagePanel {
+  margin-bottom: var(--space-2xl);
+  padding: clamp(18px, 2vw, 26px);
+  border-radius: calc(var(--radius-xl) + 2px);
+  border: 1px solid rgba(14, 165, 233, 0.18);
+  background:
+    linear-gradient(180deg, rgba(14, 165, 233, 0.08), color-mix(in srgb, var(--bg-surface) 94%, transparent));
+  box-shadow: var(--shadow-sm);
+}
+
+.storageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.storageEyebrow {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+  margin-bottom: 6px;
+}
+
+.storageTitle {
+  font-size: clamp(var(--text-lg), 2vw, var(--text-2xl));
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.storageModeBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(125, 211, 252, 0.28);
+  background: rgba(14, 165, 233, 0.12);
+  color: #bae6fd;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.storageNote {
+  margin-top: var(--space-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.storageError {
+  margin-top: var(--space-md);
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(248, 113, 113, 0.24);
+  background: rgba(248, 113, 113, 0.08);
+  color: #fca5a5;
+  font-size: var(--text-sm);
+}
+
+.storageGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
+}
+
+.storageCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
+}
+
+.storageCardHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-sm);
+}
+
+.storageCardTitle {
+  font-size: var(--text-base);
+  font-weight: 750;
+  color: var(--text-primary);
+}
+
+.storageCardPath {
+  margin-top: 4px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.storagePrimarySheet {
+  flex-shrink: 0;
+  padding: 5px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid rgba(125, 211, 252, 0.22);
+  background: rgba(125, 211, 252, 0.08);
+  color: #bae6fd;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.storageBadgeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.storageSheetBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.storageSheetOk {
+  border: 1px solid rgba(74, 222, 128, 0.22);
+  background: rgba(74, 222, 128, 0.12);
+  color: #86efac;
+}
+
+.storageSheetMissing {
+  border: 1px solid rgba(248, 113, 113, 0.22);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fca5a5;
+}
+
+.storageMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.storageMetaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-secondary);
+  background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+}
+
+.storageMetaLabel {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.storageMetaValue {
+  font-size: var(--text-base);
+  font-weight: 750;
+  color: var(--text-primary);
+}
+
+.storageMetaHint {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.storageSheetsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 96px;
+}
+
+.storageSheetRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-secondary);
+  background: color-mix(in srgb, var(--bg-elevated) 66%, transparent);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.storageSheetEmpty {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--border-primary);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+
 .insightCard {
   display: flex;
   flex-direction: column;
@@ -535,6 +742,10 @@
   .statsGrid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+
+  .storageGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (min-width: 1600px) {
@@ -580,6 +791,11 @@
     grid-template-columns: 1fr;
   }
 
+  .storageGrid,
+  .storageMetaGrid {
+    grid-template-columns: 1fr;
+  }
+
   .row {
     grid-template-columns: 1fr;
   }
@@ -604,6 +820,12 @@
   }
 
   .header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .storageHeader,
+  .storageCardHeader {
     flex-direction: column;
     align-items: flex-start;
   }

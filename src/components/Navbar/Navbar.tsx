@@ -5,7 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import styles from "./Navbar.module.css";
 
 interface MegaMenuItem {
@@ -16,9 +16,12 @@ interface MegaMenuItem {
   count?: number;
 }
 
+type BrowseMode = "programming" | "advanced";
+
 export default function Navbar() {
   const { data: session, status } = useSession();
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -165,7 +168,7 @@ export default function Navbar() {
   ];
 
   const advancedFallback: MegaMenuItem[] = [
-    { id: "advanced-library", label: "Open Tracks Library", href: "/tracks" },
+    { id: "advanced-library", label: "Open Tracks Library", href: "/tracks/library" },
     {
       id: "advanced-kubernetes",
       label: "Kubernetes Notes",
@@ -185,6 +188,47 @@ export default function Navbar() {
 
   const discoverMenu = discoverItems.length > 0 ? discoverItems : discoverFallback;
   const advancedMenu = advancedItems.length > 0 ? advancedItems : advancedFallback;
+  const browseMode: BrowseMode = pathname.startsWith("/tracks")
+    ? "advanced"
+    : "programming";
+  const browseModeConfig: Record<
+    BrowseMode,
+    {
+      title: string;
+      menu: MegaMenuItem[];
+      browseHref: string;
+      browseLabel: string;
+      secondaryHref: string;
+      secondaryLabel: string;
+    }
+  > = {
+    programming: {
+      title: "Programming",
+      menu: discoverMenu,
+      browseHref: "/browse",
+      browseLabel: "Browse Programming Notes",
+      secondaryHref: "/categories",
+      secondaryLabel: "Categories",
+    },
+    advanced: {
+      title: "Advanced",
+      menu: advancedMenu,
+      browseHref: "/tracks",
+      browseLabel: "Browse Advanced Notes",
+      secondaryHref: "/tracks/library",
+      secondaryLabel: "Tracks",
+    },
+  };
+
+  const activeBrowseMode = browseModeConfig[browseMode];
+
+  const handleBrowseModeChange = (mode: BrowseMode) => {
+    if (mode === browseMode) return;
+
+    setMobileMenuOpen(false);
+    setMegaMenuOpen(false);
+    router.push(mode === "advanced" ? "/tracks" : "/");
+  };
 
   const handleHomeLogoClick = (event: MouseEvent<HTMLAnchorElement>) => {
     setMobileMenuOpen(false);
@@ -243,37 +287,49 @@ export default function Navbar() {
               <div className={styles.megaMenu} role="menu">
                 <div className={styles.megaMenuInner}>
                   <div className={styles.megaColumn}>
-                    <p className={styles.megaTitle}>Discover</p>
-                    {discoverMenu.map((item) => (
-                      <Link key={item.id} href={item.href} className={styles.megaItem}>
-                        <span>{item.label}</span>
-                        {typeof item.count === "number" ? (
-                          <span className={styles.megaItemCount}>{item.count}</span>
-                        ) : null}
-                      </Link>
-                    ))}
-                  </div>
-                  <div className={styles.megaColumn}>
-                    <p className={styles.megaTitle}>Cloud Native Tracks</p>
-                    {advancedMenu.map((item) => (
-                      <Link key={item.id} href={item.href} className={styles.megaItem}>
-                        <span>{item.label}</span>
-                        {typeof item.count === "number" ? (
-                          <span className={styles.megaItemCount}>{item.count}</span>
-                        ) : null}
-                      </Link>
-                    ))}
+                    <p className={styles.megaTitle}>{activeBrowseMode.title}</p>
+                    <div className={styles.megaList}>
+                      {activeBrowseMode.menu.map((item) => (
+                        <Link key={item.id} href={item.href} className={styles.megaItem}>
+                          <span>{item.label}</span>
+                          {typeof item.count === "number" ? (
+                            <span className={styles.megaItemCount}>{item.count}</span>
+                          ) : null}
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
           </div>
-          <Link href="/categories" className={styles.navLink} id="nav-categories">
-            Categories
+          <Link
+            href={activeBrowseMode.secondaryHref}
+            className={styles.navLink}
+            id={browseMode === "advanced" ? "nav-tracks" : "nav-categories"}
+          >
+            {activeBrowseMode.secondaryLabel}
           </Link>
-          <Link href="/tracks" className={styles.navLink} id="nav-tracks">
-            Tracks
-          </Link>
+          <div className={styles.modeToggle} role="group" aria-label="Browse mode toggle">
+            <button
+              type="button"
+              className={`${styles.modeToggleBtn} ${browseMode === "programming" ? styles.modeToggleBtnActive : ""}`}
+              id="nav-mode-programming"
+              onClick={() => handleBrowseModeChange("programming")}
+              aria-pressed={browseMode === "programming"}
+            >
+              Programming
+            </button>
+            <button
+              type="button"
+              className={`${styles.modeToggleBtn} ${browseMode === "advanced" ? styles.modeToggleBtnActive : ""}`}
+              id="nav-mode-advanced"
+              onClick={() => handleBrowseModeChange("advanced")}
+              aria-pressed={browseMode === "advanced"}
+            >
+              Advanced
+            </button>
+          </div>
           <Link href="/about" className={styles.navLink} id="nav-about">
             About
           </Link>
@@ -418,26 +474,37 @@ export default function Navbar() {
       <div
         className={`${styles.mobileMenu} ${mobileMenuOpen ? styles.mobileMenuOpen : ""}`}
       >
+        <div className={`${styles.modeToggle} ${styles.mobileModeToggle}`} role="group" aria-label="Browse mode toggle">
+          <button
+            type="button"
+            className={`${styles.modeToggleBtn} ${browseMode === "programming" ? styles.modeToggleBtnActive : ""}`}
+            onClick={() => handleBrowseModeChange("programming")}
+            aria-pressed={browseMode === "programming"}
+          >
+            Programming
+          </button>
+          <button
+            type="button"
+            className={`${styles.modeToggleBtn} ${browseMode === "advanced" ? styles.modeToggleBtnActive : ""}`}
+            onClick={() => handleBrowseModeChange("advanced")}
+            aria-pressed={browseMode === "advanced"}
+          >
+            Advanced
+          </button>
+        </div>
         <Link
-          href="/browse"
+          href={activeBrowseMode.browseHref}
           className={styles.mobileLink}
           onClick={() => setMobileMenuOpen(false)}
         >
-          Browse Notes
+          {activeBrowseMode.browseLabel}
         </Link>
         <Link
-          href="/categories"
+          href={activeBrowseMode.secondaryHref}
           className={styles.mobileLink}
           onClick={() => setMobileMenuOpen(false)}
         >
-          Categories
-        </Link>
-        <Link
-          href="/tracks"
-          className={styles.mobileLink}
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          Tracks
+          {activeBrowseMode.secondaryLabel}
         </Link>
         <Link
           href="/about"

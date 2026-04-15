@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getAboutMilestoneStats } from "@/lib/db/queries";
 import styles from "./page.module.css";
 
 const TEAM_MEMBERS = [
@@ -37,14 +38,27 @@ const VALUES = [
   },
 ];
 
-const MILESTONES = [
-  { value: "500+", label: "Notes Shared" },
-  { value: "2.5K+", label: "Active Learners" },
-  { value: "50+", label: "Contributors" },
-  { value: "9", label: "Categories" },
-];
+const formatCompactMetric = (value: number) => {
+  if (value < 1000) {
+    return value.toLocaleString("en-US");
+  }
 
-export default function AboutPage() {
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+};
+
+export default async function AboutPage() {
+  const stats = await getAboutMilestoneStats();
+
+  const milestones = [
+    { value: formatCompactMetric(stats.notesShared), label: "Notes Shared" },
+    { value: formatCompactMetric(stats.activeLearners), label: "Active Learners" },
+    { value: formatCompactMetric(stats.contributors), label: "Contributors" },
+    { value: formatCompactMetric(stats.categories), label: "Categories" },
+  ];
+
   return (
     <div className={styles.page}>
       {/* Hero */}
@@ -69,7 +83,7 @@ export default function AboutPage() {
       <section className={styles.milestones}>
         <div className={styles.container}>
           <div className={styles.milestoneGrid}>
-            {MILESTONES.map((m) => (
+            {milestones.map((m) => (
               <div key={m.label} className={styles.milestoneCard}>
                 <span className={styles.milestoneValue}>{m.value}</span>
                 <span className={styles.milestoneLabel}>{m.label}</span>

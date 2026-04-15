@@ -79,6 +79,133 @@ export async function getCategories(limit = 9) {
   }
 }
 
+export async function getLibraryHeroStats() {
+  try {
+    const db = getDb();
+
+    const row = db
+      .prepare(
+        `SELECT
+          (SELECT COUNT(*) FROM notes n WHERE n.status = 'approved') as notes_indexed,
+          (SELECT COUNT(*) FROM users u WHERE u.role = 'user') as registered_learners,
+          (
+            SELECT COUNT(*)
+            FROM (
+              SELECT DISTINCT v.user_id as uid
+              FROM views v
+              WHERE v.user_id IS NOT NULL
+                AND v.viewed_at >= datetime('now', '-30 days')
+              UNION
+              SELECT DISTINCT b.user_id as uid
+              FROM bookmarks b
+              WHERE b.user_id IS NOT NULL
+                AND b.created_at >= datetime('now', '-30 days')
+            ) active_users
+          ) as active_learners,
+          (
+            SELECT COUNT(DISTINCT n.author_id)
+            FROM notes n
+            WHERE n.author_id IS NOT NULL
+              AND n.status IN ('approved', 'pending')
+          ) as contributors`
+      )
+      .get() as
+      | {
+          notes_indexed: number;
+          registered_learners: number;
+          active_learners: number;
+          contributors: number;
+        }
+      | undefined;
+
+    db.close();
+
+    const notesIndexed = Number(row?.notes_indexed || 0);
+    const registeredLearners = Number(row?.registered_learners || 0);
+    const recentActiveLearners = Number(row?.active_learners || 0);
+    const contributors = Number(row?.contributors || 0);
+
+    return {
+      notesIndexed,
+      activeLearners:
+        recentActiveLearners > 0 ? recentActiveLearners : registeredLearners,
+      contributors,
+    };
+  } catch {
+    return {
+      notesIndexed: 0,
+      activeLearners: 0,
+      contributors: 0,
+    };
+  }
+}
+
+export async function getAboutMilestoneStats() {
+  try {
+    const db = getDb();
+
+    const row = db
+      .prepare(
+        `SELECT
+          (SELECT COUNT(*) FROM notes n WHERE n.status = 'approved') as notes_shared,
+          (SELECT COUNT(*) FROM users u WHERE u.role = 'user') as registered_learners,
+          (
+            SELECT COUNT(*)
+            FROM (
+              SELECT DISTINCT v.user_id as uid
+              FROM views v
+              WHERE v.user_id IS NOT NULL
+                AND v.viewed_at >= datetime('now', '-30 days')
+              UNION
+              SELECT DISTINCT b.user_id as uid
+              FROM bookmarks b
+              WHERE b.user_id IS NOT NULL
+                AND b.created_at >= datetime('now', '-30 days')
+            ) active_users
+          ) as active_learners,
+          (
+            SELECT COUNT(DISTINCT n.author_id)
+            FROM notes n
+            WHERE n.author_id IS NOT NULL
+              AND n.status IN ('approved', 'pending')
+          ) as contributors,
+          (SELECT COUNT(*) FROM categories c) as categories_total`
+      )
+      .get() as
+      | {
+          notes_shared: number;
+          registered_learners: number;
+          active_learners: number;
+          contributors: number;
+          categories_total: number;
+        }
+      | undefined;
+
+    db.close();
+
+    const notesShared = Number(row?.notes_shared || 0);
+    const registeredLearners = Number(row?.registered_learners || 0);
+    const recentActiveLearners = Number(row?.active_learners || 0);
+    const contributors = Number(row?.contributors || 0);
+    const categories = Number(row?.categories_total || 0);
+
+    return {
+      notesShared,
+      activeLearners:
+        recentActiveLearners > 0 ? recentActiveLearners : registeredLearners,
+      contributors,
+      categories,
+    };
+  } catch {
+    return {
+      notesShared: 0,
+      activeLearners: 0,
+      contributors: 0,
+      categories: 0,
+    };
+  }
+}
+
 export async function getNoteById(id: string) {
   try {
     const db = getDb();

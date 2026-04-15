@@ -3,10 +3,27 @@ import path from "path";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
 
+type ReadonlyDb = Database.Database;
+type GlobalDbRegistry = typeof globalThis & {
+  __xresoReadonlyDb?: ReadonlyDb;
+};
+
 function getDb() {
-  const sqlite = new Database(DB_PATH, { readonly: true });
-  sqlite.pragma("journal_mode = WAL");
-  return sqlite;
+  const registry = globalThis as GlobalDbRegistry;
+
+  if (!registry.__xresoReadonlyDb) {
+    const sqlite = new Database(DB_PATH, { readonly: true, fileMustExist: true });
+
+    try {
+      sqlite.pragma("busy_timeout = 5000");
+    } catch {
+      // Keep default driver settings when pragma is unavailable.
+    }
+
+    registry.__xresoReadonlyDb = sqlite;
+  }
+
+  return registry.__xresoReadonlyDb;
 }
 
 export async function getFeaturedNotes(limit = 5) {
@@ -28,7 +45,6 @@ export async function getFeaturedNotes(limit = 5) {
       ORDER BY n.created_at DESC
       LIMIT ?
     `).all(limit) as Record<string, unknown>[];
-    db.close();
 
     return rows.map((r) => ({
       id: r.id as string,
@@ -63,7 +79,6 @@ export async function getCategories(limit = 9) {
       ORDER BY live_count DESC
       LIMIT ?
     `).all(limit) as Record<string, unknown>[];
-    db.close();
 
     return rows.map((r) => ({
       id: r.id as number,
@@ -117,8 +132,6 @@ export async function getLibraryHeroStats() {
           contributors: number;
         }
       | undefined;
-
-    db.close();
 
     const notesIndexed = Number(row?.notes_indexed || 0);
     const registeredLearners = Number(row?.registered_learners || 0);
@@ -180,8 +193,6 @@ export async function getAboutMilestoneStats() {
           categories_total: number;
         }
       | undefined;
-
-    db.close();
 
     const notesShared = Number(row?.notes_shared || 0);
     const registeredLearners = Number(row?.registered_learners || 0);
@@ -253,8 +264,6 @@ export async function getAdvancedTrackHighlights(
       level: "Beginner" | "Intermediate" | "Advanced";
     }>;
 
-    db.close();
-
     return tracks.map((track) => ({
       id: track.id,
       slug: track.slug,
@@ -310,8 +319,6 @@ export async function getAdvancedHeroStats() {
           contributor_count: number;
         }
       | undefined;
-
-    db.close();
 
     return {
       trackCount: Number(row?.track_count || 0),
@@ -376,8 +383,6 @@ export async function getFeaturedAdvancedResources(limit = 6) {
       tag_names: string | null;
     }>;
 
-    db.close();
-
     return rows.map((row) => ({
       id: row.id,
       title: row.title,
@@ -411,13 +416,13 @@ export async function getNoteById(id: string) {
       WHERE n.id = ?
     `).get(id) as Record<string, unknown> | undefined;
 
-    if (!row) { db.close(); return null; }
+    if (!row) {
+      return null;
+    }
 
     const tagRows = db.prepare(`
       SELECT t.name FROM note_tags nt JOIN tags t ON nt.tag_id = t.id WHERE nt.note_id = ?
     `).all(id) as { name: string }[];
-
-    db.close();
 
     return {
       id: row.id as string,

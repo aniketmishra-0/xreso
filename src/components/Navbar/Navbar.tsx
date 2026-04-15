@@ -140,6 +140,8 @@ export default function Navbar() {
   useEffect(() => {
     router.prefetch("/");
     router.prefetch("/tracks");
+    router.prefetch("/browse");
+    router.prefetch("/tracks/library");
   }, [router]);
 
   useEffect(() => {

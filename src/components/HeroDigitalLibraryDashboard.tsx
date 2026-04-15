@@ -1,6 +1,4 @@
-"use client";
-
-import { motion, useReducedMotion } from "framer-motion";
+import type { CSSProperties } from "react";
 import { FaJava } from "react-icons/fa6";
 import type { IconType } from "react-icons";
 import {
@@ -18,7 +16,7 @@ import {
   SiTerraform,
   SiTypescript,
 } from "react-icons/si";
-import { useEffect, useState } from "react";
+import styles from "./HeroDigitalLibraryDashboard.module.css";
 
 type OrbitNode = {
   id: string;
@@ -30,8 +28,6 @@ type OrbitNode = {
   color: string;
   delay: number;
 };
-
-const ORBIT_DURATION = 38;
 
 export type HeroOrbitMode = "programming" | "advanced";
 
@@ -59,207 +55,92 @@ interface HeroDigitalLibraryDashboardProps {
   mode?: HeroOrbitMode;
 }
 
+function getNodePosition(node: OrbitNode): CSSProperties {
+  return {
+    left: `${node.x}%`,
+    top: `${node.y}%`,
+  };
+}
+
+function getNodeHaloStyle(node: OrbitNode): CSSProperties {
+  const haloSize = node.size + 40;
+
+  return {
+    width: haloSize,
+    height: haloSize,
+    marginLeft: -haloSize / 2,
+    marginTop: -haloSize / 2,
+    animationDelay: `${node.delay}s`,
+    background:
+      "radial-gradient(circle, color-mix(in srgb, var(--primary) 34%, transparent), color-mix(in srgb, var(--primary) 5%, transparent) 58%, transparent 74%)",
+  };
+}
+
+function getNodeBadgeStyle(node: OrbitNode): CSSProperties {
+  return {
+    width: node.size,
+    height: node.size,
+    borderColor: `${node.color}44`,
+    background: `${node.color}14`,
+    animationDelay: `${node.delay}s`,
+  };
+}
+
+function getNodeRingStyle(node: OrbitNode): CSSProperties {
+  return {
+    borderColor: `${node.color}44`,
+    background: `${node.color}14`,
+  };
+}
+
+function getNodeIconStyle(node: OrbitNode): CSSProperties {
+  return {
+    color: node.color,
+    filter:
+      "drop-shadow(0 0 5px rgba(255,255,255,0.52)) drop-shadow(0 0 10px var(--primary-glow))",
+  };
+}
+
 export default function HeroDigitalLibraryDashboard({
   mode = "programming",
 }: HeroDigitalLibraryDashboardProps) {
-  const reducedMotion = useReducedMotion() ?? false;
   const nodes = mode === "advanced" ? ADVANCED_NODES : PROGRAMMING_NODES;
-  const [active, setActive] = useState(0);
-
-  useEffect(() => {
-    if (reducedMotion) {
-      return;
-    }
-
-    const intervalId = window.setInterval(() => {
-      setActive((prev) => (prev + 1) % nodes.length);
-    }, 1700);
-
-    return () => {
-      window.clearInterval(intervalId);
-    };
-  }, [reducedMotion, nodes.length]);
-
-  const orbitGlowBackground =
-    "radial-gradient(circle, color-mix(in srgb, var(--primary) 26%, transparent) 0%, color-mix(in srgb, var(--primary) 8%, transparent) 42%, transparent 74%)";
-  const centerAuraBackground = "color-mix(in srgb, var(--primary) 14%, transparent)";
-  const innerRingColor = "color-mix(in srgb, var(--primary) 22%, transparent)";
-  const outerRingColor = "color-mix(in srgb, var(--primary-light) 20%, transparent)";
-  const iconShadowFilter =
-    "drop-shadow(0 0 5px rgba(255,255,255,0.52)) drop-shadow(0 0 10px var(--primary-glow))";
 
   return (
-    <motion.div
-      className="pointer-events-none relative mx-auto h-[560px] w-full max-w-[780px] overflow-visible select-none"
-      animate={reducedMotion ? undefined : { y: [0, -4, 0] }}
-      transition={
-        reducedMotion
-          ? undefined
-          : {
-              duration: 9,
-              repeat: Number.POSITIVE_INFINITY,
-              ease: "easeInOut",
-            }
-      }
+    <div
+      className={styles.orbit}
       aria-label={`${mode === "advanced" ? "Advanced stack" : "Programming stack"} logos constellation`}
     >
-      <div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[560px] w-[560px] -translate-x-1/2 -translate-y-1/2 blur-[36px]"
-        style={{ background: orbitGlowBackground }}
-      />
-      <div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full border"
-        style={{ borderColor: innerRingColor }}
-      />
-      <div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[438px] w-[438px] -translate-x-1/2 -translate-y-1/2 rounded-full border"
-        style={{ borderColor: outerRingColor }}
-      />
-      <div
-        className="pointer-events-none absolute left-1/2 top-1/2 h-[280px] w-[280px] -translate-x-1/2 -translate-y-1/2 blur-[62px]"
-        style={{ background: centerAuraBackground }}
-      />
+      <div className={styles.orbitGlow} />
+      <div className={styles.innerRing} />
+      <div className={styles.outerRing} />
+      <div className={styles.centerAura} />
 
-      <motion.div
-        className="absolute inset-0"
-        animate={reducedMotion ? undefined : { rotate: [0, -360] }}
-        transition={
-          reducedMotion
-            ? undefined
-            : {
-                duration: ORBIT_DURATION,
-                repeat: Number.POSITIVE_INFINITY,
-                ease: "linear",
-              }
-        }
-      >
-        {nodes.map((node, index) => {
-          const isActive = active === index;
-
-          return (
-            <div
-              key={node.id}
-              className="absolute -translate-x-1/2 -translate-y-1/2"
-              style={{ left: `${node.x}%`, top: `${node.y}%` }}
-              aria-label={`${node.label} tech logo`}
-            >
-              <motion.div
-                animate={reducedMotion ? undefined : { rotate: [0, 360] }}
-                transition={
-                  reducedMotion
-                    ? undefined
-                    : {
-                        duration: ORBIT_DURATION,
-                        repeat: Number.POSITIVE_INFINITY,
-                        ease: "linear",
-                      }
-                }
-                className="relative"
-              >
-                <span
-                  className="pointer-events-none absolute"
-                  style={{
-                    left: -20,
-                    top: -20,
-                    width: node.size + 40,
-                    height: node.size + 40,
-                    background:
-                      "radial-gradient(circle, color-mix(in srgb, var(--primary) 34%, transparent), color-mix(in srgb, var(--primary) 5%, transparent) 58%, transparent 74%)",
-                    opacity: isActive ? 0.88 : 0.42,
-                    filter: "blur(14px)",
-                  }}
-                />
-
-                <span
-                  className="pointer-events-none absolute inset-[12%] rounded-full border"
-                  style={{
-                    borderColor: `${node.color}44`,
-                    background: `${node.color}14`,
-                  }}
-                />
-
-                <motion.div
-                  initial={reducedMotion ? false : { opacity: 0.82, scale: 0.95 }}
-                  animate={
-                    reducedMotion
-                      ? { opacity: isActive ? 1 : 0.86, scale: isActive ? 1.06 : 1 }
-                      : {
-                          opacity: isActive ? 1 : 0.84,
-                          y: [0, -4, 0, 3, 0],
-                          scale: isActive ? [1, 1.09, 1] : [1, 1.02, 1],
-                        }
-                  }
-                  transition={
-                    reducedMotion
-                      ? { duration: 0.25, ease: "easeOut" }
-                      : {
-                          duration: 6 + node.delay,
-                          delay: node.delay,
-                          repeat: Number.POSITIVE_INFINITY,
-                          ease: "easeInOut",
-                        }
-                  }
-                  className="relative z-10 flex items-center justify-center"
-                  style={{ width: node.size, height: node.size }}
-                >
-                  <node.Icon
-                    className="h-[78%] w-[78%]"
-                    style={{
-                      color: node.color,
-                      filter: iconShadowFilter,
-                    }}
-                  />
-                </motion.div>
-              </motion.div>
-            </div>
-          );
-        })}
-      </motion.div>
-
-      <div className="absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
-        <motion.div
-          className="relative flex h-[130px] w-[130px] items-center justify-center overflow-hidden rounded-full"
-          style={{
-            background: "color-mix(in srgb, var(--bg-surface) 42%, transparent)",
-            boxShadow: "0 0 28px var(--primary-glow)",
-          }}
-          animate={reducedMotion ? undefined : { scale: [1, 1.03, 1] }}
-          transition={
-            reducedMotion
-              ? undefined
-              : {
-                  duration: 4.5,
-                  repeat: Number.POSITIVE_INFINITY,
-                  ease: "easeInOut",
-                }
-          }
-        >
-          <span
-            className="pointer-events-none absolute inset-0 rounded-full border"
-            style={{ borderColor: "color-mix(in srgb, var(--primary) 20%, transparent)" }}
-          />
+      <div className={styles.nodesLayer}>
+        {nodes.map((node) => (
           <div
-            className="relative z-10 flex h-[86px] w-[86px] items-center justify-center rounded-full border"
-            style={{
-              borderColor: "color-mix(in srgb, var(--primary) 20%, transparent)",
-              background: "color-mix(in srgb, var(--bg-primary) 30%, transparent)",
-            }}
+            key={node.id}
+            className={styles.nodePosition}
+            style={getNodePosition(node)}
+            aria-label={`${node.label} tech logo`}
           >
-            <span
-              className="text-[26px] font-black tracking-[-0.06em]"
-              style={{
-                background: "var(--gradient-brand)",
-                backgroundClip: "text",
-                WebkitBackgroundClip: "text",
-                color: "transparent",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              xreso
-            </span>
+            <span className={styles.nodeHalo} style={getNodeHaloStyle(node)} />
+            <div className={styles.nodeBadge} style={getNodeBadgeStyle(node)}>
+              <span className={styles.nodeRing} style={getNodeRingStyle(node)} />
+              <node.Icon className={styles.nodeIcon} style={getNodeIconStyle(node)} />
+            </div>
           </div>
-        </motion.div>
+        ))}
       </div>
-    </motion.div>
+
+      <div className={styles.centerWrap}>
+        <div className={styles.centerShell}>
+          <span className={styles.centerBorder} />
+          <div className={styles.centerInner}>
+            <span className={styles.centerWordmark}>xreso</span>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

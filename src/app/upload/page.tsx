@@ -56,6 +56,28 @@ const INITIAL_FORM_DATA = {
   licenseType: "CC-BY-4.0",
 };
 
+const SPECIALIZED_RESOURCE_LABEL = "Cloud, System Design & APIs";
+const RESOURCE_SECTION_OPTIONS = [
+  {
+    tier: "standard" as const,
+    eyebrow: "Core Coding",
+    title: "Programming Languages",
+    buttonHint: "JavaScript, Python, SQL",
+    description:
+      "Use this for language-specific notes and regular coding topics.",
+    examples: ["JavaScript", "Python", "Java", "SQL", "React", "DSA"],
+  },
+  {
+    tier: "advanced" as const,
+    eyebrow: "Specialized",
+    title: SPECIALIZED_RESOURCE_LABEL,
+    buttonHint: "Kubernetes, APIs, DevOps",
+    description:
+      "Use this for infrastructure, architecture, backend systems, and API-focused resources.",
+    examples: ["Kubernetes", "DevOps", "System Design", "API Design"],
+  },
+];
+
 interface AdvancedTrackTopic {
   id: number;
   slug: string;
@@ -98,7 +120,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
   const selectedTrack = advancedTracks.find((track) => track.slug === formData.advancedTrackSlug);
   const catLabel =
     resourceTier === "advanced"
-      ? selectedTrack?.name || formData.advancedTrackSlug || "Advanced Track"
+      ? selectedTrack?.name || formData.advancedTrackSlug || SPECIALIZED_RESOURCE_LABEL
       : CATEGORY_LABELS[formData.category] || formData.category || "Category";
   const catBadge = resourceTier === "advanced" ? "badge-blue" : CATEGORY_BADGE[formData.category] || "";
   const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -342,6 +364,9 @@ export default function UploadPage() {
     !submitBlockedByRole &&
     hasSelectedCategory &&
     hasSelectedContent;
+  const selectedResourceSection =
+    RESOURCE_SECTION_OPTIONS.find((option) => option.tier === resourceTier) ||
+    RESOURCE_SECTION_OPTIONS[0];
 
   useEffect(() => {
     if (!sessionName) return;
@@ -464,7 +489,7 @@ export default function UploadPage() {
         if (!canAccessAdvancedUpload) {
           setUploadResult({
             success: false,
-            message: "Advanced DB upload is available only for admin or moderator accounts.",
+            message: `${SPECIALIZED_RESOURCE_LABEL} submissions are available only for admin or moderator accounts right now.`,
           });
           return;
         }
@@ -472,7 +497,7 @@ export default function UploadPage() {
         if (!formData.advancedTrackSlug) {
           setUploadResult({
             success: false,
-            message: "Select an advanced track before submitting.",
+            message: `Select a ${SPECIALIZED_RESOURCE_LABEL} category before submitting.`,
           });
           return;
         }
@@ -480,7 +505,7 @@ export default function UploadPage() {
         if (uploadMode === "file" && !file) {
           setUploadResult({
             success: false,
-            message: "Choose a file to upload for Advanced Tracks DB.",
+            message: `Choose a file to upload for ${SPECIALIZED_RESOURCE_LABEL}.`,
           });
           return;
         }
@@ -488,7 +513,7 @@ export default function UploadPage() {
         if (uploadMode === "link" && !formData.resourceUrl) {
           setUploadResult({
             success: false,
-            message: "Provide a resource URL for Advanced Tracks DB link submission.",
+            message: `Provide a resource URL for ${SPECIALIZED_RESOURCE_LABEL}.`,
           });
           return;
         }
@@ -523,8 +548,8 @@ export default function UploadPage() {
             data.message ||
             data.error ||
             (res.ok
-              ? "Advanced resource saved to Advanced DB and queued for review."
-              : "Advanced upload failed"),
+              ? `${SPECIALIZED_RESOURCE_LABEL} resource saved and queued for review.`
+              : `${SPECIALIZED_RESOURCE_LABEL} upload failed`),
           noteId: data.resourceId,
         });
         return;
@@ -785,31 +810,72 @@ export default function UploadPage() {
             </h2>
 
             <div className={styles.detailsToggleBlock}>
-              <p className={styles.detailsToggleLabel}>Submission Flow</p>
-              <div className={styles.detailsToggle}>
-                <button
-                  type="button"
-                  className={`${styles.detailsToggleBtn} ${resourceTier === "standard" ? styles.detailsToggleBtnActive : ""}`}
-                  onClick={() => setResourceTier("standard")}
-                >
-                  Programming Resource
-                </button>
-                <button
-                  type="button"
-                  className={`${styles.detailsToggleBtn} ${resourceTier === "advanced" ? styles.detailsToggleBtnActive : ""}`}
-                  onClick={() => setResourceTier("advanced")}
-                >
-                  Advanced Tracks DB
-                </button>
+              <p className={styles.detailsToggleLabel}>Choose Resource Section</p>
+              <div className={styles.resourceChoiceRow}>
+                {RESOURCE_SECTION_OPTIONS.map((option) => {
+                  const isActive = resourceTier === option.tier;
+
+                  return (
+                    <button
+                      key={option.tier}
+                      type="button"
+                      className={`${styles.resourceChoiceBtn} ${
+                        isActive ? styles.resourceChoiceBtnActive : ""
+                      }`}
+                      onClick={() => setResourceTier(option.tier)}
+                    >
+                      <span className={styles.resourceChoiceEyebrow}>
+                        {option.eyebrow}
+                      </span>
+                      <span className={styles.resourceChoiceTitle}>{option.title}</span>
+                      <span className={styles.resourceChoiceHint}>{option.buttonHint}</span>
+                      <span className={styles.resourceChoiceState}>
+                        {isActive ? "Selected" : "Choose"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div
+                className={`${styles.resourceSectionSummary} ${
+                  resourceTier === "advanced"
+                    ? styles.resourceSectionSummaryAdvanced
+                    : styles.resourceSectionSummaryStandard
+                }`}
+              >
+                <div className={styles.resourceSectionSummaryHeader}>
+                  <div className={styles.resourceSectionSummaryCopy}>
+                    <span className={styles.resourceSectionSummaryEyebrow}>
+                      {selectedResourceSection.eyebrow}
+                    </span>
+                    <h3 className={styles.resourceSectionSummaryTitle}>
+                      {selectedResourceSection.title}
+                    </h3>
+                  </div>
+                  <span className={styles.resourceSectionSummaryBadge}>Selected</span>
+                </div>
+                <p className={styles.resourceSectionSummaryText}>
+                  {selectedResourceSection.description}
+                </p>
+                <div className={styles.resourceSectionSummaryExamples}>
+                  {selectedResourceSection.examples.map((example) => (
+                    <span
+                      key={`${selectedResourceSection.tier}-${example}`}
+                      className={styles.resourceSectionSummaryExample}
+                    >
+                      {example}
+                    </span>
+                  ))}
+                </div>
               </div>
               <p className={styles.detailsToggleHint}>
                 {resourceTier === "advanced"
-                  ? "Advanced mode stores links in Advanced DB track resources."
-                  : "Standard mode publishes under regular programming categories."}
+                  ? "Best for cloud tools, backend architecture, system design case studies, and API engineering resources."
+                  : "Best for language notes, frameworks, coding interview prep, and general programming resources."}
               </p>
               {resourceTier === "advanced" && !canAccessAdvancedUpload && (
                 <p className={styles.detailsWarning}>
-                  You can preview advanced tracks, but submission requires admin or moderator role.
+                  You can browse these categories now, but submitting here currently requires an admin or moderator account.
                 </p>
               )}
             </div>
@@ -830,9 +896,9 @@ export default function UploadPage() {
 
               {resourceTier === "standard" ? (
                 <div className="input-group">
-                  <label htmlFor="category" className="input-label">Programming Category <span className={styles.required}>*</span></label>
+                  <label htmlFor="category" className="input-label">Programming Language / Topic <span className={styles.required}>*</span></label>
                   <select id="category" name="category" className="input" value={formData.category ?? ""} onChange={handleInputChange} required>
-                    <option value="">Select a category</option>
+                    <option value="">Select a programming topic</option>
                     {STANDARD_CATEGORY_CATALOG.map(cat => (
                       <option key={cat.slug} value={cat.slug}>{cat.name}</option>
                     ))}
@@ -841,7 +907,7 @@ export default function UploadPage() {
               ) : (
                 <>
                   <div className="input-group">
-                    <label htmlFor="advancedTrackSlug" className="input-label">Advanced Track <span className={styles.required}>*</span></label>
+                    <label htmlFor="advancedTrackSlug" className="input-label">{SPECIALIZED_RESOURCE_LABEL} Category <span className={styles.required}>*</span></label>
                     <select
                       id="advancedTrackSlug"
                       name="advancedTrackSlug"
@@ -851,7 +917,7 @@ export default function UploadPage() {
                       required
                     >
                       <option value="">
-                        {advancedCatalogLoading ? "Loading tracks..." : "Select an advanced track"}
+                        {advancedCatalogLoading ? "Loading categories..." : `Select a ${SPECIALIZED_RESOURCE_LABEL} category`}
                       </option>
                       {advancedTracks.map((track) => (
                         <option key={track.slug} value={track.slug}>{track.name}</option>
@@ -996,7 +1062,7 @@ export default function UploadPage() {
                       : <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     }
                     {resourceTier === "advanced"
-                      ? "Submit Advanced Resource"
+                      ? `Submit ${SPECIALIZED_RESOURCE_LABEL} Resource`
                       : uploadMode === "file"
                         ? "Upload Notes"
                         : "Share Resource"}
@@ -1007,8 +1073,8 @@ export default function UploadPage() {
             <p className={styles.submitHint}>
               {resourceTier === "advanced"
                 ? submitBlockedByRole
-                  ? "Advanced DB submissions are currently restricted to admin and moderator roles."
-                  : "This entry will be stored in Advanced Tracks DB and queued for moderation."
+                  ? `${SPECIALIZED_RESOURCE_LABEL} submissions are currently restricted to admin and moderator roles.`
+                  : `This entry will be saved under ${SPECIALIZED_RESOURCE_LABEL} and queued for moderation.`
                 : uploadMode === "file"
                   ? "Your notes will be reviewed before being published."
                   : "Your link will be reviewed and shared with the community."}

@@ -71,6 +71,52 @@ For production:
 - run database migrations in your deployment pipeline
 - deploy to your preferred platform (Vercel, self-hosted Node, container-based infra)
 
+## Auth setup 🔐
+
+xreso supports email/password auth plus optional social login through Google, GitHub, and LinkedIn.
+
+1. Configure base auth vars in `.env.local` (and in prod env):
+
+- `AUTH_SECRET` (random secret, 32+ chars)
+- `NEXTAUTH_URL` (`http://localhost:3000` in local, your real domain in prod)
+
+2. Add provider credentials:
+
+- `AUTH_GOOGLE_ID` and `AUTH_GOOGLE_SECRET`
+- `AUTH_GITHUB_ID` and `AUTH_GITHUB_SECRET`
+- `AUTH_LINKEDIN_ID` and `AUTH_LINKEDIN_SECRET`
+
+3. Add redirect/callback URLs in provider consoles:
+
+- Google console: `http://localhost:3000/api/auth/callback/google`
+- GitHub app: `http://localhost:3000/api/auth/callback/github`
+- LinkedIn app: `http://localhost:3000/api/auth/callback/linkedin`
+
+For production, replace `http://localhost:3000` with your deployed domain, for example `https://xreso1.vercel.app/api/auth/callback/google`.
+
+4. Restart the dev server after changing env vars.
+
+`AUTH_*` keys are the preferred format. Legacy keys (`GOOGLE_CLIENT_ID`, `GITHUB_CLIENT_ID`, `LINKEDIN_CLIENT_ID`) are also accepted for backward compatibility.
+
+### Vercel setup checklist (production)
+
+1. Open Vercel Project → `Settings` → `Environment Variables`.
+2. Add these values to `Production`:
+
+- `AUTH_SECRET=<openssl rand -base64 32 output>`
+- `NEXTAUTH_URL=https://xreso1.vercel.app`
+- `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
+- `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`
+- `AUTH_LINKEDIN_ID`, `AUTH_LINKEDIN_SECRET`
+
+3. Provider callback URLs:
+
+- Google: `https://xreso1.vercel.app/api/auth/callback/google`
+- GitHub: `https://xreso1.vercel.app/api/auth/callback/github`
+- LinkedIn: `https://xreso1.vercel.app/api/auth/callback/linkedin`
+
+4. Save env vars and redeploy the latest commit.
+
 ## FAQ ❓
 
 The source-of-truth FAQ data lives in `src/lib/faq.ts` for both UI and docs reuse.

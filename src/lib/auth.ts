@@ -1,11 +1,49 @@
 import NextAuth from "next-auth";
+import type { Provider } from "next-auth/providers";
 import Credentials from "next-auth/providers/credentials";
+import GitHub from "next-auth/providers/github";
+import Google from "next-auth/providers/google";
+import LinkedIn from "next-auth/providers/linkedin";
 import { compareSync } from "bcryptjs";
+import { randomUUID } from "crypto";
 import Database from "better-sqlite3";
 import path from "path";
+import { isRateLimited, loginLimiter } from "@/lib/ratelimit";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
 type AppRole = "user" | "admin" | "moderator";
+
+type AppUserRow = {
+  id: string;
+  name: string;
+  email: string;
+  password: string | null;
+  role: string;
+  avatar: string | null;
+  premium_access: number;
+  premium_expires_at: string | null;
+};
+
+function getOAuthEnvValue(primaryKey: string, legacyKey: string) {
+  const value = process.env[primaryKey] || process.env[legacyKey] || "";
+  return value.trim();
+}
+
+const GOOGLE_CLIENT_ID = getOAuthEnvValue("AUTH_GOOGLE_ID", "GOOGLE_CLIENT_ID");
+const GOOGLE_CLIENT_SECRET = getOAuthEnvValue(
+  "AUTH_GOOGLE_SECRET",
+  "GOOGLE_CLIENT_SECRET"
+);
+const GITHUB_CLIENT_ID = getOAuthEnvValue("AUTH_GITHUB_ID", "GITHUB_CLIENT_ID");
+const GITHUB_CLIENT_SECRET = getOAuthEnvValue(
+  "AUTH_GITHUB_SECRET",
+  "GITHUB_CLIENT_SECRET"
+);
+const LINKEDIN_CLIENT_ID = getOAuthEnvValue("AUTH_LINKEDIN_ID", "LINKEDIN_CLIENT_ID");
+const LINKEDIN_CLIENT_SECRET = getOAuthEnvValue(
+  "AUTH_LINKEDIN_SECRET",
+  "LINKEDIN_CLIENT_SECRET"
+);
 
 function normalizeRole(role: string | null | undefined): AppRole {
   if (role === "admin" || role === "moderator") {
@@ -30,64 +68,186 @@ function hasActivePremiumEntitlement(
   return expiryTime > Date.now();
 }
 
+function getDbUserByEmail(email: string): AppUserRow | null {
+  const sqlite = new Database(DB_PATH);
+
+  try {
+    const user = sqlite
+      .prepare(
+        "SELECT id, name, email, password, role, avatar, premium_access, premium_expires_at FROM users WHERE lower(email) = lower(?) LIMIT 1"
+      )
+      .get(email) as AppUserRow | undefined;
+
+    return user || null;
+  } catch {
+    return null;
+  } finally {
+    sqlite.close();
+  }
+}
+
+function upsertOAuthUserInDb(data: {
+  name?: string | null;
+  email: string;
+  image?: string | null;
+}): AppUserRow | null {
+  const normalizedEmail = data.email.trim().toLowerCase();
+  if (!normalizedEmail) return null;
+
+  const sqlite = new Database(DB_PATH);
+
+  try {
+    const existing = sqlite
+      .prepare(
+        "SELECT id, name, email, password, role, avatar, premium_access, premium_expires_at FROM users WHERE lower(email) = lower(?) LIMIT 1"
+      )
+      .get(normalizedEmail) as AppUserRow | undefined;
+
+    if (existing) {
+      const resolvedName =
+        typeof data.name === "string" && data.name.trim()
+          ? data.name.trim()
+          : existing.name;
+      const resolvedAvatar =
+        typeof data.image === "string" && data.image.trim()
+          ? data.image.trim()
+          : existing.avatar;
+
+      sqlite
+        .prepare(
+          "UPDATE users SET name = ?, avatar = ?, updated_at = datetime('now') WHERE id = ?"
+        )
+        .run(resolvedName, resolvedAvatar, existing.id);
+
+      return {
+        ...existing,
+        name: resolvedName,
+        avatar: resolvedAvatar,
+      };
+    }
+
+    const generatedName =
+      typeof data.name === "string" && data.name.trim()
+        ? data.name.trim()
+        : normalizedEmail.split("@")[0] || "User";
+    const avatar =
+      typeof data.image === "string" && data.image.trim() ? data.image.trim() : null;
+    const userId = randomUUID();
+
+    sqlite
+      .prepare(
+        "INSERT INTO users (id, name, email, password, avatar, role, premium_access, created_at, updated_at) VALUES (?, ?, ?, NULL, ?, 'user', 0, datetime('now'), datetime('now'))"
+      )
+      .run(userId, generatedName, normalizedEmail, avatar);
+
+    return {
+      id: userId,
+      name: generatedName,
+      email: normalizedEmail,
+      password: null,
+      role: "user",
+      avatar,
+      premium_access: 0,
+      premium_expires_at: null,
+    };
+  } catch {
+    return null;
+  } finally {
+    sqlite.close();
+  }
+}
+
+const providers: Provider[] = [
+  Credentials({
+    name: "credentials",
+    credentials: {
+      email: { label: "Email", type: "email" },
+      password: { label: "Password", type: "password" },
+    },
+    async authorize(credentials, request) {
+      if (!credentials?.email || !credentials?.password) return null;
+
+      const normalizedEmail = String(credentials.email).trim().toLowerCase();
+      const providedPassword = String(credentials.password);
+      if (!normalizedEmail || !providedPassword) return null;
+
+      const forwarded = request?.headers?.get("x-forwarded-for");
+      const ip = forwarded?.split(",")[0]?.trim() || "anonymous";
+      const rateLimitKey = `credentials:${normalizedEmail}:${ip}`;
+
+      if (await isRateLimited(rateLimitKey, loginLimiter)) {
+        return null;
+      }
+
+      const user = getDbUserByEmail(normalizedEmail);
+
+      if (!user || !user.password) return null;
+      const isValid = compareSync(providedPassword, user.password);
+      if (!isValid) return null;
+
+      const premium = hasActivePremiumEntitlement(
+        user.premium_access,
+        user.premium_expires_at
+      );
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: normalizeRole(user.role),
+        image: user.avatar,
+        premium,
+        premiumExpiresAt: user.premium_expires_at,
+      };
+    },
+  }),
+];
+
+if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
+  providers.push(
+    Google({
+      clientId: GOOGLE_CLIENT_ID,
+      clientSecret: GOOGLE_CLIENT_SECRET,
+    })
+  );
+}
+
+if (GITHUB_CLIENT_ID && GITHUB_CLIENT_SECRET) {
+  providers.push(
+    GitHub({
+      clientId: GITHUB_CLIENT_ID,
+      clientSecret: GITHUB_CLIENT_SECRET,
+    })
+  );
+}
+
+if (LINKEDIN_CLIENT_ID && LINKEDIN_CLIENT_SECRET) {
+  providers.push(
+    LinkedIn({
+      clientId: LINKEDIN_CLIENT_ID,
+      clientSecret: LINKEDIN_CLIENT_SECRET,
+    })
+  );
+}
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [
-    Credentials({
-      name: "credentials",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
-
-        const normalizedEmail = String(credentials.email).trim().toLowerCase();
-        const providedPassword = String(credentials.password);
-        if (!normalizedEmail || !providedPassword) return null;
-
-        try {
-          const sqlite = new Database(DB_PATH);
-          const user = sqlite
-            .prepare(
-              "SELECT id, name, email, password, role, avatar, premium_access, premium_expires_at FROM users WHERE lower(email) = lower(?) LIMIT 1"
-            )
-            .get(normalizedEmail) as {
-            id: string;
-            name: string;
-            email: string;
-            password: string | null;
-            role: string;
-            avatar: string | null;
-            premium_access: number;
-            premium_expires_at: string | null;
-          } | undefined;
-          sqlite.close();
-
-          if (!user || !user.password) return null;
-          const isValid = compareSync(providedPassword, user.password);
-          if (!isValid) return null;
-
-          const premium = hasActivePremiumEntitlement(
-            user.premium_access,
-            user.premium_expires_at
-          );
-
-          return {
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: normalizeRole(user.role),
-            image: user.avatar,
-            premium,
-            premiumExpiresAt: user.premium_expires_at,
-          };
-        } catch {
-          return null;
-        }
-      },
-    }),
-  ],
+  providers,
   callbacks: {
+    async signIn({ user, account }) {
+      if (!account || account.provider === "credentials") return true;
+
+      const normalizedEmail =
+        typeof user.email === "string" ? user.email.trim().toLowerCase() : "";
+      if (!normalizedEmail) return false;
+
+      const syncedUser = upsertOAuthUserInDb({
+        email: normalizedEmail,
+        name: user.name,
+        image: user.image,
+      });
+
+      return syncedUser !== null;
+    },
     async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
@@ -97,6 +257,24 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.premium = (user as { premium?: boolean }).premium === true;
         token.premiumExpiresAt =
           (user as { premiumExpiresAt?: string | null }).premiumExpiresAt || null;
+      }
+
+      const tokenEmail = typeof token.email === "string" ? token.email.trim().toLowerCase() : "";
+      const shouldHydrateToken = Boolean(user) || !token.id || !token.role;
+      if (shouldHydrateToken && tokenEmail) {
+        const dbUser = getDbUserByEmail(tokenEmail);
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.role = normalizeRole(dbUser.role);
+          token.picture = dbUser.avatar || (token.picture as string | null | undefined) || null;
+          token.name = dbUser.name || (token.name as string | undefined);
+          token.premium = hasActivePremiumEntitlement(
+            dbUser.premium_access,
+            dbUser.premium_expires_at
+          );
+          token.premiumExpiresAt = dbUser.premium_expires_at;
+          token.email = dbUser.email;
+        }
       }
 
       if (trigger === "update" && session) {

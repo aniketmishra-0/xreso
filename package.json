@@ -15,9 +15,11 @@
     "user:make-admin": "npx tsx scripts/make-admin.ts",
     "excel:add-admin": "npx tsx scripts/add-admin-to-excel.ts",
     "excel:migrate-split": "npx tsx scripts/migrate-excel-workbooks.ts",
+    "verify:routes": "npx tsx scripts/verify-routes.ts",
     "verify:storage": "npx tsx scripts/verify-storage-routing.ts",
     "verify:flows": "npx tsx scripts/verify-excel-flows.ts",
-    "verify:all": "npm run verify:flows && npm run verify:storage"
+    "verify:all": "npm run verify:routes && npm run verify:flows && npm run verify:storage",
+    "verify:prod": "npm run lint && npm run verify:routes && npm run verify:storage && npm run build"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",

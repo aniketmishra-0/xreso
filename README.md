@@ -110,9 +110,11 @@ Useful commands:
 
 ```bash
 npm run excel:migrate-split # move legacy workbook data into the split workbook setup
+npm run verify:routes       # fail if internal links point to missing app routes (404 guard)
 npm run verify:storage      # inspect workbook routing and fail on pending/missing live sheets
 npm run verify:flows        # verify admin login/community/advanced Excel write paths
-npm run verify:all          # run verify:flows + verify:storage
+npm run verify:all          # run verify:routes + verify:flows + verify:storage
+npm run verify:prod         # non-destructive release gate (lint + routes + storage + build)
 ```
 
 Admins can also view the same routing status inside the admin dashboard.
@@ -178,6 +180,25 @@ For production, replace `http://localhost:3000` with your deployed domain, for e
 
 4. Save env vars and redeploy the latest commit.
 
+## Production hardening baseline 🛡️
+
+xreso now ships with an environment-aware production security baseline:
+
+- strict `Content-Security-Policy` with production vs development behavior
+- `x-powered-by` disabled
+- stronger browser isolation headers (`COOP`, `CORP`, `Origin-Agent-Cluster`)
+- API responses configured with `Cache-Control: no-store`
+- health probe endpoint at `/api/health`
+
+For release validation, run:
+
+```bash
+npm run verify:prod
+```
+
+This runs linting, route checks, storage checks, and production build validation without writing new workbook rows.
+Use `npm run verify:all` when you want full end-to-end workbook flow checks.
+
 ## FAQ ❓
 
 The source-of-truth FAQ data lives in `src/lib/faq.ts` for both UI and docs reuse.
@@ -208,6 +229,8 @@ We are building an elite, fast-moving open-source team.
 npm run dev         # start local development server
 npm run build       # production build
 npm run lint        # lint codebase
+npm run verify:prod # full production readiness validation
+npm run verify:all  # includes end-to-end Excel write-path verification
 npm run db:generate # create migrations from schema changes
 npm run db:migrate  # apply migrations
 npm run db:seed     # seed sample data

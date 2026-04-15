@@ -77,8 +77,8 @@ export default function TermsPage() {
             </p>
             <p>
               Contact us at{" "}
-              <a href="mailto:legal@xreso.dev" className={styles.link}>
-                legal@xreso.dev
+              <a href="mailto:aniketmishra492@gmail.com" className={styles.link}>
+                aniketmishra492@gmail.com
               </a>{" "}
               with your copyright complaint.
             </p>
@@ -116,8 +116,8 @@ export default function TermsPage() {
             <h2 className={styles.sectionTitle}>9. Contact</h2>
             <p>
               If you have questions about these Terms, please contact us at{" "}
-              <a href="mailto:hello@xreso.dev" className={styles.link}>
-                hello@xreso.dev
+              <a href="mailto:aniketmishra492@gmail.com" className={styles.link}>
+                aniketmishra492@gmail.com
               </a>
               .
             </p>

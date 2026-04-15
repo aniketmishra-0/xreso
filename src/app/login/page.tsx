@@ -224,18 +224,6 @@ export default function LoginPage() {
                 : "Create Account"}
             </button>
           </form>
-
-          {mode === "login" && (
-            <div className={styles.demoCredentials}>
-              <p className={styles.demoTitle}>Demo Credentials</p>
-              <p className={styles.demoText}>
-                Admin: <code>admin@xreso.dev</code> / <code>admin123</code>
-              </p>
-              <p className={styles.demoText}>
-                User: <code>priya@example.com</code> / <code>user123</code>
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>

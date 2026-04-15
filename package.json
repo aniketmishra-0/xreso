@@ -11,7 +11,9 @@
     "db:migrate": "npx drizzle-kit migrate",
     "db:push": "npx drizzle-kit push",
     "db:seed": "npx tsx scripts/seed.ts",
-    "db:studio": "npx drizzle-kit studio"
+    "db:studio": "npx drizzle-kit studio",
+    "user:make-admin": "npx tsx scripts/make-admin.ts",
+    "excel:add-admin": "npx tsx scripts/add-admin-to-excel.ts"
   },
   "dependencies": {
     "@auth/drizzle-adapter": "^1.11.1",

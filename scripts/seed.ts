@@ -1,9 +1,26 @@
 import Database from "better-sqlite3";
 import { hashSync } from "bcryptjs";
+import { randomBytes } from "crypto";
+import { config as loadEnv } from "dotenv";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 
+loadEnv({ path: ".env.local" });
+loadEnv();
+
 const DB_PATH = path.join(process.cwd(), "xreso.db");
+
+function resolveSeedPassword(envName: "SEED_ADMIN_PASSWORD" | "SEED_USER_PASSWORD") {
+  const configured = process.env[envName]?.trim();
+  if (configured) {
+    return { value: configured, source: "env" as const };
+  }
+
+  return {
+    value: randomBytes(18).toString("base64url"),
+    source: "generated" as const,
+  };
+}
 
 async function seed() {
   console.log("🌱 Seeding xreso database...\n");
@@ -172,6 +189,8 @@ async function seed() {
   const adminId = uuidv4();
   const userId1 = uuidv4();
   const userId2 = uuidv4();
+  const adminSeedPassword = resolveSeedPassword("SEED_ADMIN_PASSWORD");
+  const userSeedPassword = resolveSeedPassword("SEED_USER_PASSWORD");
 
   const premiumTrialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -182,7 +201,7 @@ async function seed() {
     adminId,
     "Admin",
     "admin@xreso.dev",
-    hashSync("admin123", 10),
+    hashSync(adminSeedPassword.value, 12),
     "admin",
     "Platform administrator",
     1,
@@ -192,7 +211,7 @@ async function seed() {
     userId1,
     "Priya Sharma",
     "priya@example.com",
-    hashSync("user123", 10),
+    hashSync(userSeedPassword.value, 12),
     "user",
     "CS student and note enthusiast",
     1,
@@ -202,13 +221,20 @@ async function seed() {
     userId2,
     "Rahul Dev",
     "rahul@example.com",
-    hashSync("user123", 10),
+    hashSync(userSeedPassword.value, 12),
     "user",
     "Full-stack developer",
     0,
     null
   );
   console.log("✅ Seeded 3 users");
+
+  if (adminSeedPassword.source === "generated") {
+    console.log("⚠️ Generated SEED_ADMIN_PASSWORD for this seed run:", adminSeedPassword.value);
+  }
+  if (userSeedPassword.source === "generated") {
+    console.log("⚠️ Generated SEED_USER_PASSWORD for this seed run:", userSeedPassword.value);
+  }
 
   // ── Categories ─────────────────────────────
   const insertCat = db.prepare(

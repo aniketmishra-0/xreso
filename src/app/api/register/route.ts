@@ -6,22 +6,37 @@ import path from "path";
 import { appendUserToExcel } from "@/lib/excel";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{10,128}$/;
 
 // POST /api/register — Create new user
 export async function POST(req: NextRequest) {
   try {
     const { name, email, password, avatar } = await req.json();
+    const safeName = typeof name === "string" ? name.trim() : "";
+    const safeEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+    const safePassword = typeof password === "string" ? password : "";
 
-    if (!name || !email || !password) {
+    if (!safeName || !safeEmail || !safePassword) {
       return NextResponse.json(
         { error: "Name, email, and password are required" },
         { status: 400 }
       );
     }
 
-    if (password.length < 6) {
+    if (!EMAIL_REGEX.test(safeEmail)) {
       return NextResponse.json(
-        { error: "Password must be at least 6 characters" },
+        { error: "Please enter a valid email address" },
+        { status: 400 }
+      );
+    }
+
+    if (!STRONG_PASSWORD_REGEX.test(safePassword)) {
+      return NextResponse.json(
+        {
+          error:
+            "Password must be 10-128 characters and include uppercase, lowercase, number, and special character",
+        },
         { status: 400 }
       );
     }
@@ -50,8 +65,8 @@ export async function POST(req: NextRequest) {
     const sqlite = new Database(DB_PATH);
 
     const existing = sqlite
-      .prepare("SELECT id FROM users WHERE email = ?")
-      .get(email) as { id: string } | undefined;
+      .prepare("SELECT id FROM users WHERE lower(email) = lower(?)")
+      .get(safeEmail) as { id: string } | undefined;
 
     if (existing) {
       sqlite.close();
@@ -62,21 +77,21 @@ export async function POST(req: NextRequest) {
     }
 
     const userId = uuidv4();
-    const hashedPassword = hashSync(password, 10);
+    const hashedPassword = hashSync(safePassword, 12);
 
     sqlite
       .prepare(
         "INSERT INTO users (id, name, email, password, avatar, role) VALUES (?, ?, ?, ?, ?, ?)"
       )
-      .run(userId, name, email, hashedPassword, safeAvatar, "user");
+      .run(userId, safeName, safeEmail, hashedPassword, safeAvatar, "user");
 
     sqlite.close();
 
     // ── Append to Excel sheet (Tracking Registered Users) ──
     appendUserToExcel({
       userId,
-      name,
-      email,
+      name: safeName,
+      email: safeEmail,
     }).catch((err) => console.error("[Excel] Failed to append user:", err));
 
     return NextResponse.json({

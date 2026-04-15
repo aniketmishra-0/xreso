@@ -41,11 +41,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
+        const normalizedEmail = String(credentials.email).trim().toLowerCase();
+        const providedPassword = String(credentials.password);
+        if (!normalizedEmail || !providedPassword) return null;
+
         try {
           const sqlite = new Database(DB_PATH);
           const user = sqlite
-            .prepare("SELECT * FROM users WHERE email = ?")
-            .get(credentials.email as string) as {
+            .prepare(
+              "SELECT id, name, email, password, role, avatar, premium_access, premium_expires_at FROM users WHERE lower(email) = lower(?) LIMIT 1"
+            )
+            .get(normalizedEmail) as {
             id: string;
             name: string;
             email: string;
@@ -58,10 +64,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           sqlite.close();
 
           if (!user || !user.password) return null;
-          const isValid = compareSync(
-            credentials.password as string,
-            user.password
-          );
+          const isValid = compareSync(providedPassword, user.password);
           if (!isValid) return null;
 
           const premium = hasActivePremiumEntitlement(

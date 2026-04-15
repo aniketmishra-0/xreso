@@ -65,6 +65,16 @@ const ADMIN_ACTION_HEADERS = [
   { header: "Details", key: "details", width: 44 },
 ];
 
+const ADMIN_USER_HEADERS = [
+  { header: "Added At", key: "date", width: 22 },
+  { header: "Name", key: "name", width: 30 },
+  { header: "Email", key: "email", width: 40 },
+  { header: "Credential Status", key: "credentialStatus", width: 40 },
+  { header: "Photo", key: "photo", width: 36 },
+  { header: "Role", key: "role", width: 16 },
+  { header: "Notes", key: "notes", width: 44 },
+];
+
 /* ── Detect link type ───────────────────────────────────── */
 function detectLinkType(url: string): string {
   if (!url) return "Unknown";
@@ -198,6 +208,20 @@ function applyAdminActionSheetSchema(sheet: ExcelJS.Worksheet) {
     type: "pattern",
     pattern: "solid",
     fgColor: { argb: "DC2626" },
+  };
+  headerRow.alignment = { vertical: "middle", horizontal: "center" };
+  headerRow.height = 28;
+  sheet.views = [{ state: "frozen", ySplit: 1 }];
+}
+
+function applyAdminUserSheetSchema(sheet: ExcelJS.Worksheet) {
+  sheet.columns = ADMIN_USER_HEADERS;
+  const headerRow = sheet.getRow(1);
+  headerRow.font = { bold: true, color: { argb: "FFFFFF" }, size: 11 };
+  headerRow.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "7C3AED" },
   };
   headerRow.alignment = { vertical: "middle", horizontal: "center" };
   headerRow.height = 28;
@@ -485,6 +509,95 @@ export async function appendAdminActionToExcel(data: {
     }
   } catch (error) {
     console.error("[Excel] Failed to append admin action:", error);
+  }
+}
+
+export async function upsertAdminUserInExcel(data: {
+  name: string;
+  email: string;
+  photo?: string;
+  role?: string;
+  notes?: string;
+}): Promise<void> {
+  try {
+    const { isOneDriveConfigured } = await import("@/lib/onedrive");
+    const useOneDrive = isOneDriveConfigured();
+
+    let existingBuffer: Buffer | undefined;
+    if (useOneDrive) {
+      existingBuffer = loadPendingOneDriveBuffer();
+      if (!existingBuffer) {
+        existingBuffer = await downloadExcelFromOneDrive();
+      }
+    } else if (fs.existsSync(LOCAL_EXCEL_PATH)) {
+      existingBuffer = fs.readFileSync(LOCAL_EXCEL_PATH);
+    }
+
+    const workbook = await loadOrCreateWorkbook(existingBuffer);
+    const sheet = ensureWorksheet(workbook, "Admin Users", "7C3AED", applyAdminUserSheetSchema);
+
+    // Security hardening: never keep plaintext passwords in Excel rows.
+    const credentialStatusText = "Password is hashed in DB (not stored in Excel)";
+    for (let i = 2; i <= sheet.rowCount; i += 1) {
+      const row = sheet.getRow(i);
+      row.getCell("credentialStatus").value = credentialStatusText;
+    }
+
+    const normalizedEmail = data.email.trim().toLowerCase();
+
+    let targetRow: ExcelJS.Row | null = null;
+    for (let i = 2; i <= sheet.rowCount; i += 1) {
+      const row = sheet.getRow(i);
+      const rowEmail = cellValueToText(row.getCell("email").value).trim().toLowerCase();
+      if (rowEmail === normalizedEmail) {
+        targetRow = row;
+        break;
+      }
+    }
+
+    if (!targetRow) {
+      targetRow = sheet.addRow({});
+    }
+
+    const now = new Date().toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Asia/Kolkata",
+    });
+
+    targetRow.getCell("date").value = now;
+    targetRow.getCell("name").value = data.name;
+    targetRow.getCell("email").value = data.email;
+    targetRow.getCell("credentialStatus").value = credentialStatusText;
+    targetRow.getCell("photo").value = data.photo || "Will share later";
+    targetRow.getCell("role").value = data.role || "admin";
+    targetRow.getCell("notes").value = data.notes || "";
+
+    if (targetRow.number % 2 === 0) {
+      targetRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "F3E8FF" },
+      };
+    }
+
+    const outputBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
+
+    if (useOneDrive) {
+      try {
+        await uploadExcelToOneDrive(outputBuffer);
+        clearPendingOneDriveBuffer();
+        console.log("[Excel] Admin user synced to OneDrive Community_Links.xlsx");
+      } catch (error) {
+        saveBufferToPath(ONEDRIVE_PENDING_EXCEL_PATH, outputBuffer);
+        console.warn("[Excel] OneDrive admin user sync failed, saved pending workbook locally:", error);
+      }
+    } else {
+      saveBufferToPath(LOCAL_EXCEL_PATH, outputBuffer);
+      console.log("[Excel] Admin user synced to local Community_Links.xlsx");
+    }
+  } catch (error) {
+    console.error("[Excel] Failed to sync admin user:", error);
   }
 }
 

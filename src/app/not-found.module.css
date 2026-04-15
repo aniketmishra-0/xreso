@@ -1,0 +1,94 @@
+.page {
+  min-height: calc(100vh - var(--nav-height));
+  display: grid;
+  place-items: center;
+  padding: clamp(2.5rem, 7vw, 6rem) var(--space-lg);
+  background:
+    radial-gradient(circle at 12% 18%, var(--primary-subtle), transparent 36%),
+    radial-gradient(circle at 82% 84%, var(--accent-orange-subtle), transparent 30%),
+    linear-gradient(180deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.ambient {
+  position: absolute;
+  inset: -15%;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(
+      115deg,
+      transparent 0,
+      transparent 22px,
+      rgba(255, 255, 255, 0.025) 23px,
+      rgba(255, 255, 255, 0.025) 24px
+    );
+  mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.85), transparent 74%);
+}
+
+.card {
+  width: min(720px, 100%);
+  text-align: center;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-xl);
+  padding: clamp(1.8rem, 5vw, 3.2rem);
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.03), transparent 38%),
+    var(--bg-surface);
+  box-shadow: var(--shadow-lg), var(--shadow-glow-brand);
+  backdrop-filter: blur(8px);
+  position: relative;
+}
+
+.code {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  margin: 0 auto var(--space-md);
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  letter-spacing: 0.1em;
+}
+
+.title {
+  font-size: clamp(1.8rem, 5vw, 3.2rem);
+  line-height: var(--leading-tight);
+  margin-bottom: var(--space-md);
+}
+
+.description {
+  color: var(--text-secondary);
+  max-width: 56ch;
+  margin: 0 auto;
+  line-height: var(--leading-relaxed);
+}
+
+.actions {
+  margin-top: var(--space-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  flex-wrap: wrap;
+}
+
+.meta {
+  margin-top: var(--space-lg);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+
+.meta a {
+  color: var(--text-secondary);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  transition: color var(--transition-fast);
+}
+
+.meta a:hover {
+  color: var(--text-primary);
+}

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CATEGORY_CATALOG } from "@/lib/techIcons";
 import styles from "./page.module.css";
@@ -417,13 +417,16 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
 export default function UploadPage() {
   const { data: session } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionUser = session?.user as { name?: string | null; role?: string } | undefined;
   const sessionName = sessionUser?.name ?? "";
   const userRole = sessionUser?.role;
   const canAccessAdvancedUpload = userRole === "admin" || userRole === "moderator";
+  const preferredResourceTier: "standard" | "advanced" =
+    searchParams.get("mode") === "advanced" ? "advanced" : "standard";
 
-  const [resourceTier, setResourceTier] = useState<"standard" | "advanced">("standard");
+  const [resourceTier, setResourceTier] = useState<"standard" | "advanced">(preferredResourceTier);
   const [uploadMode, setUploadMode] = useState<"file" | "link">("file");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [mobilePicker, setMobilePicker] = useState<MobilePickerState | null>(null);
@@ -505,6 +508,10 @@ export default function UploadPage() {
     { value: "CC-BY-SA-4.0", label: "CC BY-SA 4.0 — Share alike with credit" },
     { value: "all-rights-reserved", label: "All Rights Reserved — View only on xreso" },
   ];
+
+  useEffect(() => {
+    setResourceTier(preferredResourceTier);
+  }, [preferredResourceTier]);
 
   useEffect(() => {
     if (!sessionName) return;
@@ -830,12 +837,14 @@ export default function UploadPage() {
 
   const resetForm = () => {
     setUploadResult(null); removeFile();
-    setResourceTier("standard");
+    setResourceTier(preferredResourceTier);
     setUploadMode("file");
     setFormData({ ...INITIAL_FORM_DATA, authorCredit: sessionName });
     setChecks({ ownership: false, license: false, tos: false });
     setPreviewOpen(false);
   };
+
+  const browseHref = preferredResourceTier === "advanced" ? "/tracks" : "/browse";
 
   const linkMeta = detectLinkType(formData.resourceUrl);
 
@@ -850,7 +859,7 @@ export default function UploadPage() {
             <p className={styles.successText}>{uploadResult.message}</p>
             <div className={styles.successActions}>
               <button className="btn btn-primary btn-lg" onClick={resetForm}>Share Another</button>
-              <Link href="/browse" className="btn btn-secondary btn-lg">Browse Notes</Link>
+              <Link href={browseHref} className="btn btn-secondary btn-lg">Browse Notes</Link>
             </div>
           </div>
         </div>

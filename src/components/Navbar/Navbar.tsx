@@ -5,7 +5,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import styles from "./Navbar.module.css";
 
 interface MegaMenuItem {
@@ -23,6 +23,7 @@ export default function Navbar() {
   const { theme, setTheme } = useTheme();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -188,9 +189,16 @@ export default function Navbar() {
 
   const discoverMenu = discoverItems.length > 0 ? discoverItems : discoverFallback;
   const advancedMenu = advancedItems.length > 0 ? advancedItems : advancedFallback;
+  const browseModeFromQuery: BrowseMode | null =
+    searchParams.get("mode") === "advanced"
+      ? "advanced"
+      : searchParams.get("mode") === "programming"
+        ? "programming"
+        : null;
   const browseMode: BrowseMode = pathname.startsWith("/tracks")
     ? "advanced"
-    : "programming";
+    : browseModeFromQuery || "programming";
+  const uploadHref = browseMode === "advanced" ? "/upload?mode=advanced" : "/upload?mode=programming";
   const browseModeConfig: Record<
     BrowseMode,
     {
@@ -337,7 +345,7 @@ export default function Navbar() {
 
         <div className={styles.navActions}>
           <Link
-            href="/upload"
+            href={uploadHref}
             className={`btn btn-primary btn-sm ${styles.uploadBtn}`}
             id="nav-upload"
           >
@@ -525,7 +533,7 @@ export default function Navbar() {
 
         <div className={styles.mobileDivider} />
         <Link
-          href="/upload"
+          href={uploadHref}
           className={`btn btn-primary ${styles.mobileUpload}`}
           onClick={() => setMobileMenuOpen(false)}
         >

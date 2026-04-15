@@ -1,17 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
-import { getFeaturedNotes, getCategories } from "@/lib/db/queries";
+import {
+  getFeaturedNotes,
+  getCategories,
+  getLibraryHeroStats,
+} from "@/lib/db/queries";
 import { getTechIcon } from "@/lib/techIcons";
 import HeroDigitalLibraryDashboard from "@/components/HeroDigitalLibraryDashboard";
 import styles from "./page.module.css";
-
-/* ─── Static data ──────────────────────────────────────────────────── */
-const STATS = [
-  { value: "500+", label: "Notes Indexed" },
-  { value: "2.5K+", label: "Active Learners" },
-  { value: "50+", label: "Contributors" },
-  { value: "99.9%", label: "Uptime" },
-];
 
 const formatDate = (dateStr: string) => {
   try {
@@ -26,6 +22,17 @@ const formatDate = (dateStr: string) => {
 };
 
 const formatNoteCount = (count: number) => `${count} note${count === 1 ? "" : "s"}`;
+
+const formatCompactMetric = (value: number) => {
+  if (value < 1000) {
+    return value.toLocaleString("en-US");
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(value);
+};
 
 /* ─── Sub-components ───────────────────────────────────────────────── */
 function CategoryGlyph({
@@ -77,8 +84,19 @@ function WebIcon() { return <svg width="14" height="14" viewBox="0 0 24 24" fill
 
 /* ─── Page ─────────────────────────────────────────────────────────── */
 export default async function Home() {
-  const featuredNotes = await getFeaturedNotes(6);
-  const categories = await getCategories(9);
+  const [featuredNotes, categories, heroStats] = await Promise.all([
+    getFeaturedNotes(6),
+    getCategories(9),
+    getLibraryHeroStats(),
+  ]);
+
+  const stats = [
+    { value: formatCompactMetric(heroStats.notesIndexed), label: "Notes Indexed" },
+    { value: formatCompactMetric(heroStats.activeLearners), label: "Active Learners" },
+    { value: formatCompactMetric(heroStats.contributors), label: "Contributors" },
+    { value: "99.9%", label: "Uptime" },
+  ];
+
   const [primaryCategory] = categories;
   const totalCategoryNotes = categories.reduce((sum, category) => sum + category.noteCount, 0);
   const activeDomains = categories.filter((category) => category.noteCount > 0).length;
@@ -143,7 +161,7 @@ export default async function Home() {
 
             {/* Stats */}
             <div className={styles.heroStats}>
-              {STATS.map((s) => (
+              {stats.map((s) => (
                 <div key={s.label} className={styles.statItem}>
                   <span className={styles.statValue}>{s.value}</span>
                   <span className={styles.statLabel}>{s.label}</span>

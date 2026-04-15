@@ -193,13 +193,20 @@ export async function GET(req: NextRequest) {
     const resources = rows.map((row) => {
       const premiumOnly = Boolean(row.premium_only);
       const accessLocked = premiumOnly && !hasPremiumAccess;
+      const rawContentUrl =
+        typeof row.content_url === "string" ? row.content_url : "";
+      const resolvedContentUrl = accessLocked
+        ? null
+        : rawContentUrl.startsWith("onedrive://")
+          ? `/api/advanced-tracks/resource/${row.id}`
+          : rawContentUrl;
 
       return {
         id: row.id,
         title: row.title,
         summary: row.summary,
         resourceType: row.resource_type,
-        contentUrl: accessLocked ? null : row.content_url,
+        contentUrl: resolvedContentUrl,
         accessLocked,
         thumbnailUrl: row.thumbnail_url,
         premiumOnly,

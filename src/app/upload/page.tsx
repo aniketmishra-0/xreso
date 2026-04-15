@@ -26,6 +26,10 @@ const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
   CATEGORY_CATALOG.map(cat => [cat.slug, cat.name])
 );
 
+const STANDARD_CATEGORY_CATALOG = CATEGORY_CATALOG.filter(
+  (cat) => cat.slug !== "devops"
+);
+
 const BADGE_COLOR_MAP: Record<string, string> = {
   python: "badge-blue", javascript: "badge-yellow", sql: "badge-green",
   java: "badge-purple", typescript: "badge-blue", react: "badge-blue",
@@ -42,6 +46,9 @@ const INITIAL_FORM_DATA = {
   title: "",
   description: "",
   category: "",
+  advancedTrackSlug: "",
+  advancedTopicSlug: "",
+  advancedResourceType: "link",
   tags: "",
   authorCredit: "",
   resourceUrl: "",
@@ -49,26 +56,51 @@ const INITIAL_FORM_DATA = {
   licenseType: "CC-BY-4.0",
 };
 
+interface AdvancedTrackTopic {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+  level: "Beginner" | "Intermediate" | "Advanced";
+}
+
+interface AdvancedTrack {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+  premium: boolean;
+  approvedCount: number;
+  topics: AdvancedTrackTopic[];
+}
+
 /* ──────────────────────────────────────────────────────────
    PREVIEW DRAWER — renders live as user fills the form
 ──────────────────────────────────────────────────────────── */
 interface PreviewProps {
   open: boolean;
   onClose: () => void;
+  resourceTier: "standard" | "advanced";
+  advancedTracks: AdvancedTrack[];
   mode: "file" | "link";
   fileObjectUrl: string;
   formData: {
     title: string; description: string; category: string;
+    advancedTrackSlug: string;
     tags: string; authorCredit: string; resourceUrl: string; licenseType: string;
   };
   session: { user?: { name?: string | null } } | null;
 }
 
-function PreviewDrawer({ open, onClose, mode, fileObjectUrl, formData, session }: PreviewProps) {
+function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, fileObjectUrl, formData, session }: PreviewProps) {
   const tagList = formData.tags ? formData.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
   const authorName = formData.authorCredit || session?.user?.name || "You";
-  const catLabel = CATEGORY_LABELS[formData.category] || formData.category || "Category";
-  const catBadge = CATEGORY_BADGE[formData.category] || "";
+  const selectedTrack = advancedTracks.find((track) => track.slug === formData.advancedTrackSlug);
+  const catLabel =
+    resourceTier === "advanced"
+      ? selectedTrack?.name || formData.advancedTrackSlug || "Advanced Track"
+      : CATEGORY_LABELS[formData.category] || formData.category || "Category";
+  const catBadge = resourceTier === "advanced" ? "badge-blue" : CATEGORY_BADGE[formData.category] || "";
   const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   const linkMeta = detectLinkType(formData.resourceUrl);
 
@@ -266,11 +298,18 @@ export default function UploadPage() {
   const { data: session } = useSession();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const sessionName = session?.user?.name ?? "";
+  const sessionUser = session?.user as { name?: string | null; role?: string } | undefined;
+  const sessionName = sessionUser?.name ?? "";
+  const userRole = sessionUser?.role;
+  const canAccessAdvancedUpload = userRole === "admin" || userRole === "moderator";
 
+  const [resourceTier, setResourceTier] = useState<"standard" | "advanced">("standard");
   const [uploadMode, setUploadMode] = useState<"file" | "link">("file");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
+  const [advancedTracks, setAdvancedTracks] = useState<AdvancedTrack[]>([]);
+  const [advancedCatalogLoading, setAdvancedCatalogLoading] = useState(false);
+  const [advancedCatalogError, setAdvancedCatalogError] = useState("");
 
   const [checks, setChecks] = useState({ ownership: false, license: false, tos: false });
   const [dragActive, setDragActive] = useState(false);
@@ -279,9 +318,30 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; noteId?: string } | null>(null);
 
+  const selectedAdvancedTrack = advancedTracks.find(
+    (track) => track.slug === formData.advancedTrackSlug
+  );
+  const selectedAdvancedTopics = selectedAdvancedTrack?.topics ?? [];
+  const hasSelectedCategory =
+    resourceTier === "advanced" ? Boolean(formData.advancedTrackSlug) : Boolean(formData.category);
+  const submitBlockedByRole = resourceTier === "advanced" && !canAccessAdvancedUpload;
+  const fileAccept =
+    resourceTier === "advanced"
+      ? ".pdf,.doc,.docx,.mp4,.webm"
+      : ".png,.jpg,.jpeg,.webp,.pdf";
+  const fileHint =
+    resourceTier === "advanced"
+      ? "Supports PDF, DOC, DOCX, MP4, WEBM • Max 25 MB"
+      : "Supports PNG, JPG, WEBP, PDF • Max 10 MB";
   const allChecked = checks.ownership && checks.license && checks.tos;
-  const canSubmit = allChecked && !!session?.user && !uploading &&
-    (uploadMode === "file" ? !!file : !!formData.resourceUrl);
+  const hasSelectedContent = uploadMode === "file" ? Boolean(file) : Boolean(formData.resourceUrl);
+  const canSubmit =
+    allChecked &&
+    !!session?.user &&
+    !uploading &&
+    !submitBlockedByRole &&
+    hasSelectedCategory &&
+    hasSelectedContent;
 
   useEffect(() => {
     if (!sessionName) return;
@@ -291,12 +351,73 @@ export default function UploadPage() {
     ));
   }, [sessionName]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAdvancedTracks = async () => {
+      setAdvancedCatalogLoading(true);
+      setAdvancedCatalogError("");
+
+      try {
+        const res = await fetch("/api/advanced-tracks", { cache: "no-store" });
+        if (!res.ok) {
+          throw new Error("Failed to load advanced tracks");
+        }
+
+        const payload = (await res.json()) as { tracks?: AdvancedTrack[] };
+        if (cancelled) return;
+
+        setAdvancedTracks(payload.tracks || []);
+      } catch {
+        if (!cancelled) {
+          setAdvancedTracks([]);
+          setAdvancedCatalogError("Could not load advanced tracks right now.");
+        }
+      } finally {
+        if (!cancelled) {
+          setAdvancedCatalogLoading(false);
+        }
+      }
+    };
+
+    void loadAdvancedTracks();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (
+      resourceTier !== "advanced" ||
+      formData.advancedTrackSlug ||
+      advancedTracks.length === 0
+    ) {
+      return;
+    }
+
+    setFormData((current) => ({
+      ...current,
+      advancedTrackSlug: advancedTracks[0].slug,
+    }));
+  }, [resourceTier, formData.advancedTrackSlug, advancedTracks]);
+
   useEffect(() => () => {
     if (fileObjectUrl) URL.revokeObjectURL(fileObjectUrl);
   }, [fileObjectUrl]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+
+    if (name === "advancedTrackSlug") {
+      setFormData((current) => ({
+        ...current,
+        advancedTrackSlug: value,
+        advancedTopicSlug: "",
+      }));
+      return;
+    }
+
     setFormData((current) => ({ ...current, [name]: value }));
   };
 
@@ -339,6 +460,76 @@ export default function UploadPage() {
     setUploading(true); setUploadResult(null);
 
     try {
+      if (resourceTier === "advanced") {
+        if (!canAccessAdvancedUpload) {
+          setUploadResult({
+            success: false,
+            message: "Advanced DB upload is available only for admin or moderator accounts.",
+          });
+          return;
+        }
+
+        if (!formData.advancedTrackSlug) {
+          setUploadResult({
+            success: false,
+            message: "Select an advanced track before submitting.",
+          });
+          return;
+        }
+
+        if (uploadMode === "file" && !file) {
+          setUploadResult({
+            success: false,
+            message: "Choose a file to upload for Advanced Tracks DB.",
+          });
+          return;
+        }
+
+        if (uploadMode === "link" && !formData.resourceUrl) {
+          setUploadResult({
+            success: false,
+            message: "Provide a resource URL for Advanced Tracks DB link submission.",
+          });
+          return;
+        }
+
+        const advancedBody = new FormData();
+        if (uploadMode === "file" && file) {
+          advancedBody.append("file", file);
+        }
+        advancedBody.append("title", formData.title);
+        advancedBody.append("summary", formData.description);
+        advancedBody.append("trackSlug", formData.advancedTrackSlug);
+        advancedBody.append("topicSlug", formData.advancedTopicSlug || "");
+        advancedBody.append("resourceType", formData.advancedResourceType);
+        advancedBody.append("tags", formData.tags);
+        advancedBody.append("status", "pending");
+        advancedBody.append("premiumOnly", "true");
+        advancedBody.append("featured", "false");
+
+        if (uploadMode === "link") {
+          advancedBody.append("contentUrl", formData.resourceUrl);
+        }
+
+        const res = await fetch("/api/admin/advanced-tracks", {
+          method: "POST",
+          body: advancedBody,
+        });
+
+        const data = await res.json();
+        setUploadResult({
+          success: res.ok,
+          message:
+            data.message ||
+            data.error ||
+            (res.ok
+              ? "Advanced resource saved to Advanced DB and queued for review."
+              : "Advanced upload failed"),
+          noteId: data.resourceId,
+        });
+        return;
+      }
+
       const body = new FormData();
       if (uploadMode === "file" && file) body.append("file", file);
       body.append("title", formData.title);
@@ -363,6 +554,8 @@ export default function UploadPage() {
 
   const resetForm = () => {
     setUploadResult(null); removeFile();
+    setResourceTier("standard");
+    setUploadMode("file");
     setFormData({ ...INITIAL_FORM_DATA, authorCredit: sessionName });
     setChecks({ ownership: false, license: false, tos: false });
     setPreviewOpen(false);
@@ -395,6 +588,8 @@ export default function UploadPage() {
       <PreviewDrawer
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
+        resourceTier={resourceTier}
+        advancedTracks={advancedTracks}
         mode={uploadMode}
         fileObjectUrl={fileObjectUrl}
         formData={formData}
@@ -507,11 +702,11 @@ export default function UploadPage() {
                         Drag & drop your file here, or{" "}
                         <label htmlFor="file-input" className={styles.browseLink}>browse</label>
                       </p>
-                      <p className={styles.dropHint}>Supports PNG, JPG, WEBP, PDF • Max 10 MB</p>
+                      <p className={styles.dropHint}>{fileHint}</p>
                     </>
                   )}
                   <input type="file" id="file-input" ref={fileInputRef} className={styles.fileInput}
-                    accept=".png,.jpg,.jpeg,.webp,.pdf" onChange={handleFileSelect} />
+                    accept={fileAccept} onChange={handleFileSelect} />
                 </div>
 
                 {/* Inline image micro-preview strip */}
@@ -588,6 +783,37 @@ export default function UploadPage() {
               </svg>
               Details
             </h2>
+
+            <div className={styles.detailsToggleBlock}>
+              <p className={styles.detailsToggleLabel}>Submission Flow</p>
+              <div className={styles.detailsToggle}>
+                <button
+                  type="button"
+                  className={`${styles.detailsToggleBtn} ${resourceTier === "standard" ? styles.detailsToggleBtnActive : ""}`}
+                  onClick={() => setResourceTier("standard")}
+                >
+                  Programming Resource
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.detailsToggleBtn} ${resourceTier === "advanced" ? styles.detailsToggleBtnActive : ""}`}
+                  onClick={() => setResourceTier("advanced")}
+                >
+                  Advanced Tracks DB
+                </button>
+              </div>
+              <p className={styles.detailsToggleHint}>
+                {resourceTier === "advanced"
+                  ? "Advanced mode stores links in Advanced DB track resources."
+                  : "Standard mode publishes under regular programming categories."}
+              </p>
+              {resourceTier === "advanced" && !canAccessAdvancedUpload && (
+                <p className={styles.detailsWarning}>
+                  You can preview advanced tracks, but submission requires admin or moderator role.
+                </p>
+              )}
+            </div>
+
             <div className={styles.fieldGrid}>
               <div className={`input-group ${styles.fullWidth}`}>
                 <label htmlFor="title" className="input-label">Title <span className={styles.required}>*</span></label>
@@ -601,15 +827,82 @@ export default function UploadPage() {
                   placeholder="Describe what this resource covers, key topics, and who it's best suited for…"
                   value={formData.description ?? ""} onChange={handleInputChange} required />
               </div>
-              <div className="input-group">
-                <label htmlFor="category" className="input-label">Category <span className={styles.required}>*</span></label>
-                <select id="category" name="category" className="input" value={formData.category ?? ""} onChange={handleInputChange} required>
-                  <option value="">Select a category</option>
-                  {CATEGORY_CATALOG.map(cat => (
-                    <option key={cat.slug} value={cat.slug}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
+
+              {resourceTier === "standard" ? (
+                <div className="input-group">
+                  <label htmlFor="category" className="input-label">Programming Category <span className={styles.required}>*</span></label>
+                  <select id="category" name="category" className="input" value={formData.category ?? ""} onChange={handleInputChange} required>
+                    <option value="">Select a category</option>
+                    {STANDARD_CATEGORY_CATALOG.map(cat => (
+                      <option key={cat.slug} value={cat.slug}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <>
+                  <div className="input-group">
+                    <label htmlFor="advancedTrackSlug" className="input-label">Advanced Track <span className={styles.required}>*</span></label>
+                    <select
+                      id="advancedTrackSlug"
+                      name="advancedTrackSlug"
+                      className="input"
+                      value={formData.advancedTrackSlug ?? ""}
+                      onChange={handleInputChange}
+                      required
+                    >
+                      <option value="">
+                        {advancedCatalogLoading ? "Loading tracks..." : "Select an advanced track"}
+                      </option>
+                      {advancedTracks.map((track) => (
+                        <option key={track.slug} value={track.slug}>{track.name}</option>
+                      ))}
+                    </select>
+                    {advancedCatalogError && (
+                      <span className={styles.fieldError}>{advancedCatalogError}</span>
+                    )}
+                  </div>
+
+                  <div className="input-group">
+                    <label htmlFor="advancedTopicSlug" className="input-label">Track Topic <span className={styles.optional}>(optional)</span></label>
+                    <select
+                      id="advancedTopicSlug"
+                      name="advancedTopicSlug"
+                      className="input"
+                      value={formData.advancedTopicSlug ?? ""}
+                      onChange={handleInputChange}
+                      disabled={!selectedAdvancedTrack || selectedAdvancedTopics.length === 0}
+                    >
+                      <option value="">
+                        {selectedAdvancedTrack
+                          ? selectedAdvancedTopics.length > 0
+                            ? "Select a topic"
+                            : "No topics available"
+                          : "Choose a track first"}
+                      </option>
+                      {selectedAdvancedTopics.map((topic) => (
+                        <option key={topic.slug} value={topic.slug}>{topic.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="input-group">
+                    <label htmlFor="advancedResourceType" className="input-label">Resource Type</label>
+                    <select
+                      id="advancedResourceType"
+                      name="advancedResourceType"
+                      className="input"
+                      value={formData.advancedResourceType ?? "link"}
+                      onChange={handleInputChange}
+                    >
+                      <option value="link">Link</option>
+                      <option value="pdf">PDF</option>
+                      <option value="doc">Document</option>
+                      <option value="video">Video</option>
+                    </select>
+                  </div>
+                </>
+              )}
+
               <div className="input-group">
                 <label htmlFor="tags" className="input-label">Tags</label>
                 <input type="text" id="tags" name="tags" className="input"
@@ -698,19 +991,27 @@ export default function UploadPage() {
                   <><span className={styles.uploadingSpinner} />Submitting…</>
                 ) : (
                   <>
-                    {uploadMode === "file"
-                      ? <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                      : <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                    {uploadMode === "link"
+                      ? <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                      : <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     }
-                    {uploadMode === "file" ? "Upload Notes" : "Share Resource"}
+                    {resourceTier === "advanced"
+                      ? "Submit Advanced Resource"
+                      : uploadMode === "file"
+                        ? "Upload Notes"
+                        : "Share Resource"}
                   </>
                 )}
               </button>
             </div>
             <p className={styles.submitHint}>
-              {uploadMode === "file"
-                ? "Your notes will be reviewed before being published."
-                : "Your link will be reviewed and shared with the community."}
+              {resourceTier === "advanced"
+                ? submitBlockedByRole
+                  ? "Advanced DB submissions are currently restricted to admin and moderator roles."
+                  : "This entry will be stored in Advanced Tracks DB and queued for moderation."
+                : uploadMode === "file"
+                  ? "Your notes will be reviewed before being published."
+                  : "Your link will be reviewed and shared with the community."}
             </p>
           </div>
         </form>

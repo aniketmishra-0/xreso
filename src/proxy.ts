@@ -8,9 +8,20 @@ export async function proxy(req: NextRequest) {
     return NextResponse.next();
   }
 
+  const authSecret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+
+  if (!authSecret) {
+    const loginUrl = new URL("/login", req.url);
+    loginUrl.searchParams.set(
+      "callbackUrl",
+      `${req.nextUrl.pathname}${req.nextUrl.search}`
+    );
+    return NextResponse.redirect(loginUrl);
+  }
+
   const token = await getToken({
     req,
-    secret: process.env.NEXTAUTH_SECRET,
+    secret: authSecret,
   });
 
   if (!token) {

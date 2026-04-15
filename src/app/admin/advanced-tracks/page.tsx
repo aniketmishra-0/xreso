@@ -600,7 +600,12 @@ export default function AdvancedTracksAdminPage() {
             <div className={styles.empty}>No advanced resources found yet.</div>
           ) : (
             <div className={styles.resourceList}>
-              {resources.map((resource) => (
+              {resources.map((resource) => {
+                const resourceHref = resource.content_url.startsWith("onedrive://")
+                  ? `/api/advanced-tracks/resource/${resource.id}`
+                  : resource.content_url;
+
+                return (
                 <article key={resource.id} className={styles.resourceRow}>
                   <div className={styles.resourceInfo}>
                     <h3 className={styles.resourceTitle}>{resource.title}</h3>
@@ -622,7 +627,7 @@ export default function AdvancedTracksAdminPage() {
 
                   <div className={styles.resourceActions}>
                     <a
-                      href={resource.content_url}
+                      href={resourceHref}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn btn-ghost btn-sm"
@@ -660,7 +665,8 @@ export default function AdvancedTracksAdminPage() {
                     </button>
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>

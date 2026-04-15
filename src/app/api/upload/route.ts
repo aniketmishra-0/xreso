@@ -38,7 +38,6 @@ const CATEGORY_NAMES: Record<string, string> = {
   react: "React",
   "data-structures": "Data Structures",
   algorithms: "Algorithms",
-  devops: "DevOps",
   "web-dev": "Web Dev",
   other: "Other",
 };

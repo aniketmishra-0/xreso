@@ -71,6 +71,64 @@
   color: var(--primary);
 }
 
+/* ── Details Tier Toggle ──────────────────── */
+.detailsToggleBlock {
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+.detailsToggleLabel {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+}
+
+.detailsToggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-sm);
+}
+
+.detailsToggleBtn {
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-surface);
+  transition: all var(--transition-fast);
+}
+
+.detailsToggleBtn:hover {
+  border-color: var(--primary);
+  color: var(--text-primary);
+}
+
+.detailsToggleBtnActive {
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+  color: var(--primary-light);
+}
+
+.detailsToggleHint {
+  margin-top: var(--space-sm);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.detailsWarning {
+  margin-top: var(--space-sm);
+  font-size: var(--text-xs);
+  color: var(--accent-orange);
+}
+
 /* ── Field Grid ───────────────────────────── */
 .fieldGrid {
   display: grid;
@@ -94,6 +152,13 @@
 .fieldHint {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
+}
+
+.fieldError {
+  display: block;
+  margin-top: 6px;
+  font-size: var(--text-xs);
+  color: var(--accent-orange);
 }
 
 /* ── Drop Zone ────────────────────────────── */
@@ -406,6 +471,18 @@
 .modeBtn:hover {
   color: var(--text-primary);
   background: var(--bg-elevated);
+}
+
+.modeBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: transparent;
+  color: var(--text-tertiary);
+}
+
+.modeBtn:disabled:hover {
+  color: var(--text-tertiary);
+  background: transparent;
 }
 
 .modeBtnActive {
@@ -1104,6 +1181,10 @@
     flex: 1;
     justify-content: center;
     padding: 10px 12px;
+  }
+
+  .detailsToggle {
+    grid-template-columns: 1fr;
   }
 
   .dropZone {

@@ -2,13 +2,103 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import Database from "better-sqlite3";
 import { v4 as uuidv4 } from "uuid";
+import fs from "fs";
 import path from "path";
+import {
+  deleteOneDriveItem,
+  isOneDriveConfigured,
+  uploadToOneDrive,
+} from "@/lib/onedrive";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
+const ADVANCED_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "advanced");
+const ADVANCED_MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 type AdminRole = "admin" | "moderator" | "user";
+type ResourceType = "link" | "pdf" | "doc" | "video";
 
 type UpdateAction = "approve" | "reject" | "archive" | "feature" | "unfeature";
+
+function toTrimmedString(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function parseBoolean(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1") return true;
+    if (normalized === "false" || normalized === "0") return false;
+  }
+  return fallback;
+}
+
+function parseStatus(
+  value: unknown
+): "approved" | "draft" | "rejected" | "archived" | "pending" {
+  if (
+    value === "approved" ||
+    value === "draft" ||
+    value === "rejected" ||
+    value === "archived"
+  ) {
+    return value;
+  }
+  return "pending";
+}
+
+function parseResourceType(value: unknown): ResourceType {
+  if (value === "pdf" || value === "doc" || value === "video") {
+    return value;
+  }
+  return "link";
+}
+
+function parseTags(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((tag: unknown) => (typeof tag === "string" ? tag.trim().toLowerCase() : ""))
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((tag) => tag.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function inferResourceTypeFromFile(file: File): Exclude<ResourceType, "link"> | null {
+  const mimeType = file.type.toLowerCase();
+  const extension = path.extname(file.name).slice(1).toLowerCase();
+
+  if (mimeType === "application/pdf" || extension === "pdf") {
+    return "pdf";
+  }
+
+  if (
+    mimeType === "application/msword" ||
+    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    extension === "doc" ||
+    extension === "docx"
+  ) {
+    return "doc";
+  }
+
+  if (mimeType.startsWith("video/") || ["mp4", "webm", "mov", "m4v"].includes(extension)) {
+    return "video";
+  }
+
+  return null;
+}
+
+function getSafeFileExtension(fileName: string, fallback: string): string {
+  const ext = path.extname(fileName).slice(1).toLowerCase().replace(/[^a-z0-9]/g, "");
+  return ext || fallback;
+}
 
 async function requireAdminSession() {
   const session = await auth();
@@ -117,65 +207,112 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  let uploadedFilePath: string | null = null;
+  let uploadedDriveItemId: string | null = null;
+
   try {
-    const payload = (await req.json()) as {
-      title?: unknown;
-      summary?: unknown;
-      contentUrl?: unknown;
-      trackSlug?: unknown;
-      topicSlug?: unknown;
-      thumbnailUrl?: unknown;
-      resourceType?: unknown;
-      premiumOnly?: unknown;
-      featured?: unknown;
-      status?: unknown;
-      tags?: unknown;
+    let uploadedFile: File | null = null;
+
+    const payload = {
+      title: undefined as unknown,
+      summary: undefined as unknown,
+      contentUrl: undefined as unknown,
+      trackSlug: undefined as unknown,
+      topicSlug: undefined as unknown,
+      thumbnailUrl: undefined as unknown,
+      resourceType: undefined as unknown,
+      premiumOnly: undefined as unknown,
+      featured: undefined as unknown,
+      status: undefined as unknown,
+      tags: undefined as unknown,
     };
 
-    const title = typeof payload.title === "string" ? payload.title.trim() : "";
-    const summary = typeof payload.summary === "string" ? payload.summary.trim() : "";
-    const contentUrl =
-      typeof payload.contentUrl === "string" ? payload.contentUrl.trim() : "";
-    const trackSlug =
-      typeof payload.trackSlug === "string" ? payload.trackSlug.trim() : "";
-    const topicSlug =
-      typeof payload.topicSlug === "string" ? payload.topicSlug.trim() : "";
-    const thumbnailUrl =
-      typeof payload.thumbnailUrl === "string" ? payload.thumbnailUrl.trim() : "";
+    const contentTypeHeader = req.headers.get("content-type") || "";
+    if (contentTypeHeader.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      const fileEntry = formData.get("file");
+      uploadedFile = fileEntry instanceof File ? fileEntry : null;
 
-    const resourceType =
-      payload.resourceType === "pdf" ||
-      payload.resourceType === "doc" ||
-      payload.resourceType === "video"
-        ? payload.resourceType
-        : "link";
+      payload.title = formData.get("title");
+      payload.summary = formData.get("summary");
+      payload.contentUrl = formData.get("contentUrl");
+      payload.trackSlug = formData.get("trackSlug");
+      payload.topicSlug = formData.get("topicSlug");
+      payload.thumbnailUrl = formData.get("thumbnailUrl");
+      payload.resourceType = formData.get("resourceType");
+      payload.premiumOnly = formData.get("premiumOnly");
+      payload.featured = formData.get("featured");
+      payload.status = formData.get("status");
+      payload.tags = formData.get("tags");
+    } else {
+      const jsonPayload = (await req.json()) as {
+        title?: unknown;
+        summary?: unknown;
+        contentUrl?: unknown;
+        trackSlug?: unknown;
+        topicSlug?: unknown;
+        thumbnailUrl?: unknown;
+        resourceType?: unknown;
+        premiumOnly?: unknown;
+        featured?: unknown;
+        status?: unknown;
+        tags?: unknown;
+      };
 
-    const premiumOnly = payload.premiumOnly !== false;
-    const featured = payload.featured === true;
-    const status =
-      payload.status === "approved" ||
-      payload.status === "draft" ||
-      payload.status === "rejected" ||
-      payload.status === "archived"
-        ? payload.status
-        : "pending";
+      payload.title = jsonPayload.title;
+      payload.summary = jsonPayload.summary;
+      payload.contentUrl = jsonPayload.contentUrl;
+      payload.trackSlug = jsonPayload.trackSlug;
+      payload.topicSlug = jsonPayload.topicSlug;
+      payload.thumbnailUrl = jsonPayload.thumbnailUrl;
+      payload.resourceType = jsonPayload.resourceType;
+      payload.premiumOnly = jsonPayload.premiumOnly;
+      payload.featured = jsonPayload.featured;
+      payload.status = jsonPayload.status;
+      payload.tags = jsonPayload.tags;
+    }
 
-    const tags = Array.isArray(payload.tags)
-      ? payload.tags
-          .map((tag: unknown) =>
-            typeof tag === "string" ? tag.trim().toLowerCase() : ""
-          )
-          .filter(Boolean)
-      : typeof payload.tags === "string"
-        ? payload.tags
-            .split(",")
-            .map((tag) => tag.trim().toLowerCase())
-            .filter(Boolean)
-        : [];
+    const title = toTrimmedString(payload.title);
+    const summary = toTrimmedString(payload.summary);
+    let contentUrl = toTrimmedString(payload.contentUrl);
+    const trackSlug = toTrimmedString(payload.trackSlug);
+    const topicSlug = toTrimmedString(payload.topicSlug);
+    let thumbnailUrl = toTrimmedString(payload.thumbnailUrl);
 
-    if (!title || !summary || !contentUrl || !trackSlug) {
+    let resourceType = parseResourceType(payload.resourceType);
+    const premiumOnly = parseBoolean(payload.premiumOnly, true);
+    const featured = parseBoolean(payload.featured, false);
+    const status = parseStatus(payload.status);
+    const tags = parseTags(payload.tags);
+
+    if (!title || !summary || !trackSlug) {
       return NextResponse.json(
-        { error: "title, summary, trackSlug, and contentUrl are required" },
+        { error: "title, summary, and trackSlug are required" },
+        { status: 400 }
+      );
+    }
+
+    if (uploadedFile) {
+      if (uploadedFile.size > ADVANCED_MAX_FILE_SIZE) {
+        return NextResponse.json(
+          { error: "File too large. Maximum size is 25MB for advanced uploads." },
+          { status: 400 }
+        );
+      }
+
+      const inferredType = inferResourceTypeFromFile(uploadedFile);
+      if (!inferredType) {
+        return NextResponse.json(
+          { error: "Invalid file type. Allowed: PDF, DOC, DOCX, MP4, WEBM." },
+          { status: 400 }
+        );
+      }
+      resourceType = inferredType;
+    }
+
+    if (!uploadedFile && !contentUrl) {
+      return NextResponse.json(
+        { error: "contentUrl is required when no file is uploaded" },
         { status: 400 }
       );
     }
@@ -203,6 +340,49 @@ export async function POST(req: NextRequest) {
     }
 
     const resourceId = uuidv4();
+
+    if (uploadedFile) {
+      const fallbackExtension =
+        resourceType === "pdf" ? "pdf" : resourceType === "video" ? "mp4" : "doc";
+      const extension = getSafeFileExtension(uploadedFile.name, fallbackExtension);
+      const fileName = `${resourceId}.${extension}`;
+      const fileBuffer = Buffer.from(await uploadedFile.arrayBuffer());
+
+      if (isOneDriveConfigured()) {
+        try {
+          const mimeType = uploadedFile.type || "application/octet-stream";
+          const uploaded = await uploadToOneDrive(
+            fileBuffer,
+            fileName,
+            mimeType,
+            trackSlug
+          );
+
+          uploadedDriveItemId = uploaded.driveItemId;
+          contentUrl = `onedrive://${uploaded.driveItemId}`;
+        } catch (oneDriveError) {
+          console.error(
+            "POST /api/admin/advanced-tracks OneDrive upload failed, falling back to local storage:",
+            oneDriveError
+          );
+        }
+      }
+
+      if (!contentUrl.startsWith("onedrive://")) {
+        if (!fs.existsSync(ADVANCED_UPLOAD_DIR)) {
+          fs.mkdirSync(ADVANCED_UPLOAD_DIR, { recursive: true });
+        }
+
+        const filePath = path.join(ADVANCED_UPLOAD_DIR, fileName);
+        fs.writeFileSync(filePath, fileBuffer);
+        uploadedFilePath = filePath;
+
+        contentUrl = `/uploads/advanced/${fileName}`;
+        if (!thumbnailUrl && uploadedFile.type.startsWith("image/")) {
+          thumbnailUrl = contentUrl;
+        }
+      }
+    }
 
     sqlite
       .prepare(
@@ -234,6 +414,22 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, resourceId });
   } catch (error) {
+    if (uploadedDriveItemId) {
+      try {
+        await deleteOneDriveItem(uploadedDriveItemId);
+      } catch {
+        // Best effort rollback for partially saved OneDrive uploads.
+      }
+    }
+
+    if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
+      try {
+        fs.unlinkSync(uploadedFilePath);
+      } catch {
+        // Best effort rollback for partially saved uploads.
+      }
+    }
+
     console.error("POST /api/admin/advanced-tracks error:", error);
     return NextResponse.json(
       { error: "Failed to create advanced track resource" },
@@ -334,9 +530,37 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "resourceId is required" }, { status: 400 });
     }
 
+    const existing = sqlite
+      .prepare("SELECT content_url FROM advanced_track_resources WHERE id = ?")
+      .get(resourceId) as { content_url?: string } | undefined;
+
     sqlite
       .prepare("DELETE FROM advanced_track_resources WHERE id = ?")
       .run(resourceId);
+
+    const contentUrl = existing?.content_url || "";
+    if (contentUrl.startsWith("onedrive://")) {
+      const driveItemId = contentUrl.replace("onedrive://", "").trim();
+      if (driveItemId) {
+        try {
+          await deleteOneDriveItem(driveItemId);
+        } catch {
+          // Best effort cleanup; DB record deletion already succeeded.
+        }
+      }
+    }
+
+    if (contentUrl.startsWith("/uploads/advanced/")) {
+      const relativeFilePath = contentUrl.replace(/^\/+/, "");
+      const absoluteFilePath = path.join(process.cwd(), "public", relativeFilePath);
+      if (fs.existsSync(absoluteFilePath)) {
+        try {
+          fs.unlinkSync(absoluteFilePath);
+        } catch {
+          // Best effort cleanup; record deletion already succeeded.
+        }
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

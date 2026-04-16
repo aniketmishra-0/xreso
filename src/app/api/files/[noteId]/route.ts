@@ -125,7 +125,7 @@ export async function GET(
       
       // Get the direct download URL from Graph API
       const itemRes = await fetch(
-        `${GRAPH_BASE}/me/drive/items/${note.drive_item_id}?$select=@microsoft.graph.downloadUrl,name,size`,
+        `${GRAPH_BASE}/me/drive/items/${note.drive_item_id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -138,6 +138,7 @@ export async function GET(
       const downloadUrl = item["@microsoft.graph.downloadUrl"];
 
       if (!downloadUrl) {
+        console.error("Missing downloadUrl in item:", item);
         return NextResponse.json({ error: "Download URL not available" }, { status: 500 });
       }
 

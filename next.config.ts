@@ -32,7 +32,7 @@ function buildContentSecurityPolicy() {
     "default-src 'self'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'",
+    "frame-ancestors 'self'",
     "object-src 'none'",
     "manifest-src 'self'",
     "script-src " + scriptSrc.join(" "),
@@ -97,7 +97,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "X-Frame-Options",
-            value: "DENY",
+            value: "SAMEORIGIN",
           },
           {
             key: "Cross-Origin-Opener-Policy",

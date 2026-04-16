@@ -183,36 +183,37 @@
 
 .socialButtons {
   display: flex;
-  flex-direction: column;
-  gap: 9px;
+  flex-direction: row;
+  gap: 8px;
 }
 
 .socialBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 42px;
-  gap: 9px;
-  width: 100%;
+  min-height: 38px;
+  gap: 7px;
+  flex: 1;
   border: 1px solid rgba(120, 99, 168, 0.35);
-  border-radius: 11px;
+  border-radius: 10px;
   background: rgba(13, 8, 28, 0.7);
   color: var(--text-primary);
-  padding: 9px 12px;
-  font-size: 13px;
+  padding: 8px 10px;
+  font-size: 12px;
   font-weight: 620;
   text-align: center;
+  white-space: nowrap;
   transition:
-    transform var(--transition-fast),
     border-color var(--transition-fast),
     background var(--transition-fast),
-    color var(--transition-fast);
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .socialBtn:hover:not(:disabled) {
-  border-color: rgba(180, 158, 232, 0.48);
+  border-color: rgba(180, 158, 232, 0.55);
   background: rgba(36, 26, 62, 0.9);
-  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(123, 73, 241, 0.15);
 }
 
 .socialBtn:disabled {
@@ -254,8 +255,8 @@
 }
 
 .socialIcon {
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
 }
 

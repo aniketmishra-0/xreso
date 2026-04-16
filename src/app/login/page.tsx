@@ -51,6 +51,15 @@ function LoginPageContent() {
   );
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // Show error if redirected back with NoAccount
+  useEffect(() => {
+    const urlError = searchParams.get("error");
+    if (urlError === "NoAccount") {
+      setError("No account found. Please create an account first, then sign in.");
+      setMode("register");
+    }
+  }, [searchParams]);
   const hasSocialProviders = configuredProviderIds.length > 0;
   const activeSocialProviders = SOCIAL_PROVIDERS.filter((provider) =>
     configuredProviderIds.includes(provider.id)
@@ -89,6 +98,8 @@ function LoginPageContent() {
     setSocialLoadingProvider(providerId);
 
     try {
+      // Set cookie so backend knows if this is login or register
+      document.cookie = `xreso_auth_mode=${mode}; path=/; max-age=600; SameSite=Lax`;
       await signIn(providerId, { callbackUrl });
     } catch {
       setError("Social sign-in failed. Please try again.");
@@ -231,8 +242,8 @@ function LoginPageContent() {
                     <provider.Icon className={styles.socialIcon} />
                     <span>
                       {socialLoadingProvider === provider.id
-                        ? "Redirecting..."
-                        : `Continue with ${provider.name}`}
+                        ? "..."
+                        : provider.name}
                     </span>
                   </button>
                 );

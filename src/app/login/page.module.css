@@ -539,9 +539,18 @@
   border-color: #3a4250;
 }
 
+:global([data-theme="light"]) .socialBtnGitHub:hover:not(:disabled) {
+  background: linear-gradient(180deg, #2c313a, #24292e);
+  border-color: #4a5468;
+}
+
 :global([data-theme="light"]) .socialBtnLinkedIn {
   background: linear-gradient(135deg, #0d67c5 0%, #2e78c8 100%);
   color: #ffffff;
+}
+
+:global([data-theme="light"]) .socialBtnLinkedIn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0a5db2 0%, #1f6ebf 100%);
 }
 
 :global([data-theme="light"]) .divider {

@@ -322,22 +322,28 @@ export default async function TracksHomePage() {
                         />
 
                         <div className={styles.noteMedia}>
-                          {resource.thumbnailUrl && !resource.thumbnailUrl.includes("placeholder") ? (
-                            <Image
-                              src={resource.thumbnailUrl}
-                              alt={resource.title}
-                              fill
-                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                              className={styles.noteMediaImage}
-                            />
-                          ) : (
-                            <div
-                              className={styles.noteMediaOg}
-                              style={{
-                                backgroundImage: `url(/api/og?title=${encodeURIComponent(resource.title)}&category=${encodeURIComponent(resource.trackName)}&v=3)`,
-                              }}
-                            />
-                          )}
+                          {(() => {
+                            const isUsableThumbnail =
+                              resource.thumbnailUrl &&
+                              !resource.thumbnailUrl.includes("placeholder") &&
+                              !resource.thumbnailUrl.startsWith("/api/files/");
+                            return isUsableThumbnail ? (
+                              <Image
+                                src={resource.thumbnailUrl}
+                                alt={resource.title}
+                                fill
+                                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                className={styles.noteMediaImage}
+                              />
+                            ) : (
+                              <div
+                                className={styles.noteMediaOg}
+                                style={{
+                                  backgroundImage: `url(/api/og?title=${encodeURIComponent(resource.title)}&category=${encodeURIComponent(resource.trackName)}&v=3)`,
+                                }}
+                              />
+                            );
+                          })()}
                         </div>
 
                         <div className={styles.noteCardContent}>

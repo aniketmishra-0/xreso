@@ -513,7 +513,7 @@ export default function ProfilePage() {
             ) : (
               userNotes.map(note => (
                 <Link key={note.id} href={`/note/${note.id}`} className={styles.noteRow}>
-                  <div className={styles.noteThumb} style={{ backgroundImage: `url(${(!note.thumbnail_url || note.thumbnail_url.includes("placeholder")) ? "/api/og?title=" + encodeURIComponent(note.title) + "&category=" + encodeURIComponent(note.category_name) + "&v=3" : note.thumbnail_url})` }} />
+                  <div className={styles.noteThumb} style={{ backgroundImage: `url(${(!note.thumbnail_url || note.thumbnail_url.includes("placeholder") || note.thumbnail_url.startsWith("/api/files/")) ? "/api/og?title=" + encodeURIComponent(note.title) + "&category=" + encodeURIComponent(note.category_name) + "&v=3" : note.thumbnail_url})` }} />
                   <div className={styles.noteInfo}>
                     <h3 className={styles.noteTitle}>{note.title}</h3>
                     <div className={styles.noteMeta}>
@@ -539,7 +539,7 @@ export default function ProfilePage() {
             ) : (
               bookmarks.map(note => (
                 <Link key={note.id} href={`/note/${note.id}`} className={styles.noteRow}>
-                  <div className={styles.noteThumb} style={{ backgroundImage: `url(${(!note.thumbnail_url || note.thumbnail_url.includes("placeholder")) ? "/api/og?title=" + encodeURIComponent(note.title) + "&category=" + encodeURIComponent(note.category_name) + "&v=3" : note.thumbnail_url})` }} />
+                  <div className={styles.noteThumb} style={{ backgroundImage: `url(${(!note.thumbnail_url || note.thumbnail_url.includes("placeholder") || note.thumbnail_url.startsWith("/api/files/")) ? "/api/og?title=" + encodeURIComponent(note.title) + "&category=" + encodeURIComponent(note.category_name) + "&v=3" : note.thumbnail_url})` }} />
                   <div className={styles.noteInfo}>
                     <h3 className={styles.noteTitle}>{note.title}</h3>
                     <div className={styles.noteMeta}>

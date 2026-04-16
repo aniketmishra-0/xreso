@@ -309,22 +309,28 @@ export default async function Home() {
                       <Link href={`/note/${note.id}`} className={styles.cardHitbox} aria-label={`View ${note.title}`} />
                       
                       <div className={styles.noteMedia}>
-                        {note.thumbnailUrl && !note.thumbnailUrl.includes("placeholder") ? (
-                          <Image
-                            src={note.thumbnailUrl}
-                            alt={note.title}
-                            fill
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                            className={styles.noteMediaImage}
-                          />
-                        ) : (
-                          <div
-                            className={styles.noteMediaOg}
-                            style={{
-                              backgroundImage: `url(/api/og?title=${encodeURIComponent(note.title)}&category=${encodeURIComponent(note.category)}&v=3)`,
-                            }}
-                          />
-                        )}
+                        {(() => {
+                          const isUsableThumbnail =
+                            note.thumbnailUrl &&
+                            !note.thumbnailUrl.includes("placeholder") &&
+                            !note.thumbnailUrl.startsWith("/api/files/");
+                          return isUsableThumbnail ? (
+                            <Image
+                              src={note.thumbnailUrl}
+                              alt={note.title}
+                              fill
+                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                              className={styles.noteMediaImage}
+                            />
+                          ) : (
+                            <div
+                              className={styles.noteMediaOg}
+                              style={{
+                                backgroundImage: `url(/api/og?title=${encodeURIComponent(note.title)}&category=${encodeURIComponent(note.category)}&v=3)`,
+                              }}
+                            />
+                          );
+                        })()}
                       </div>
 
                       <div className={styles.noteCardContent}>

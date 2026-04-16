@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient } from "@libsql/client/web";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+function getClient() {
+  return createClient({
+    url: process.env.TURSO_DATABASE_URL!,
+    authToken: process.env.TURSO_AUTH_TOKEN!
+  });
+}
 
 export async function GET() {
-  let sqlite: Database.Database | null = null;
-
   try {
-    sqlite = new Database(DB_PATH);
-    sqlite.pragma("foreign_keys = ON");
+    const client = getClient();
 
-    const trackRows = sqlite
-      .prepare(
+    const trackRowsRes = await client.execute(
         `SELECT
           at.id,
           at.slug,
@@ -27,49 +27,32 @@ export async function GET() {
          WHERE at.status = 'active'
          GROUP BY at.id
          ORDER BY at.sort_order ASC, at.name ASC`
-      )
-      .all() as Array<{
-      id: number;
-      slug: string;
-      name: string;
-      description: string;
-      premium: number;
-      status: string;
-      sort_order: number;
-      approved_count: number;
-    }>;
+    );
 
-    const topicRows = sqlite
-      .prepare(
+    const topicRowsRes = await client.execute(
         `SELECT id, track_id, slug, name, description, level, sort_order
          FROM advanced_track_topics
          ORDER BY sort_order ASC, name ASC`
-      )
-      .all() as Array<{
-      id: number;
-      track_id: number;
-      slug: string;
-      name: string;
-      description: string;
-      level: "Beginner" | "Intermediate" | "Advanced";
-      sort_order: number;
-    }>;
+    );
+
+    const trackRows = trackRowsRes.rows;
+    const topicRows = topicRowsRes.rows;
 
     const tracks = trackRows.map((track) => ({
-      id: track.id,
-      slug: track.slug,
-      name: track.name,
-      description: track.description,
+      id: track.id as number,
+      slug: track.slug as string,
+      name: track.name as string,
+      description: track.description as string,
       premium: Boolean(track.premium),
-      approvedCount: track.approved_count || 0,
+      approvedCount: (track.approved_count as number) || 0,
       topics: topicRows
         .filter((topic) => topic.track_id === track.id)
         .map((topic) => ({
-          id: topic.id,
-          slug: topic.slug,
-          name: topic.name,
-          description: topic.description,
-          level: topic.level,
+          id: topic.id as number,
+          slug: topic.slug as string,
+          name: topic.name as string,
+          description: topic.description as string,
+          level: topic.level as string,
         })),
     }));
 
@@ -80,7 +63,5 @@ export async function GET() {
       { error: "Failed to fetch advanced tracks" },
       { status: 500 }
     );
-  } finally {
-    if (sqlite) sqlite.close();
   }
 }

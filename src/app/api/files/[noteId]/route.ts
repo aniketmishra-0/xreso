@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import Database from "better-sqlite3";
+import { createClient } from "@libsql/client/web";
 import path from "path";
 import fs from "fs";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
 const TOKEN_CACHE_PATH = path.join(process.cwd(), ".onedrive-token.json");
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
+
+function getClient() {
+  return createClient({
+    url: process.env.TURSO_DATABASE_URL!,
+    authToken: process.env.TURSO_AUTH_TOKEN!
+  });
+}
 
 // GET /api/files/[noteId] — Serve file securely (proxy from OneDrive or local)
 export async function GET(
@@ -15,17 +21,19 @@ export async function GET(
   try {
     const { noteId } = await params;
 
-    const sqlite = new Database(DB_PATH);
-    const note = sqlite.prepare(
-      "SELECT file_url, file_type, file_name, drive_item_id, status FROM notes WHERE id = ?"
-    ).get(noteId) as {
+    const client = getClient();
+    const result = await client.execute({
+      sql: "SELECT file_url, file_type, file_name, drive_item_id, status FROM notes WHERE id = ?",
+      args: [noteId]
+    });
+
+    const note = result.rows[0] as unknown as {
       file_url: string;
       file_type: string;
       file_name: string;
       drive_item_id: string | null;
       status: string;
     } | undefined;
-    sqlite.close();
 
     if (!note) {
       return NextResponse.json({ error: "Note not found" }, { status: 404 });
@@ -151,13 +159,17 @@ async function getAccessToken(): Promise<string> {
   if (!res.ok) throw new Error("Token refresh failed");
   const data = await res.json();
 
-  // Update cached token
+  // Update cached token safely
   if (data.refresh_token) {
-    fs.writeFileSync(TOKEN_CACHE_PATH, JSON.stringify({
-      access_token: data.access_token,
-      refresh_token: data.refresh_token,
-      expires_at: Date.now() + data.expires_in * 1000,
-    }, null, 2));
+    try {
+      fs.writeFileSync(TOKEN_CACHE_PATH, JSON.stringify({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token,
+        expires_at: Date.now() + data.expires_in * 1000,
+      }, null, 2));
+    } catch (e) {
+      console.warn("Failed to write to token cache (read-only FS on Vercel?)", e);
+    }
   }
 
   return data.access_token;

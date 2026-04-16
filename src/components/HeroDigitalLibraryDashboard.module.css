@@ -154,15 +154,10 @@
   background: color-mix(in srgb, var(--bg-primary) 30%, transparent);
 }
 
-.centerWordmark {
-  font-size: 26px;
-  font-weight: 900;
-  letter-spacing: -0.06em;
-  background: var(--gradient-brand);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+.centerLogo {
+  width: 48px;
+  height: 48px;
+  filter: drop-shadow(0 0 10px rgba(139, 92, 246, 0.4));
 }
 
 @keyframes nodeFloat {
@@ -261,8 +256,9 @@
     height: 74px;
   }
 
-  .centerWordmark {
-    font-size: 22px;
+  .centerLogo {
+    width: 40px;
+    height: 40px;
   }
 }
 

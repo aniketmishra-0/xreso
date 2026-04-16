@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import Logo from "../Logo";
 import styles from "./Navbar.module.css";
 
 interface MegaMenuItem {
@@ -278,6 +279,7 @@ export default function Navbar() {
     >
       <nav className={styles.nav}>
         <Link href="/" className={styles.logo} id="nav-logo" onClick={handleHomeLogoClick}>
+          <Logo className={styles.logoIcon} />
           <span className={styles.logoText}>xreso</span>
         </Link>
 

@@ -45,8 +45,20 @@
 .logo {
   display: flex;
   align-items: center;
+  gap: 8px;
   text-decoration: none;
   z-index: 10;
+  transition: transform var(--transition-fast), filter var(--transition-fast);
+}
+.logo:hover {
+  transform: scale(1.02);
+  filter: drop-shadow(0 0 12px var(--primary-glow));
+}
+
+.logoIcon {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
 }
 
 .logoText {

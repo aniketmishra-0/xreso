@@ -329,7 +329,7 @@ export default async function TracksHomePage() {
                               !resource.thumbnailUrl.startsWith("/api/files/");
                             return isUsableThumbnail ? (
                               <Image
-                                src={resource.thumbnailUrl}
+                                src={resource.thumbnailUrl as string}
                                 alt={resource.title}
                                 fill
                                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"

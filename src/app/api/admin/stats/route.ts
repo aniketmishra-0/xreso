@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import Database from "better-sqlite3";
 import path from "path";
+import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
 
@@ -13,16 +14,14 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const sqlite = new Database(DB_PATH, { readonly: true });
-
-    const user = sqlite
-      .prepare("SELECT role FROM users WHERE id = ?")
-      .get(session.user.id) as { role: string } | undefined;
-
-    if (!user || user.role !== "admin") {
-      sqlite.close();
+    const sessionRole = (session.user as { role?: string }).role || "user";
+    if (sessionRole !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    runAutoApprovalSweepIfNeeded();
+
+    const sqlite = new Database(DB_PATH, { readonly: true });
 
     const stats = {
       totalNotes: (sqlite.prepare("SELECT COUNT(*) as c FROM notes").get() as { c: number }).c,

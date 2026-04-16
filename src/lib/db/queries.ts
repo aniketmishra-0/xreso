@@ -1,5 +1,6 @@
 import Database from "better-sqlite3";
 import path from "path";
+import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
 
@@ -9,6 +10,8 @@ type GlobalDbRegistry = typeof globalThis & {
 };
 
 function getDb() {
+  runAutoApprovalSweepIfNeeded();
+
   const registry = globalThis as GlobalDbRegistry;
 
   if (!registry.__xresoReadonlyDb) {

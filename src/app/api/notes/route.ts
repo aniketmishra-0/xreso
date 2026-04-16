@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import Database from "better-sqlite3";
 import path from "path";
 import { auth } from "@/lib/auth";
+import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
 
 // GET /api/notes — List notes with filtering, search, sorting, and pagination
 export async function GET(req: NextRequest) {
   try {
+    runAutoApprovalSweepIfNeeded();
+
     const sqlite = new Database(DB_PATH, { readonly: true });
     const { searchParams } = new URL(req.url);
     const session = await auth();

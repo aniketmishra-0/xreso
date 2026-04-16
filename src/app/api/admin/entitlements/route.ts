@@ -48,21 +48,14 @@ function isPremiumSchemaMissing(error: unknown) {
   return msg.includes("no such column") && msg.includes("premium_");
 }
 
-async function getCurrentUserRole(sqlite: Database.Database) {
+async function getCurrentUserRole(_sqlite: Database.Database) {
   const session = await auth();
   if (!session?.user?.id) {
     return { status: 401 as const, role: null };
   }
 
-  const user = sqlite
-    .prepare("SELECT role FROM users WHERE id = ?")
-    .get(session.user.id) as { role: Role } | undefined;
-
-  if (!user) {
-    return { status: 401 as const, role: null };
-  }
-
-  return { status: 200 as const, role: user.role };
+  const role = ((session.user as { role?: string }).role || "user") as Role;
+  return { status: 200 as const, role };
 }
 
 export async function GET() {

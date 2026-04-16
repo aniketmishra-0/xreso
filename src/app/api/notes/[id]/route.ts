@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import Database from "better-sqlite3";
 import path from "path";
+import { auth } from "@/lib/auth";
+import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
 
@@ -11,6 +13,12 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    runAutoApprovalSweepIfNeeded();
+
+    const session = await auth();
+    const sessionUser = session?.user as { id?: string; role?: string } | undefined;
+    const sessionRole = sessionUser?.role || "user";
+    const isPrivileged = sessionRole === "admin" || sessionRole === "moderator";
     const sqlite = new Database(DB_PATH, { readonly: false });
 
     const row = sqlite.prepare(`
@@ -23,6 +31,13 @@ export async function GET(
     `).get(id) as Record<string, unknown> | undefined;
 
     if (!row) {
+      sqlite.close();
+      return NextResponse.json({ error: "Note not found" }, { status: 404 });
+    }
+
+    const noteStatus = String(row.status || "pending");
+    const isAuthor = Boolean(sessionUser?.id && row.author_id === sessionUser.id);
+    if (noteStatus !== "approved" && !isPrivileged && !isAuthor) {
       sqlite.close();
       return NextResponse.json({ error: "Note not found" }, { status: 404 });
     }

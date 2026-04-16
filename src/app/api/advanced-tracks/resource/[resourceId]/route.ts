@@ -4,33 +4,11 @@ import fs from "fs";
 import path from "path";
 import { auth } from "@/lib/auth";
 import { getOneDriveItemDownloadInfo } from "@/lib/onedrive";
+import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
 
 type ViewerRole = "admin" | "moderator" | "user" | "guest";
-
-function hasActivePremiumEntitlement(
-  premiumAccess: unknown,
-  premiumExpiresAt: unknown
-) {
-  const hasAccess =
-    premiumAccess === true || premiumAccess === 1 || premiumAccess === "1";
-
-  if (!hasAccess) {
-    return false;
-  }
-
-  if (typeof premiumExpiresAt !== "string" || premiumExpiresAt.trim().length === 0) {
-    return true;
-  }
-
-  const expiresAt = Date.parse(premiumExpiresAt);
-  if (Number.isNaN(expiresAt)) {
-    return false;
-  }
-
-  return expiresAt > Date.now();
-}
 
 function getMimeTypeFromPath(filePath: string): string {
   const extension = path.extname(filePath).toLowerCase();
@@ -52,9 +30,6 @@ async function getViewerAccess(sqlite: Database.Database) {
     | {
         id?: string;
         role?: string;
-        premium?: boolean;
-        premiumExpiresAt?: string | null;
-        isPremium?: boolean;
       }
     | undefined;
 
@@ -65,38 +40,8 @@ async function getViewerAccess(sqlite: Database.Database) {
         ? "user"
         : "guest";
 
-  let hasPremiumAccess =
-    viewerRole === "admin" || viewerRole === "moderator";
-
-  if (!hasPremiumAccess && sessionUser?.id) {
-    try {
-      const entitlement = sqlite
-        .prepare(
-          "SELECT premium_access, premium_expires_at FROM users WHERE id = ?"
-        )
-        .get(sessionUser.id) as
-        | { premium_access: number; premium_expires_at: string | null }
-        | undefined;
-
-      hasPremiumAccess = hasActivePremiumEntitlement(
-        entitlement?.premium_access,
-        entitlement?.premium_expires_at
-      );
-    } catch (entitlementError) {
-      console.warn("[AdvancedTracksProxy] Premium columns unavailable:", entitlementError);
-    }
-  }
-
-  if (!hasPremiumAccess) {
-    hasPremiumAccess =
-      (sessionUser?.premium === true &&
-        hasActivePremiumEntitlement(true, sessionUser?.premiumExpiresAt || null)) ||
-      sessionUser?.isPremium === true;
-  }
-
   return {
     viewerRole,
-    hasPremiumAccess,
     isPrivileged:
       viewerRole === "admin" || viewerRole === "moderator",
   };
@@ -114,6 +59,8 @@ export async function GET(
       return NextResponse.json({ error: "resourceId is required" }, { status: 400 });
     }
 
+    runAutoApprovalSweepIfNeeded();
+
     sqlite = new Database(DB_PATH);
     sqlite.pragma("foreign_keys = ON");
 
@@ -123,7 +70,6 @@ export async function GET(
       .prepare(
         `SELECT
           atr.content_url,
-          atr.premium_only,
           atr.status,
           at.status as track_status
          FROM advanced_track_resources atr
@@ -133,7 +79,6 @@ export async function GET(
       .get(resourceId) as
       | {
           content_url: string;
-          premium_only: number;
           status: string;
           track_status: string;
         }
@@ -146,10 +91,6 @@ export async function GET(
     if (!access.isPrivileged) {
       if (resource.status !== "approved" || resource.track_status !== "active") {
         return NextResponse.json({ error: "Resource not available" }, { status: 404 });
-      }
-
-      if (Boolean(resource.premium_only) && !access.hasPremiumAccess) {
-        return NextResponse.json({ error: "Premium access required" }, { status: 403 });
       }
     }
 

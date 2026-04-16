@@ -44,19 +44,6 @@ interface ApiPayload {
   resources: Resource[];
 }
 
-interface EntitlementUser {
-  id: string;
-  name: string;
-  email: string;
-  role: "user" | "admin" | "moderator";
-  premiumAccess: boolean;
-  premiumExpiresAt: string | null;
-  premiumActive: boolean;
-  createdAt: string;
-}
-
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-
 const INITIAL_FORM = {
   title: "",
   summary: "",
@@ -67,12 +54,12 @@ const INITIAL_FORM = {
   thumbnailUrl: "",
   tags: "",
   status: "pending" as "draft" | "pending" | "approved",
-  premiumOnly: true,
+  premiumOnly: false,
   featured: false,
 };
 
 export default function AdvancedTracksAdminPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
   const role = (session?.user as { role?: string } | undefined)?.role;
 
   const [loading, setLoading] = useState(true);
@@ -84,8 +71,6 @@ export default function AdvancedTracksAdminPage() {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
-  const [entitlementUsers, setEntitlementUsers] = useState<EntitlementUser[]>([]);
-  const [updatingEntitlementId, setUpdatingEntitlementId] = useState<string | null>(null);
   const [form, setForm] = useState(INITIAL_FORM);
 
   const loadData = useCallback(async (isRefresh = false) => {
@@ -99,36 +84,21 @@ export default function AdvancedTracksAdminPage() {
     setMessage("");
 
     try {
-      const [advancedRes, entitlementsRes] = await Promise.all([
-        fetch("/api/admin/advanced-tracks", { cache: "no-store" }),
-        fetch("/api/admin/entitlements", { cache: "no-store" }),
-      ]);
-
-      if (!advancedRes.ok || !entitlementsRes.ok) {
-        const advancedPayload = (await advancedRes
-          .json()
-          .catch(() => null)) as { error?: string } | null;
-        const entitlementsPayload = (await entitlementsRes
-          .json()
-          .catch(() => null)) as { error?: string } | null;
-
+      const advancedRes = await fetch("/api/admin/advanced-tracks", { cache: "no-store" });
+      if (!advancedRes.ok) {
+        const advancedPayload = (await advancedRes.json().catch(() => null)) as
+          | { error?: string }
+          | null;
         throw new Error(
-          advancedPayload?.error ||
-            entitlementsPayload?.error ||
-            "Failed to load advanced track admin data"
+          advancedPayload?.error || "Failed to load open library admin data"
         );
       }
 
       const payload = (await advancedRes.json()) as ApiPayload;
-      const entitlements = (await entitlementsRes.json()) as {
-        users?: EntitlementUser[];
-      };
 
       setTracks(payload.tracks || []);
       setTopics(payload.topics || []);
       setResources(payload.resources || []);
-      setEntitlementUsers(entitlements.users || []);
-
       setForm((prev) => {
         if (prev.trackSlug || !payload.tracks?.length) {
           return prev;
@@ -140,7 +110,7 @@ export default function AdvancedTracksAdminPage() {
       if (loadError instanceof Error) {
         setError(loadError.message);
       } else {
-        setError("Could not load advanced tracks admin data.");
+        setError("Could not load open library admin data.");
       }
     } finally {
       if (isRefresh) {
@@ -164,6 +134,16 @@ export default function AdvancedTracksAdminPage() {
     return topics.filter((topic) => topic.track_id === selectedTrack.id);
   }, [form.trackSlug, topics, tracks]);
 
+  const summary = useMemo(
+    () => ({
+      total: resources.length,
+      pending: resources.filter((resource) => resource.status === "pending").length,
+      approved: resources.filter((resource) => resource.status === "approved").length,
+      featured: resources.filter((resource) => Boolean(resource.featured)).length,
+    }),
+    [resources]
+  );
+
   const handleCreate = async (event: React.FormEvent) => {
     event.preventDefault();
     setSaving(true);
@@ -176,6 +156,7 @@ export default function AdvancedTracksAdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          premiumOnly: false,
           tags: form.tags,
           topicSlug: form.topicSlug || undefined,
         }),
@@ -186,7 +167,7 @@ export default function AdvancedTracksAdminPage() {
         throw new Error(payload.error || "Create request failed");
       }
 
-      setMessage("Advanced resource created successfully.");
+      setMessage("Open resource created successfully.");
       setForm((prev) => ({
         ...INITIAL_FORM,
         trackSlug: prev.trackSlug,
@@ -196,7 +177,7 @@ export default function AdvancedTracksAdminPage() {
       if (createError instanceof Error) {
         setError(createError.message);
       } else {
-        setError("Failed to create advanced resource.");
+        setError("Failed to create open resource.");
       }
     } finally {
       setSaving(false);
@@ -232,42 +213,8 @@ export default function AdvancedTracksAdminPage() {
     }
   };
 
-  const handleEntitlementUpdate = async (
-    userId: string,
-    premiumAccess: boolean,
-    premiumExpiresAt: string | null
-  ) => {
-    setError("");
-    setMessage("");
-    setUpdatingEntitlementId(userId);
-
-    try {
-      const response = await fetch("/api/admin/entitlements", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, premiumAccess, premiumExpiresAt }),
-      });
-
-      const payload = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        throw new Error(payload.error || "Failed to update entitlement");
-      }
-
-      setMessage("Premium entitlement updated.");
-      await loadData(true);
-    } catch (entitlementError) {
-      if (entitlementError instanceof Error) {
-        setError(entitlementError.message);
-      } else {
-        setError("Failed to update entitlement.");
-      }
-    } finally {
-      setUpdatingEntitlementId(null);
-    }
-  };
-
   const handleDelete = async (resourceId: string) => {
-    const confirmed = window.confirm("Delete this advanced resource permanently?");
+    const confirmed = window.confirm("Delete this open resource permanently?");
     if (!confirmed) return;
 
     setError("");
@@ -295,13 +242,23 @@ export default function AdvancedTracksAdminPage() {
     }
   };
 
+  if (status === "loading") {
+    return (
+      <div className={styles.page}>
+        <div className={styles.container}>
+          <div className={styles.loading}>Loading admin access...</div>
+        </div>
+      </div>
+    );
+  }
+
   if (!session?.user || (role !== "admin" && role !== "moderator")) {
     return (
       <div className={styles.page}>
         <div className={styles.container}>
           <div className={styles.denied}>
             <h2>Access Denied</h2>
-            <p>You need admin or moderator privileges to manage advanced tracks.</p>
+            <p>You need admin or moderator privileges to manage the open tracks library.</p>
             <Link href="/admin" className="btn btn-primary">
               Back to Admin
             </Link>
@@ -316,10 +273,11 @@ export default function AdvancedTracksAdminPage() {
       <div className={styles.container}>
         <header className={styles.header}>
           <div>
-            <p className={styles.eyebrow}>Premium Module</p>
-            <h1 className={styles.title}>Advanced Tracks Admin</h1>
+            <p className={styles.eyebrow}>Open Library</p>
+            <h1 className={styles.title}>Tracks Admin</h1>
             <p className={styles.subtitle}>
-              Dedicated upload and moderation flow for cloud-native premium resources.
+              Manage cloud-native resources, keep the queue healthy, and auto-publish
+              pending submissions after 3 days.
             </p>
           </div>
           <div className={styles.headerActions}>
@@ -339,8 +297,35 @@ export default function AdvancedTracksAdminPage() {
         {error && <div className={styles.error}>{error}</div>}
         {message && <div className={styles.success}>{message}</div>}
 
+        <section className={styles.noticeBar}>
+          <strong>Open access is live.</strong>
+          <span>
+            Every advanced resource is public by default, and pending submissions are
+            auto-approved after 3 days.
+          </span>
+        </section>
+
+        <section className={styles.overviewGrid}>
+          <article className={styles.overviewCard}>
+            <span className={styles.overviewLabel}>Resources</span>
+            <strong className={styles.overviewValue}>{summary.total}</strong>
+          </article>
+          <article className={styles.overviewCard}>
+            <span className={styles.overviewLabel}>Pending</span>
+            <strong className={styles.overviewValue}>{summary.pending}</strong>
+          </article>
+          <article className={styles.overviewCard}>
+            <span className={styles.overviewLabel}>Approved</span>
+            <strong className={styles.overviewValue}>{summary.approved}</strong>
+          </article>
+          <article className={styles.overviewCard}>
+            <span className={styles.overviewLabel}>Featured</span>
+            <strong className={styles.overviewValue}>{summary.featured}</strong>
+          </article>
+        </section>
+
         <section className={styles.panel}>
-          <h2 className={styles.panelTitle}>Create Advanced Resource</h2>
+          <h2 className={styles.panelTitle}>Create Open Resource</h2>
           <form className={styles.formGrid} onSubmit={handleCreate}>
             <label className={styles.field}>
               <span>Track</span>
@@ -480,17 +465,6 @@ export default function AdvancedTracksAdminPage() {
             <label className={styles.checkboxField}>
               <input
                 type="checkbox"
-                checked={form.premiumOnly}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, premiumOnly: event.target.checked }))
-                }
-              />
-              <span>Premium only</span>
-            </label>
-
-            <label className={styles.checkboxField}>
-              <input
-                type="checkbox"
                 checked={form.featured}
                 onChange={(event) =>
                   setForm((prev) => ({ ...prev, featured: event.target.checked }))
@@ -498,6 +472,10 @@ export default function AdvancedTracksAdminPage() {
               />
               <span>Featured resource</span>
             </label>
+
+            <div className={styles.openAccessHint}>
+              New advanced resources are saved as open access. No premium unlock step is required.
+            </div>
 
             <div className={styles.formActions}>
               <button className="btn btn-primary" type="submit" disabled={saving || loading}>
@@ -508,91 +486,7 @@ export default function AdvancedTracksAdminPage() {
         </section>
 
         <section className={styles.panel}>
-          <h2 className={styles.panelTitle}>Premium Access Control</h2>
-
-          {loading ? (
-            <div className={styles.loading}>Loading member entitlements...</div>
-          ) : entitlementUsers.length === 0 ? (
-            <div className={styles.empty}>No members found.</div>
-          ) : (
-            <div className={styles.memberList}>
-              {entitlementUsers.map((member) => {
-                const expiresLabel = member.premiumExpiresAt
-                  ? new Date(member.premiumExpiresAt).toLocaleDateString()
-                  : member.premiumAccess
-                    ? "Lifetime"
-                    : "Free tier";
-                const grantThirtyDaysAt = new Date(
-                  Date.now() + THIRTY_DAYS_MS
-                ).toISOString();
-
-                return (
-                  <article key={member.id} className={styles.memberRow}>
-                    <div className={styles.memberInfo}>
-                      <h3 className={styles.memberName}>{member.name}</h3>
-                      <p className={styles.memberMeta}>
-                        {member.email} • {member.role}
-                      </p>
-                      <div className={styles.badges}>
-                        <span
-                          className={`${styles.badge} ${
-                            member.premiumActive
-                              ? styles.status_approved
-                              : styles.status_pending
-                          }`}
-                        >
-                          {member.premiumActive ? "premium active" : "premium inactive"}
-                        </span>
-                        <span className={styles.badge}>{expiresLabel}</span>
-                      </div>
-                    </div>
-
-                    {role === "admin" ? (
-                      <div className={styles.memberActions}>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          disabled={updatingEntitlementId === member.id}
-                          onClick={() =>
-                            void handleEntitlementUpdate(member.id, true, null)
-                          }
-                        >
-                          Lifetime
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          disabled={updatingEntitlementId === member.id}
-                          onClick={() =>
-                            void handleEntitlementUpdate(
-                              member.id,
-                              true,
-                              grantThirtyDaysAt
-                            )
-                          }
-                        >
-                          +30 Days
-                        </button>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          disabled={updatingEntitlementId === member.id}
-                          onClick={() =>
-                            void handleEntitlementUpdate(member.id, false, null)
-                          }
-                        >
-                          Revoke
-                        </button>
-                      </div>
-                    ) : (
-                      <p className={styles.memberReadonly}>Moderator view</p>
-                    )}
-                  </article>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        <section className={styles.panel}>
-          <h2 className={styles.panelTitle}>Advanced Resource Queue</h2>
+          <h2 className={styles.panelTitle}>Open Resource Queue</h2>
 
           {loading ? (
             <div className={styles.loading}>Loading resources...</div>
@@ -606,65 +500,72 @@ export default function AdvancedTracksAdminPage() {
                   : resource.content_url;
 
                 return (
-                <article key={resource.id} className={styles.resourceRow}>
-                  <div className={styles.resourceInfo}>
-                    <h3 className={styles.resourceTitle}>{resource.title}</h3>
-                    <p className={styles.resourceSummary}>{resource.summary}</p>
-                    <div className={styles.resourceMeta}>
-                      <span>{resource.track_name}</span>
-                      {resource.topic_name ? <span>{resource.topic_name}</span> : null}
-                      <span>{resource.author_name || "Unknown author"}</span>
-                      <span>{new Date(resource.created_at).toLocaleDateString()}</span>
+                  <article key={resource.id} className={styles.resourceRow}>
+                    <div className={styles.resourceInfo}>
+                      <h3 className={styles.resourceTitle}>{resource.title}</h3>
+                      <p className={styles.resourceSummary}>{resource.summary}</p>
+                      <div className={styles.resourceMeta}>
+                        <span>{resource.track_name}</span>
+                        {resource.topic_name ? <span>{resource.topic_name}</span> : null}
+                        <span>{resource.author_name || "Unknown author"}</span>
+                        <span>{new Date(resource.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <div className={styles.badges}>
+                        <span
+                          className={`${styles.badge} ${styles[`status_${resource.status}`] || ""}`}
+                        >
+                          {resource.status}
+                        </span>
+                        <span className={styles.badge}>open access</span>
+                        {Boolean(resource.featured) && (
+                          <span className={styles.badge}>featured</span>
+                        )}
+                        {resource.status === "pending" && (
+                          <span className={styles.badge}>auto-approve after 3d</span>
+                        )}
+                      </div>
                     </div>
-                    <div className={styles.badges}>
-                      <span className={`${styles.badge} ${styles[`status_${resource.status}`] || ""}`}>
-                        {resource.status}
-                      </span>
-                      {Boolean(resource.premium_only) && <span className={styles.badge}>premium</span>}
-                      {Boolean(resource.featured) && <span className={styles.badge}>featured</span>}
-                    </div>
-                  </div>
 
-                  <div className={styles.resourceActions}>
-                    <a
-                      href={resourceHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-ghost btn-sm"
-                    >
-                      Open
-                    </a>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => void handleAction(resource.id, "approve")}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() => void handleAction(resource.id, "reject")}
-                    >
-                      Reject
-                    </button>
-                    <button
-                      className="btn btn-secondary btn-sm"
-                      onClick={() =>
-                        void handleAction(
-                          resource.id,
-                          resource.featured ? "unfeature" : "feature"
-                        )
-                      }
-                    >
-                      {resource.featured ? "Unfeature" : "Feature"}
-                    </button>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => void handleDelete(resource.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </article>
+                    <div className={styles.resourceActions}>
+                      <a
+                        href={resourceHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-ghost btn-sm"
+                      >
+                        Open
+                      </a>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => void handleAction(resource.id, "approve")}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => void handleAction(resource.id, "reject")}
+                      >
+                        Reject
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() =>
+                          void handleAction(
+                            resource.id,
+                            resource.featured ? "unfeature" : "feature"
+                          )
+                        }
+                      >
+                        {resource.featured ? "Unfeature" : "Feature"}
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => void handleDelete(resource.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </article>
                 );
               })}
             </div>

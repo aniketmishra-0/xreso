@@ -1,39 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@libsql/client/web";
+import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
 const TOKEN_CACHE_PATH = path.join(process.cwd(), ".onedrive-token.json");
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
-
-function getClient() {
-  return createClient({
-    url: process.env.TURSO_DATABASE_URL!,
-    authToken: process.env.TURSO_AUTH_TOKEN!
-  });
-}
+const DB_PATH = path.join(process.cwd(), "xreso.db");
 
 // GET /api/files/[noteId] — Serve file securely (proxy from OneDrive or local)
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ noteId: string }> }
 ) {
+  let sqlite: Database.Database | null = null;
+
   try {
     const { noteId } = await params;
 
-    const client = getClient();
-    const result = await client.execute({
-      sql: "SELECT file_url, file_type, file_name, drive_item_id, status FROM notes WHERE id = ?",
-      args: [noteId]
-    });
-
-    const note = result.rows[0] as unknown as {
-      file_url: string;
-      file_type: string;
-      file_name: string;
-      drive_item_id: string | null;
-      status: string;
-    } | undefined;
+    sqlite = new Database(DB_PATH, { readonly: true });
+    const note = sqlite
+      .prepare("SELECT file_url, file_type, file_name, drive_item_id, status FROM notes WHERE id = ?")
+      .get(noteId) as
+      | {
+          file_url: string;
+          file_type: string;
+          file_name: string;
+          drive_item_id: string | null;
+          status: string;
+        }
+      | undefined;
 
     if (!note) {
       return NextResponse.json({ error: "Note not found" }, { status: 404 });
@@ -49,8 +44,7 @@ export async function GET(
     // ── OneDrive file (has drive_item_id) ──────────────────
     if (note.drive_item_id) {
       const token = await getAccessToken();
-      
-      // Get the direct download URL from Graph API
+
       const itemRes = await fetch(
         `${GRAPH_BASE}/me/drive/items/${note.drive_item_id}?$select=@microsoft.graph.downloadUrl,name,size`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -62,32 +56,31 @@ export async function GET(
       }
 
       const item = await itemRes.json();
-      const downloadUrl = item["@microsoft.graph.downloadUrl"];
+      const downloadUrl = item["@microsoft.graph.downloadUrl"] as string | undefined;
 
       if (!downloadUrl) {
         return NextResponse.json({ error: "Download URL not available" }, { status: 500 });
       }
 
       if (action === "download") {
-        // Redirect to temp download URL for downloads
         return NextResponse.redirect(downloadUrl);
       }
 
-      // For view: proxy the content through our server (hides OneDrive URL)
       const fileRes = await fetch(downloadUrl);
       if (!fileRes.ok) {
         return NextResponse.json({ error: "Failed to fetch file" }, { status: 500 });
       }
 
       const fileBuffer = await fileRes.arrayBuffer();
-      
+
       return new NextResponse(fileBuffer, {
         headers: {
           "Content-Type": note.file_type || "application/octet-stream",
-          "Content-Disposition": action === "download" 
-            ? `attachment; filename="${note.file_name}"` 
-            : "inline",
-          "Cache-Control": "public, max-age=3600", // Cache for 1 hour
+          "Content-Disposition":
+            action === "download"
+              ? `attachment; filename="${note.file_name}"`
+              : "inline",
+          "Cache-Control": "public, max-age=3600",
           "X-Content-Type-Options": "nosniff",
         },
       });
@@ -104,10 +97,12 @@ export async function GET(
       return new NextResponse(fileBuffer, {
         headers: {
           "Content-Type": note.file_type || "application/octet-stream",
-          "Content-Disposition": action === "download"
-            ? `attachment; filename="${note.file_name}"`
-            : "inline",
+          "Content-Disposition":
+            action === "download"
+              ? `attachment; filename="${note.file_name}"`
+              : "inline",
           "Cache-Control": "public, max-age=3600",
+          "X-Content-Type-Options": "nosniff",
         },
       });
     }
@@ -121,6 +116,10 @@ export async function GET(
   } catch (error) {
     console.error("File proxy error:", error);
     return NextResponse.json({ error: "Failed to serve file" }, { status: 500 });
+  } finally {
+    if (sqlite) {
+      sqlite.close();
+    }
   }
 }
 
@@ -159,16 +158,22 @@ async function getAccessToken(): Promise<string> {
   if (!res.ok) throw new Error("Token refresh failed");
   const data = await res.json();
 
-  // Update cached token safely
   if (data.refresh_token) {
     try {
-      fs.writeFileSync(TOKEN_CACHE_PATH, JSON.stringify({
-        access_token: data.access_token,
-        refresh_token: data.refresh_token,
-        expires_at: Date.now() + data.expires_in * 1000,
-      }, null, 2));
+      fs.writeFileSync(
+        TOKEN_CACHE_PATH,
+        JSON.stringify(
+          {
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+            expires_at: Date.now() + data.expires_in * 1000,
+          },
+          null,
+          2
+        )
+      );
     } catch (e) {
-      console.warn("Failed to write to token cache (read-only FS on Vercel?)", e);
+      console.warn("Failed to write token cache", e);
     }
   }
 

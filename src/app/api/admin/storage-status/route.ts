@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getExcelStorageStatus } from "@/lib/excel";
-import Database from "better-sqlite3";
-import path from "path";
-
-const DB_PATH = path.join(process.cwd(), "xreso.db");
 
 export async function GET() {
   try {
@@ -13,13 +9,8 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const sqlite = new Database(DB_PATH, { readonly: true });
-    const user = sqlite
-      .prepare("SELECT role FROM users WHERE id = ?")
-      .get(session.user.id) as { role?: string } | undefined;
-    sqlite.close();
-
-    if (!user || user.role !== "admin") {
+    const sessionRole = (session.user as { role?: string }).role || "user";
+    if (sessionRole !== "admin") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

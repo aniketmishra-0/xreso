@@ -2,33 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import Database from "better-sqlite3";
 import path from "path";
 import { auth } from "@/lib/auth";
+import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
 
 type SortValue = "newest" | "popular" | "featured";
-
-function hasActivePremiumEntitlement(
-  premiumAccess: unknown,
-  premiumExpiresAt: unknown
-) {
-  const hasAccess =
-    premiumAccess === true || premiumAccess === 1 || premiumAccess === "1";
-
-  if (!hasAccess) {
-    return false;
-  }
-
-  if (typeof premiumExpiresAt !== "string" || premiumExpiresAt.trim().length === 0) {
-    return true;
-  }
-
-  const expiresAt = Date.parse(premiumExpiresAt);
-  if (Number.isNaN(expiresAt)) {
-    return false;
-  }
-
-  return expiresAt > Date.now();
-}
 
 function buildOrderBy(sort: SortValue) {
   switch (sort) {
@@ -45,14 +23,13 @@ export async function GET(req: NextRequest) {
   let sqlite: Database.Database | null = null;
 
   try {
+    runAutoApprovalSweepIfNeeded();
+
     const session = await auth();
     const sessionUser = session?.user as
       | {
           id?: string;
           role?: string;
-          premium?: boolean;
-          premiumExpiresAt?: string | null;
-          isPremium?: boolean;
         }
       | undefined;
 
@@ -63,40 +40,8 @@ export async function GET(req: NextRequest) {
           ? "user"
           : "guest";
 
-    let hasPremiumAccess =
-      viewerRole === "admin" || viewerRole === "moderator";
-    let premiumExpiresAt: string | null = null;
-
     sqlite = new Database(DB_PATH);
     sqlite.pragma("foreign_keys = ON");
-
-    if (!hasPremiumAccess && sessionUser?.id) {
-      try {
-        const entitlement = sqlite
-          .prepare(
-            "SELECT premium_access, premium_expires_at FROM users WHERE id = ?"
-          )
-          .get(sessionUser.id) as
-          | { premium_access: number; premium_expires_at: string | null }
-          | undefined;
-
-        premiumExpiresAt = entitlement?.premium_expires_at || null;
-        hasPremiumAccess = hasActivePremiumEntitlement(
-          entitlement?.premium_access,
-          entitlement?.premium_expires_at
-        );
-      } catch (entitlementError) {
-        console.warn("[AdvancedTracks] Premium columns unavailable:", entitlementError);
-      }
-    }
-
-    if (!hasPremiumAccess) {
-      premiumExpiresAt = sessionUser?.premiumExpiresAt || premiumExpiresAt;
-      hasPremiumAccess =
-        (sessionUser?.premium === true &&
-          hasActivePremiumEntitlement(true, sessionUser?.premiumExpiresAt || null)) ||
-        sessionUser?.isPremium === true;
-    }
 
     const { searchParams } = new URL(req.url);
     const track = searchParams.get("track");
@@ -191,15 +136,11 @@ export async function GET(req: NextRequest) {
     >;
 
     const resources = rows.map((row) => {
-      const premiumOnly = Boolean(row.premium_only);
-      const accessLocked = premiumOnly && !hasPremiumAccess;
       const rawContentUrl =
         typeof row.content_url === "string" ? row.content_url : "";
-      const resolvedContentUrl = accessLocked
-        ? null
-        : rawContentUrl.startsWith("onedrive://")
-          ? `/api/advanced-tracks/resource/${row.id}`
-          : rawContentUrl;
+      const resolvedContentUrl = rawContentUrl.startsWith("onedrive://")
+        ? `/api/advanced-tracks/resource/${row.id}`
+        : rawContentUrl;
 
       return {
         id: row.id,
@@ -207,9 +148,9 @@ export async function GET(req: NextRequest) {
         summary: row.summary,
         resourceType: row.resource_type,
         contentUrl: resolvedContentUrl,
-        accessLocked,
+        accessLocked: false,
         thumbnailUrl: row.thumbnail_url,
-        premiumOnly,
+        premiumOnly: false,
         featured: Boolean(row.featured),
         status: row.status,
         viewCount: row.view_count,
@@ -234,8 +175,7 @@ export async function GET(req: NextRequest) {
       viewer: {
         role: viewerRole,
         isAuthenticated: Boolean(sessionUser),
-        hasPremiumAccess,
-        premiumExpiresAt,
+        hasPremiumAccess: true,
       },
       pagination: {
         page,

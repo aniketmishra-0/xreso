@@ -52,6 +52,55 @@
   gap: var(--space-sm);
 }
 
+.noticeBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: var(--space-lg);
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(74, 222, 128, 0.22);
+  background: rgba(74, 222, 128, 0.08);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.noticeBar strong {
+  color: #7ee6a6;
+}
+
+.overviewGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.overviewCard {
+  padding: var(--space-lg);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-surface);
+}
+
+.overviewLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+}
+
+.overviewValue {
+  display: block;
+  margin-top: 8px;
+  font-size: var(--text-3xl);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
 .panel {
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-xl);
@@ -135,6 +184,16 @@
 .checkboxField span {
   font-size: var(--text-sm);
   color: var(--text-secondary);
+}
+
+.openAccessHint {
+  grid-column: 1 / -1;
+  padding: 12px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(125, 211, 252, 0.2);
+  background: rgba(125, 211, 252, 0.08);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
 
 .formActions {
@@ -325,6 +384,10 @@
     flex-direction: column;
   }
 
+  .overviewGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .formGrid {
     grid-template-columns: 1fr;
   }
@@ -359,5 +422,9 @@
 
   .title {
     font-size: var(--text-3xl);
+  }
+
+  .overviewGrid {
+    grid-template-columns: 1fr;
   }
 }

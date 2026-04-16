@@ -10,6 +10,7 @@ import {
   uploadToOneDrive,
 } from "@/lib/onedrive";
 import { appendAdvancedLinkToExcel } from "@/lib/excel";
+import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
 const DB_PATH = path.join(process.cwd(), "xreso.db");
 const ADVANCED_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "advanced");
@@ -17,7 +18,6 @@ const ADVANCED_MAX_FILE_SIZE = 25 * 1024 * 1024;
 
 export const maxDuration = 300;
 
-type AdminRole = "admin" | "moderator" | "user";
 type ResourceType = "link" | "pdf" | "doc" | "video";
 
 type UpdateAction = "approve" | "reject" | "archive" | "feature" | "unfeature";
@@ -184,17 +184,13 @@ async function requireAdminSession() {
     return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
-  const sqlite = new Database(DB_PATH);
-  sqlite.pragma("foreign_keys = ON");
-
-  const roleRow = sqlite
-    .prepare("SELECT role FROM users WHERE id = ?")
-    .get(session.user.id) as { role?: AdminRole } | undefined;
-
-  if (!roleRow || (roleRow.role !== "admin" && roleRow.role !== "moderator")) {
-    sqlite.close();
+  const sessionRole = (session.user as { role?: string }).role || "user";
+  if (sessionRole !== "admin" && sessionRole !== "moderator") {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
+
+  const sqlite = new Database(DB_PATH);
+  sqlite.pragma("foreign_keys = ON");
   return { session, sqlite };
 }
 
@@ -205,6 +201,8 @@ export async function GET() {
   const { sqlite } = admin;
 
   try {
+    runAutoApprovalSweepIfNeeded();
+
     const tracks = sqlite
       .prepare(
         `SELECT id, slug, name, description, premium, status, sort_order
@@ -362,7 +360,7 @@ export async function POST(req: NextRequest) {
     let thumbnailUrl = toTrimmedString(payload.thumbnailUrl);
 
     let resourceType = parseResourceType(payload.resourceType);
-    const premiumOnly = parseBoolean(payload.premiumOnly, true);
+    const premiumOnly = parseBoolean(payload.premiumOnly, false);
     const featured = parseBoolean(payload.featured, false);
     const status = parseStatus(payload.status);
     const tags = parseTags(payload.tags);

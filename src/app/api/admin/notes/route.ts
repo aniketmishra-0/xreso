@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { appendAdminActionToExcel, updateLinkStatusInExcel } from "@/lib/excel";
+import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 import Database from "better-sqlite3";
 import fs from "fs";
 import path from "path";
@@ -52,16 +53,14 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const sqlite = new Database(DB_PATH, { readonly: true });
-
-    const user = sqlite
-      .prepare("SELECT role FROM users WHERE id = ?")
-      .get(session.user.id) as { role: string } | undefined;
-
-    if (!user || (user.role !== "admin" && user.role !== "moderator")) {
-      sqlite.close();
+    const sessionRole = (session.user as { role?: string }).role || "user";
+    if (sessionRole !== "admin" && sessionRole !== "moderator") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    runAutoApprovalSweepIfNeeded();
+
+    const sqlite = new Database(DB_PATH, { readonly: true });
 
     const rows = sqlite
       .prepare(
@@ -91,16 +90,12 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const sqlite = new Database(DB_PATH);
-
-    const user = sqlite
-      .prepare("SELECT role, name, email FROM users WHERE id = ?")
-      .get(session.user.id) as { role: string; name: string; email: string } | undefined;
-
-    if (!user || (user.role !== "admin" && user.role !== "moderator")) {
-      sqlite.close();
+    const sessionRole = (session.user as { role?: string }).role || "user";
+    if (sessionRole !== "admin" && sessionRole !== "moderator") {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
+
+    const sqlite = new Database(DB_PATH);
 
     const { noteId, action, featured } = await req.json();
     const previousNote = sqlite
@@ -167,7 +162,7 @@ export async function PATCH(req: NextRequest) {
       });
     }
 
-    if (previousNote && user) {
+    if (previousNote) {
       const adminId = session.user.id as string;
       const nextStatus =
         action === "approve"
@@ -178,8 +173,8 @@ export async function PATCH(req: NextRequest) {
 
       await appendAdminActionToExcel({
         adminId,
-        adminName: user.name,
-        adminEmail: user.email,
+        adminName: session.user.name || "Admin",
+        adminEmail: session.user.email || "",
         noteId,
         noteTitle: previousNote.title,
         category: categoryName?.name || "Unknown",
@@ -211,17 +206,12 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    sqlite = new Database(DB_PATH);
-
-    const user = sqlite
-      .prepare("SELECT role, name, email FROM users WHERE id = ?")
-      .get(session.user.id) as { role: string; name: string; email: string } | undefined;
-
-    if (!user || user.role !== "admin") {
-      sqlite.close();
-      sqlite = null;
+    const sessionRole = (session.user as { role?: string }).role || "user";
+    if (sessionRole !== "admin") {
       return NextResponse.json({ error: "Only admins can delete notes" }, { status: 403 });
     }
+
+    sqlite = new Database(DB_PATH);
 
     const { noteId } = await req.json();
     if (typeof noteId !== "string" || !noteId.trim()) {

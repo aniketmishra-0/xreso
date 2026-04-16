@@ -113,9 +113,9 @@ export default function AdminPage() {
 
     try {
       const [statsRes, notesRes, storageRes] = await Promise.all([
-        fetch("/api/admin/stats"),
-        fetch("/api/admin/notes"),
-        fetch("/api/admin/storage-status"),
+        fetch("/api/admin/stats", { cache: "no-store" }),
+        fetch("/api/admin/notes", { cache: "no-store" }),
+        fetch("/api/admin/storage-status", { cache: "no-store" }),
       ]);
 
       if (!statsRes.ok || !notesRes.ok) {

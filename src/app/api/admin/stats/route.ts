@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@libsql/client/web";
 import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
+export const dynamic = "force-dynamic";
+
 function getClient() {
   const databaseUrl = process.env.TURSO_DATABASE_URL;
   if (!databaseUrl) {

@@ -7,6 +7,8 @@ import { createClient, Client } from "@libsql/client/web";
 import fs from "fs";
 import path from "path";
 
+export const dynamic = "force-dynamic";
+
 function getClient(): Client {
   const databaseUrl = process.env.TURSO_DATABASE_URL;
   if (!databaseUrl) {

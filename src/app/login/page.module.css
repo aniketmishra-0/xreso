@@ -449,6 +449,180 @@
   background: rgba(61, 40, 102, 0.95);
 }
 
+/* ── Light Mode ────────────────────────────────────── */
+:global([data-theme="light"]) .page {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(168, 85, 247, 0.08), transparent 34%),
+    radial-gradient(circle at 86% 84%, rgba(249, 115, 22, 0.06), transparent 38%),
+    linear-gradient(180deg, #f8f6fc 0%, #f3f0fa 56%, #f0ecf6 100%);
+}
+
+:global([data-theme="light"]) .page::before {
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.08), transparent 68%);
+}
+
+:global([data-theme="light"]) .page::after {
+  background: radial-gradient(circle, rgba(234, 88, 12, 0.06), transparent 70%);
+}
+
+:global([data-theme="light"]) .card {
+  border-color: rgba(147, 125, 198, 0.18);
+  background:
+    linear-gradient(155deg, rgba(167, 139, 250, 0.05), transparent 34%),
+    linear-gradient(205deg, rgba(249, 115, 22, 0.03), transparent 46%),
+    rgba(255, 255, 255, 0.95);
+  box-shadow: 0 12px 40px rgba(100, 80, 160, 0.1), 0 0 0 1px rgba(167, 139, 250, 0.08);
+}
+
+:global([data-theme="light"]) .card::after {
+  background:
+    repeating-linear-gradient(
+      115deg,
+      transparent 0,
+      transparent 18px,
+      rgba(0, 0, 0, 0.01) 19px,
+      rgba(0, 0, 0, 0.01) 20px
+    );
+}
+
+:global([data-theme="light"]) .eyebrow {
+  color: #7c6aae;
+}
+
+:global([data-theme="light"]) .title {
+  color: #1e1535;
+}
+
+:global([data-theme="light"]) .subtitle {
+  color: #6b5d8a;
+}
+
+:global([data-theme="light"]) .tabs {
+  background: rgba(240, 235, 250, 0.9);
+  border-color: rgba(147, 125, 198, 0.2);
+}
+
+:global([data-theme="light"]) .tab {
+  color: #7b6da0;
+}
+
+:global([data-theme="light"]) .tabActive {
+  color: #fff;
+}
+
+:global([data-theme="light"]) .socialBtn {
+  border-color: rgba(147, 125, 198, 0.25);
+  background: rgba(248, 245, 255, 0.9);
+  color: #2d2347;
+}
+
+:global([data-theme="light"]) .socialBtn:hover:not(:disabled) {
+  border-color: rgba(147, 125, 198, 0.45);
+  background: rgba(240, 235, 252, 1);
+}
+
+:global([data-theme="light"]) .socialBtnGoogle {
+  background: #ffffff;
+  color: #1f2937;
+  border-color: #dadce0;
+}
+
+:global([data-theme="light"]) .socialBtnGoogle:hover:not(:disabled) {
+  background: #fafafa;
+  border-color: #c0c5cc;
+}
+
+:global([data-theme="light"]) .socialBtnGitHub {
+  background: linear-gradient(180deg, #24292e, #1b2028);
+  color: #f9fafb;
+  border-color: #3a4250;
+}
+
+:global([data-theme="light"]) .socialBtnLinkedIn {
+  background: linear-gradient(135deg, #0d67c5 0%, #2e78c8 100%);
+  color: #ffffff;
+}
+
+:global([data-theme="light"]) .divider {
+  color: #8b7db0;
+}
+
+:global([data-theme="light"]) .divider::before,
+:global([data-theme="light"]) .divider::after {
+  background: rgba(147, 125, 198, 0.2);
+}
+
+:global([data-theme="light"]) .form :global(.input-label) {
+  color: #5b4d7a;
+}
+
+:global([data-theme="light"]) .form :global(.input) {
+  border-color: rgba(147, 125, 198, 0.25);
+  background: rgba(255, 255, 255, 0.9);
+  color: #1e1535;
+}
+
+:global([data-theme="light"]) .form :global(.input:hover) {
+  border-color: rgba(147, 125, 198, 0.45);
+}
+
+:global([data-theme="light"]) .form :global(.input:focus) {
+  border-color: rgba(139, 92, 246, 0.6);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
+}
+
+:global([data-theme="light"]) .form :global(.input::placeholder) {
+  color: rgba(107, 93, 138, 0.55);
+}
+
+:global([data-theme="light"]) .error {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.25);
+  color: #b91c1c;
+}
+
+:global([data-theme="light"]) .footnote {
+  color: #8b7db0;
+}
+
+:global([data-theme="light"]) .forgotLink {
+  color: #7c3aed;
+  border-bottom-color: rgba(124, 58, 237, 0.3);
+}
+
+:global([data-theme="light"]) .forgotLink:hover {
+  color: #6d28d9;
+  border-bottom-color: rgba(109, 40, 217, 0.5);
+}
+
+:global([data-theme="light"]) .avatarUploadRow {
+  background: rgba(248, 245, 255, 0.9);
+  border-color: rgba(147, 125, 198, 0.2);
+}
+
+:global([data-theme="light"]) .avatarInput {
+  color: #5b4d7a;
+}
+
+:global([data-theme="light"]) .avatarInput::file-selector-button {
+  border-color: rgba(147, 125, 198, 0.35);
+  background: rgba(237, 230, 252, 0.9);
+  color: #3b2d5e;
+}
+
+:global([data-theme="light"]) .socialHintBlock {
+  border-color: rgba(147, 125, 198, 0.25);
+  background: rgba(245, 240, 255, 0.7);
+}
+
+:global([data-theme="light"]) .socialHint {
+  color: #5b4d7a;
+}
+
+:global([data-theme="light"]) .socialTip {
+  color: #7b6da0;
+}
+
 @media (max-width: 1024px) {
   .page {
     padding-top: calc(var(--nav-height) + var(--space-lg));

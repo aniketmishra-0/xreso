@@ -92,12 +92,19 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   min-height: 38px;
   padding: 0 15px;
   border-radius: var(--radius-full);
   background: rgba(139, 92, 246, 0.12);
   border: 1px solid rgba(139, 92, 246, 0.34);
   margin-bottom: 10px;
+}
+
+.logoIcon {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
 }
 
 .logoText {

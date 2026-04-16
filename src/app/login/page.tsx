@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { FaGithub, FaGoogle, FaLinkedinIn } from "react-icons/fa";
+import Logo from "@/components/Logo";
 import styles from "./page.module.css";
 
 type SocialProviderConfig = {
@@ -187,6 +188,7 @@ function LoginPageContent() {
         <div className={styles.card}>
           <div className={styles.header}>
             <Link href="/" className={styles.logoLink}>
+              <Logo className={styles.logoIcon} />
               <span className={styles.logoText}>xreso</span>
             </Link>
             <p className={styles.eyebrow}>Account Access</p>

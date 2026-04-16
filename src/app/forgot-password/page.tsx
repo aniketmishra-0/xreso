@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Logo from "@/components/Logo";
 import styles from "./page.module.css";
 
 export default function ForgotPasswordPage() {
@@ -50,6 +51,7 @@ export default function ForgotPasswordPage() {
         <div className={styles.card}>
           <div className={styles.header}>
             <Link href="/login" className={styles.logoLink}>
+              <Logo className={styles.logoIcon} />
               <span className={styles.logoText}>xreso</span>
             </Link>
             <h1 className={styles.title}>Forgot password</h1>

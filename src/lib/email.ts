@@ -158,33 +158,31 @@ export async function sendPasswordResetEmail(
       subject: "Reset your xreso password",
       text: `Hi ${name},\n\nWe received a request to reset your xreso password. Use this link to choose a new password:\n${resetLink}\n\nIf you did not request this, you can ignore this email.`,
       html: `
-        <div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 560px; margin: 0 auto; padding: 40px 20px;">
+        <div style="font-family: 'Inter', -apple-system, sans-serif; background: #0F0A1A; padding: 40px 20px; color: #F0EEFF; border-radius: 12px; border: 1px solid #2E2345;">
           <div style="text-align: center; margin-bottom: 32px;">
-            <h1 style="color: #FF4D6A; font-size: 28px; font-weight: 900; margin: 0;">xreso</h1>
+            <h1 style="font-size: 28px; font-weight: 900; margin: 0; background: linear-gradient(135deg, #A78BFA, #FB923C); -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: #A78BFA;">xreso</h1>
           </div>
-          <h2 style="color: #f0f0f5; font-size: 22px;">Reset your password, ${name}</h2>
-          <p style="color: #9ca3af; font-size: 15px; line-height: 1.6;">
-            We received a request to reset your xreso password. Click the button below to choose a new password.
-          </p>
-          <div style="text-align: center; margin: 32px 0;">
-            <a href="${resetLink}"
-               style="background: #FF4D6A; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
-              Reset Password
-            </a>
+          <div style="background: #1A122A; border: 1px solid #221838; border-radius: 10px; padding: 32px;">
+            <h2 style="color: #F0EEFF; font-size: 20px; font-weight: 700; margin-top: 0;">Reset your password, ${name}</h2>
+            <p style="color: #9B8FC2; font-size: 15px; line-height: 1.6;">
+              We received a request to reset your xreso password. Click the button below to choose a new password.
+            </p>
+            <div style="text-align: center; margin: 32px 0;">
+              <a href="${resetLink}"
+                 style="background: linear-gradient(135deg, #8B5CF6, #F97316); color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; display: inline-block;">
+                Reset Password
+              </a>
+            </div>
+            <p style="color: #6B5F8A; font-size: 13px; line-height: 1.6; text-align: center;">
+              This link will expire soon for your security. If you did not request this, you can ignore this email.
+            </p>
           </div>
-          <p style="color: #9ca3af; font-size: 14px; line-height: 1.7; text-align: center; margin-bottom: 0;">
-            If the button does not work, copy and paste this link into your browser:
-          </p>
-          <p style="color: #FF4D6A; font-size: 13px; line-height: 1.7; text-align: center; word-break: break-all; margin-top: 8px;">
-            <a href="${resetLink}" style="color: #FF4D6A; text-decoration: underline;">${resetLink}</a>
-          </p>
-          <p style="color: #6b7280; font-size: 13px; line-height: 1.6; text-align: center;">
-            This link will expire soon for your security. If you did not request this, you can ignore this email.
-          </p>
-          <p style="color: #6b7280; font-size: 12px; text-align: center; margin-top: 28px; word-break: break-all;">
-            Or paste this link into your browser:<br />
-            <span style="color: #9ca3af;">${resetLink}</span>
-          </p>
+          <div style="margin-top: 24px; text-align: center;">
+            <p style="color: #6B5F8A; font-size: 12px; margin-bottom: 4px;">If the button does not work, copy and paste this link:</p>
+            <p style="font-size: 11px; word-break: break-all; margin: 0;">
+              <a href="${resetLink}" style="color: #A78BFA; text-decoration: underline;">${resetLink}</a>
+            </p>
+          </div>
         </div>
       `,
     });

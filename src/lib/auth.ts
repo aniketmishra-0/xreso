@@ -6,12 +6,16 @@ import Google from "next-auth/providers/google";
 import LinkedIn from "next-auth/providers/linkedin";
 import { compareSync } from "bcryptjs";
 import { randomUUID } from "crypto";
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient } from "@libsql/client/web";
 import { appendAdminLoginToExcel } from "@/lib/excel";
 import { isRateLimited, loginLimiter } from "@/lib/ratelimit";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+function getTursoClient() {
+  return createClient({
+    url: process.env.TURSO_DATABASE_URL!,
+    authToken: process.env.TURSO_AUTH_TOKEN!
+  });
+}
 type AppRole = "user" | "admin" | "moderator";
 
 type AppUserRow = {
@@ -114,40 +118,38 @@ function getFallbackOAuthEmail(account: {
   return `${provider}_${safeProviderAccountId}@oauth.xreso.local`;
 }
 
-function getDbUserByEmail(email: string): AppUserRow | null {
-  const sqlite = new Database(DB_PATH);
+async function getDbUserByEmail(email: string): Promise<AppUserRow | null> {
+  const client = getTursoClient();
 
   try {
-    const user = sqlite
-      .prepare(
-        "SELECT id, name, email, password, role, avatar, premium_access, premium_expires_at FROM users WHERE lower(email) = lower(?) LIMIT 1"
-      )
-      .get(email) as AppUserRow | undefined;
+    const result = await client.execute({
+      sql: "SELECT id, name, email, password, role, avatar, premium_access, premium_expires_at FROM users WHERE lower(email) = lower(?) LIMIT 1",
+      args: [email]
+    });
 
-    return user || null;
+    if (result.rows.length === 0) return null;
+    return result.rows[0] as unknown as AppUserRow;
   } catch {
     return null;
-  } finally {
-    sqlite.close();
   }
 }
 
-function upsertOAuthUserInDb(data: {
+async function upsertOAuthUserInDb(data: {
   name?: string | null;
   email: string;
   image?: string | null;
-}): AppUserRow | null {
+}): Promise<AppUserRow | null> {
   const normalizedEmail = data.email.trim().toLowerCase();
   if (!normalizedEmail) return null;
 
-  const sqlite = new Database(DB_PATH);
+  const client = getTursoClient();
 
   try {
-    const existing = sqlite
-      .prepare(
-        "SELECT id, name, email, password, role, avatar, premium_access, premium_expires_at FROM users WHERE lower(email) = lower(?) LIMIT 1"
-      )
-      .get(normalizedEmail) as AppUserRow | undefined;
+    const res = await client.execute({
+      sql: "SELECT id, name, email, password, role, avatar, premium_access, premium_expires_at FROM users WHERE lower(email) = lower(?) LIMIT 1",
+      args: [normalizedEmail]
+    });
+    const existing = res.rows.length > 0 ? (res.rows[0] as unknown as AppUserRow) : null;
 
     if (existing) {
       const resolvedName =
@@ -160,11 +162,10 @@ function upsertOAuthUserInDb(data: {
           : existing.avatar;
 
       if (resolvedName !== existing.name || resolvedAvatar !== existing.avatar) {
-        sqlite
-          .prepare(
-            "UPDATE users SET name = ?, avatar = ?, updated_at = datetime('now') WHERE id = ?"
-          )
-          .run(resolvedName, resolvedAvatar, existing.id);
+        await client.execute({
+          sql: "UPDATE users SET name = ?, avatar = ?, updated_at = datetime('now') WHERE id = ?",
+          args: [resolvedName, resolvedAvatar, existing.id]
+        });
       }
 
       return {
@@ -182,11 +183,10 @@ function upsertOAuthUserInDb(data: {
       typeof data.image === "string" && data.image.trim() ? data.image.trim() : null;
     const userId = randomUUID();
 
-    sqlite
-      .prepare(
-        "INSERT INTO users (id, name, email, password, avatar, role, premium_access, created_at, updated_at) VALUES (?, ?, ?, NULL, ?, 'user', 0, datetime('now'), datetime('now'))"
-      )
-      .run(userId, generatedName, normalizedEmail, avatar);
+    await client.execute({
+      sql: "INSERT INTO users (id, name, email, password, avatar, role, premium_access, created_at, updated_at) VALUES (?, ?, ?, NULL, ?, 'user', 0, datetime('now'), datetime('now'))",
+      args: [userId, generatedName, normalizedEmail, avatar]
+    });
 
     return {
       id: userId,
@@ -201,8 +201,6 @@ function upsertOAuthUserInDb(data: {
   } catch (error) {
     console.error("[auth] Failed to upsert OAuth user in database", error);
     return null;
-  } finally {
-    sqlite.close();
   }
 }
 
@@ -228,7 +226,7 @@ const providers: Provider[] = [
         return null;
       }
 
-      const user = getDbUserByEmail(normalizedEmail);
+      const user = await getDbUserByEmail(normalizedEmail);
 
       if (!user || !user.password) return null;
       const isValid = compareSync(providedPassword, user.password);
@@ -309,7 +307,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const resolvedEmail = normalizedEmail || fallbackEmail;
       if (!resolvedEmail) return false;
 
-      const syncedUser = upsertOAuthUserInDb({
+      const syncedUser = await upsertOAuthUserInDb({
         email: resolvedEmail,
         name: user.name,
         image: user.image,
@@ -363,7 +361,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const tokenEmail = typeof token.email === "string" ? token.email.trim().toLowerCase() : "";
       const shouldHydrateToken = Boolean(user) || !token.id || !token.role;
       if (shouldHydrateToken && tokenEmail) {
-        const dbUser = getDbUserByEmail(tokenEmail);
+        const dbUser = await getDbUserByEmail(tokenEmail);
         if (dbUser) {
           token.id = dbUser.id;
           token.role = normalizeRole(dbUser.role);

@@ -220,10 +220,6 @@ export async function PATCH(req: NextRequest) {
     let name: string | undefined;
     let avatar: string | null | undefined;
     let bio: string | undefined;
-    let githubUrl: string | undefined;
-    let linkedinUrl: string | undefined;
-    let twitterUrl: string | undefined;
-    let websiteUrl: string | undefined;
     let removeAvatar = false;
     let avatarFile: File | null = null;
 
@@ -233,10 +229,6 @@ export async function PATCH(req: NextRequest) {
       name = readStringField(formData.get("name"));
       avatar = readStringField(formData.get("avatar"));
       bio = readStringField(formData.get("bio"));
-      githubUrl = readStringField(formData.get("githubUrl"));
-      linkedinUrl = readStringField(formData.get("linkedinUrl"));
-      twitterUrl = readStringField(formData.get("twitterUrl"));
-      websiteUrl = readStringField(formData.get("websiteUrl"));
 
       const removeAvatarField = readStringField(formData.get("removeAvatar"));
       removeAvatar = removeAvatarField === "true" || removeAvatarField === "1";
@@ -250,20 +242,8 @@ export async function PATCH(req: NextRequest) {
       name = typeof body.name === "string" ? body.name.trim() : undefined;
       avatar = typeof body.avatar === "string" || body.avatar === null ? body.avatar : undefined;
       bio = typeof body.bio === "string" ? body.bio : undefined;
-      githubUrl = typeof body.githubUrl === "string" ? body.githubUrl : undefined;
-      linkedinUrl = typeof body.linkedinUrl === "string" ? body.linkedinUrl : undefined;
-      twitterUrl = typeof body.twitterUrl === "string" ? body.twitterUrl : undefined;
-      websiteUrl = typeof body.websiteUrl === "string" ? body.websiteUrl : undefined;
       removeAvatar = body.removeAvatar === true;
     }
-
-    // Basic URL validation helper
-    const sanitizeUrl = (url: string | undefined) => {
-      if (!url || url.trim() === "") return null;
-      const u = url.trim();
-      if (!u.startsWith("http://") && !u.startsWith("https://")) return `https://${u}`;
-      return u;
-    };
 
     const client = getClient();
 

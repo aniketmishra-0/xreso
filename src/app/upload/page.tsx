@@ -440,6 +440,7 @@ function UploadPageContent() {
   const [file, setFile] = useState<File | null>(null);
   const [fileObjectUrl, setFileObjectUrl] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; noteId?: string } | null>(null);
 
   const selectedAdvancedTrack = advancedTracks.find(
@@ -455,8 +456,8 @@ function UploadPageContent() {
       : ".png,.jpg,.jpeg,.webp,.pdf";
   const fileHint =
     resourceTier === "advanced"
-      ? "Supports PDF, DOC, DOCX, MP4, WEBM • Max 25 MB"
-      : "Supports PNG, JPG, WEBP, PDF • Max 10 MB";
+      ? "Supports PDF, DOC, DOCX, MP4, WEBM • Max 100 MB"
+      : "Supports PNG, JPG, WEBP, PDF • Max 100 MB";
   const allChecked = checks.ownership && checks.license && checks.tos;
   const hasSelectedContent = uploadMode === "file" ? Boolean(file) : Boolean(formData.resourceUrl);
   const canSubmit =
@@ -714,6 +715,15 @@ function UploadPageContent() {
   };
 
   const applyFile = useCallback((f: File) => {
+    const MAX_ALLOWED_MB = 100;
+    if (f.size > MAX_ALLOWED_MB * 1024 * 1024) {
+      setUploadResult({
+        success: false,
+        message: `File is too large (${(f.size / 1024 / 1024).toFixed(1)}MB). Maximum allowed size is 100 MB.`,
+      });
+      return;
+    }
+    setUploadResult(null);
     setFile(f);
     setFileObjectUrl((currentUrl) => {
       if (currentUrl) URL.revokeObjectURL(currentUrl);
@@ -813,25 +823,118 @@ function UploadPageContent() {
         return;
       }
 
-      const body = new FormData();
-      if (uploadMode === "file" && file) body.append("file", file);
-      body.append("title", formData.title);
-      body.append("description", formData.description);
-      body.append("category", formData.category);
-      body.append("tags", formData.tags);
-      body.append("authorCredit", formData.authorCredit || sessionName);
-      body.append("sourceUrl", formData.resourceUrl || formData.sourceUrl);
-      body.append("resourceUrl", formData.resourceUrl);
-      body.append("licenseType", formData.licenseType);
-      body.append("uploadMode", uploadMode);
+      if (uploadMode === "link" || !file) {
+        // Link uploads or missing file — use the original small API
+        const body = new FormData();
+        if (uploadMode === "file" && file) body.append("file", file);
+        body.append("title", formData.title);
+        body.append("description", formData.description);
+        body.append("category", formData.category);
+        body.append("tags", formData.tags);
+        body.append("authorCredit", formData.authorCredit || sessionName);
+        body.append("sourceUrl", formData.resourceUrl || formData.sourceUrl);
+        body.append("resourceUrl", formData.resourceUrl);
+        body.append("licenseType", formData.licenseType);
+        body.append("uploadMode", uploadMode);
 
-      const res = await fetch("/api/upload", { method: "POST", body });
-      const data = await res.json();
-      setUploadResult({ success: res.ok, message: data.message || data.error || "Upload failed", noteId: data.noteId });
+        const res = await fetch("/api/upload", { method: "POST", body });
+        const data = await res.json();
+        setUploadResult({ success: res.ok, message: data.message || data.error || "Upload failed", noteId: data.noteId });
+      } else {
+        // ── Direct browser → OneDrive upload (supports up to 100 MB) ──
+        setUploadProgress(0);
+
+        // Step 1: Create upload session via our small API
+        const sessionRes = await fetch("/api/upload/create-session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: file.name,
+            fileType: file.type,
+            fileSize: file.size,
+            category: formData.category,
+          }),
+        });
+
+        if (!sessionRes.ok) {
+          const errData = await sessionRes.json();
+          setUploadResult({ success: false, message: errData.error || "Failed to start upload session" });
+          return;
+        }
+
+        const { uploadUrl } = await sessionRes.json();
+
+        // Step 2: Upload file in 4 MB chunks directly to OneDrive
+        const CHUNK_SIZE = 4 * 1024 * 1024;
+        const totalSize = file.size;
+        let offset = 0;
+        let driveItemId = "";
+
+        while (offset < totalSize) {
+          const end = Math.min(offset + CHUNK_SIZE, totalSize);
+          const chunk = file.slice(offset, end);
+          const chunkBuffer = await chunk.arrayBuffer();
+
+          const chunkRes = await fetch(uploadUrl, {
+            method: "PUT",
+            headers: {
+              "Content-Length": `${end - offset}`,
+              "Content-Range": `bytes ${offset}-${end - 1}/${totalSize}`,
+            },
+            body: chunkBuffer,
+          });
+
+          if (!chunkRes.ok && chunkRes.status !== 202) {
+            setUploadResult({ success: false, message: "Upload failed during file transfer. Please try again." });
+            return;
+          }
+
+          const chunkData = await chunkRes.json();
+          // The final chunk returns the drive item with an 'id'
+          if (chunkData.id) {
+            driveItemId = chunkData.id;
+          }
+
+          offset = end;
+          setUploadProgress(Math.round((offset / totalSize) * 100));
+        }
+
+        if (!driveItemId) {
+          setUploadResult({ success: false, message: "Upload completed but no file ID returned. Please try again." });
+          return;
+        }
+
+        // Step 3: Save note record in database
+        const completeRes = await fetch("/api/upload/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            driveItemId,
+            title: formData.title,
+            description: formData.description,
+            category: formData.category,
+            tags: formData.tags,
+            authorCredit: formData.authorCredit || sessionName,
+            sourceUrl: formData.resourceUrl || formData.sourceUrl,
+            licenseType: formData.licenseType,
+            fileName: file.name,
+            fileType: file.type,
+            fileSize: file.size,
+          }),
+        });
+
+        const completeData = await completeRes.json();
+        setUploadResult({
+          success: completeRes.ok,
+          message: completeData.message || completeData.error || "Upload failed",
+          noteId: completeData.noteId,
+        });
+      }
     } catch {
       setUploadResult({ success: false, message: "Network error. Please try again." });
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -1411,7 +1514,7 @@ function UploadPageContent() {
                 className={`btn btn-primary btn-lg ${styles.submitBtn}`}
                 disabled={!canSubmit} id="submit-upload-btn">
                 {uploading ? (
-                  <><span className={styles.uploadingSpinner} />Submitting…</>
+                  <><span className={styles.uploadingSpinner} />{uploadProgress > 0 ? `Uploading… ${uploadProgress}%` : "Submitting…"}</>
                 ) : (
                   <>
                     {uploadMode === "link"

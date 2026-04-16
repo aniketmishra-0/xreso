@@ -83,7 +83,15 @@ export default function NoteCard({
       <Link href={`/note/${id}`} className={styles.cardHitbox} aria-label={`View ${title}`} />
 
       <div className={styles.noteMedia}>
-        {thumbnailUrl && !thumbnailUrl.includes("placeholder") ? (
+      {(() => {
+        // Use OG image generator fallback for missing, placeholder, or non-image thumbnail URLs
+        // (e.g. /api/files/xxx which might be a PDF, not an actual image thumbnail)
+        const isUsableThumbnail =
+          thumbnailUrl &&
+          !thumbnailUrl.includes("placeholder") &&
+          !thumbnailUrl.startsWith("/api/files/");
+
+        return isUsableThumbnail ? (
           <Image
             src={thumbnailUrl}
             alt={title}
@@ -98,7 +106,8 @@ export default function NoteCard({
               backgroundImage: `url(/api/og?title=${encodeURIComponent(title)}&category=${encodeURIComponent(category)}&v=3)`,
             }}
           />
-        )}
+        );
+      })()}
       </div>
 
       <div className={styles.noteCardContent}>

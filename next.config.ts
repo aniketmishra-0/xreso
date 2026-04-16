@@ -13,6 +13,8 @@ function buildContentSecurityPolicy() {
     "https://*.r2.cloudflarestorage.com",
     "https://*.amazonaws.com",
     "https://graph.microsoft.com",
+    "https://*.sharepoint.com",
+    "https://*.api.onedrive.com",
     "https://login.microsoftonline.com",
     "https://www.googleapis.com",
     "https://api.github.com",

@@ -142,29 +142,11 @@ export async function GET(
         return NextResponse.json({ error: "Download URL not available" }, { status: 500 });
       }
 
-      if (action === "download") {
-        // Redirect to temp download URL for downloads
-        return NextResponse.redirect(downloadUrl);
-      }
-
-      // For view: proxy the content through our server (hides OneDrive URL)
-      const fileRes = await fetch(downloadUrl);
-      if (!fileRes.ok) {
-        return NextResponse.json({ error: "Failed to fetch file" }, { status: 500 });
-      }
-
-      const fileBuffer = await fileRes.arrayBuffer();
-      
-      return new NextResponse(fileBuffer, {
-        headers: {
-          "Content-Type": note.file_type || "application/octet-stream",
-          "Content-Disposition": action === "download" 
-            ? `attachment; filename="${note.file_name}"` 
-            : "inline",
-          "Cache-Control": "public, max-age=3600", // Cache for 1 hour
-          "X-Content-Type-Options": "nosniff",
-        },
-      });
+      // For ALL OneDrive files: redirect to the temporary download URL.
+      // This avoids buffering large files (up to 100 MB) through Vercel's
+      // serverless memory. The download URL is temporary (~1 hour TTL)
+      // and cannot be guessed, so it remains secure.
+      return NextResponse.redirect(downloadUrl);
     }
 
     const tempFilePath = findTempUploadFilePath(noteId, action);

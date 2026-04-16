@@ -2,16 +2,90 @@ import { after, NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { isOneDriveConfigured, uploadToOneDrive } from "@/lib/onedrive";
 import { appendLinkToExcel } from "@/lib/excel";
-import Database from "better-sqlite3";
+import { createClient, Client } from "@libsql/client/web";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import fs from "fs";
+import os from "os";
 
 export const maxDuration = 300;
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
-const UPLOAD_DIR = path.join(process.cwd(), "public", "uploads");
-const THUMB_DIR = path.join(UPLOAD_DIR, "thumbs");
+function getClient(): Client {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN
+  });
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error || "");
+}
+
+function isMissingColumnError(error: unknown, columnName: string): boolean {
+  const message = getErrorMessage(error).toLowerCase();
+  const column = columnName.toLowerCase();
+  return (
+    message.includes(`no such column: ${column}`) ||
+    message.includes(`has no column named ${column}`) ||
+    message.includes(`unknown column: ${column}`) ||
+    message.includes(`unknown field: ${column}`)
+  );
+}
+
+function isDuplicateColumnError(error: unknown, columnName: string): boolean {
+  const message = getErrorMessage(error).toLowerCase();
+  const column = columnName.toLowerCase();
+  return message.includes(`duplicate column name: ${column}`);
+}
+
+function isStorageConfigError(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase();
+  return message.includes("turso_database_url is not configured");
+}
+
+let ensureDriveColumnPromise: Promise<void> | null = null;
+
+async function ensureDriveItemColumn(client: Client): Promise<void> {
+  if (ensureDriveColumnPromise) {
+    await ensureDriveColumnPromise;
+    return;
+  }
+
+  ensureDriveColumnPromise = (async () => {
+    try {
+      await client.execute({
+        sql: "ALTER TABLE notes ADD COLUMN drive_item_id TEXT",
+        args: []
+      });
+      console.log("[Upload] Added notes.drive_item_id column for OneDrive sync.");
+    } catch (error) {
+      if (isDuplicateColumnError(error, "drive_item_id")) {
+        return;
+      }
+      // Keep request path resilient even if migration isn't allowed.
+      console.warn(
+        "[Upload] Could not auto-migrate notes.drive_item_id. Falling back to compatibility mode.",
+        error
+      );
+    }
+  })();
+
+  await ensureDriveColumnPromise;
+}
+
+// Ensure local temporary upload directory exists (Vercel compatible)
+const UPLOAD_DIR = path.join(os.tmpdir(), "xreso_uploads");
+function ensureDir(targetDir: string) {
+  if (!fs.existsSync(targetDir)) {
+    fs.mkdirSync(targetDir, { recursive: true });
+  }
+}
 
 const CATEGORY_ALIASES: Record<string, string> = {
   c: "c-cpp",
@@ -49,146 +123,171 @@ function normalizeCategorySlug(slug: string): string {
   return CATEGORY_ALIASES[slug] || slug;
 }
 
-function resolveCategoryId(sqlite: Database.Database, rawSlug: string): number | undefined {
+async function resolveCategoryId(client: Client, rawSlug: string): Promise<number | undefined> {
   const slug = normalizeCategorySlug(rawSlug);
 
-  const existing = sqlite
-    .prepare("SELECT id FROM categories WHERE slug = ?")
-    .get(slug) as { id: number } | undefined;
-
-  if (existing) {
-    return existing.id;
-  }
+  const existingRes = await client.execute({ sql: "SELECT id FROM categories WHERE slug = ?", args: [slug] });
+  if (existingRes.rows.length > 0) return existingRes.rows[0].id as number;
 
   const categoryName = CATEGORY_NAMES[slug];
-  if (!categoryName) {
-    return undefined;
-  }
+  if (!categoryName) return undefined;
 
-  sqlite
-    .prepare("INSERT OR IGNORE INTO categories (name, slug, description, note_count) VALUES (?, ?, ?, 0)")
-    .run(categoryName, slug, `${categoryName} programming notes`);
+  await client.execute({
+    sql: "INSERT OR IGNORE INTO categories (name, slug, description, note_count) VALUES (?, ?, ?, 0)",
+    args: [categoryName, slug, `${categoryName} programming notes`]
+  });
 
-  const created = sqlite
-    .prepare("SELECT id FROM categories WHERE slug = ?")
-    .get(slug) as { id: number } | undefined;
-
-  return created?.id;
+  const createdRes = await client.execute({ sql: "SELECT id FROM categories WHERE slug = ?", args: [slug] });
+  return createdRes.rows.length > 0 ? (createdRes.rows[0].id as number) : undefined;
 }
 
-function ensureDir(targetDir: string) {
-  if (!fs.existsSync(targetDir)) {
-    fs.mkdirSync(targetDir, { recursive: true });
-  }
-}
-
-async function createLocalThumbnail(
-  noteId: string,
-  fileName: string,
-  fileBuffer: Buffer,
-  fileType: string
-) {
-  if (!fileType.startsWith("image/")) {
-    return "";
-  }
+async function createLocalThumbnail(noteId: string, fileName: string, fileBuffer: Buffer, fileType: string) {
+  if (!fileType.startsWith("image/")) return "";
 
   try {
     const sharp = (await import("sharp")).default;
+    const THUMB_DIR = path.join(UPLOAD_DIR, "thumbs");
     ensureDir(THUMB_DIR);
     const thumbName = `thumb_${noteId}.webp`;
     const thumbPath = path.join(THUMB_DIR, thumbName);
 
-    await sharp(fileBuffer)
-      .resize(400, 300, { fit: "cover" })
-      .webp({ quality: 80 })
-      .toFile(thumbPath);
-
-    return `/uploads/thumbs/${thumbName}`;
+    await sharp(fileBuffer).resize(400, 300, { fit: "cover" }).webp({ quality: 80 }).toFile(thumbPath);
+    return `/api/files/${noteId}?action=thumb`; // Use proxy route
   } catch (error) {
     console.warn("Thumbnail generation failed, using original file:", error);
-    return `/uploads/${fileName}`;
+    return `/api/files/${noteId}`;
   }
 }
 
-function syncNoteToOneDriveInBackground(params: {
-  noteId: string;
-  fileBuffer: Buffer;
-  fileName: string;
-  fileType: string;
-  category: string;
-}) {
+function syncNoteToOneDriveInBackground(params: { noteId: string; fileBuffer: Buffer; fileName: string; fileType: string; category: string; }) {
   after(async () => {
     try {
-      const uploaded = await uploadToOneDrive(
-        params.fileBuffer,
-        params.fileName,
-        params.fileType,
-        params.category
-      );
-
-      const sqlite = new Database(DB_PATH);
-      try {
-        sqlite
-          .prepare(
-            "UPDATE notes SET drive_item_id = ?, updated_at = datetime('now') WHERE id = ?"
-          )
-          .run(uploaded.driveItemId, params.noteId);
-      } finally {
-        sqlite.close();
-      }
-
-      console.log(
-        `[Upload] Background OneDrive sync complete for note ${params.noteId}`
-      );
+      const uploaded = await uploadToOneDrive(params.fileBuffer, params.fileName, params.fileType, params.category);
+      const client = getClient();
+      await updateNoteDriveItemId(client, params.noteId, uploaded.driveItemId);
+      console.log(`[Upload] Background OneDrive sync complete for note ${params.noteId}`);
     } catch (error) {
-      console.error(
-        `[Upload] Background OneDrive sync failed for note ${params.noteId}:`,
-        error
-      );
+      console.error(`[Upload] Background OneDrive sync failed for note ${params.noteId}:`, error);
     }
   });
 }
 
-function ensureUserRecord(
-  sqlite: Database.Database,
-  sessionUser: { id?: string; email?: string | null; name?: string | null }
-) {
-  if (!sessionUser.id) {
-    return null;
-  }
+async function ensureUserRecord(client: Client, sessionUser: { id?: string; email?: string | null; name?: string | null }) {
+  if (!sessionUser.id) return null;
 
-  const existingUser = sqlite
-    .prepare("SELECT id FROM users WHERE id = ?")
-    .get(sessionUser.id);
+  const existingUserRes = await client.execute({ sql: "SELECT id FROM users WHERE id = ?", args: [sessionUser.id] });
+  if (existingUserRes.rows.length > 0) return sessionUser.id;
 
-  if (existingUser) {
+  const email = sessionUser.email || "";
+  const emailUserRes = await client.execute({ sql: "SELECT id FROM users WHERE email = ?", args: [email] });
+  if (emailUserRes.rows.length > 0) {
+    sessionUser.id = emailUserRes.rows[0].id as string;
     return sessionUser.id;
   }
 
-  const emailUser = sqlite
-    .prepare("SELECT id FROM users WHERE email = ?")
-    .get(sessionUser.email || "") as { id: string } | undefined;
-
-  if (emailUser) {
-    sessionUser.id = emailUser.id;
-    return emailUser.id;
-  }
-
-  sqlite
-    .prepare("INSERT OR IGNORE INTO users (id, name, email, role) VALUES (?, ?, ?, ?)")
-    .run(sessionUser.id, sessionUser.name || "User", sessionUser.email || "", "user");
+  await client.execute({
+    sql: "INSERT OR IGNORE INTO users (id, name, email, role) VALUES (?, ?, ?, ?)",
+    args: [sessionUser.id, sessionUser.name || "User", email, "user"]
+  });
 
   return sessionUser.id;
+}
+
+async function insertUploadedFileNote(
+  client: Client,
+  data: {
+    noteId: string;
+    title: string;
+    description: string;
+    categoryId: number;
+    authorId: string;
+    authorCredit: string;
+    thumbnailUrl: string;
+    fileUrl: string;
+    fileName: string;
+    fileType: string;
+    fileSizeBytes: number;
+    sourceUrl: string | null;
+    licenseType: string;
+  }
+) {
+  try {
+    await client.execute({
+      sql: `INSERT INTO notes (id, title, description, category_id, author_id, author_credit, thumbnail_url, file_url, file_name, file_type, file_size_bytes, source_url, license_type, status, drive_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        data.noteId,
+        data.title,
+        data.description,
+        data.categoryId,
+        data.authorId,
+        data.authorCredit,
+        data.thumbnailUrl,
+        data.fileUrl,
+        data.fileName,
+        data.fileType,
+        data.fileSizeBytes,
+        data.sourceUrl,
+        data.licenseType,
+        "pending",
+        null
+      ]
+    });
+    return;
+  } catch (error) {
+    if (!isMissingColumnError(error, "drive_item_id")) {
+      throw error;
+    }
+    console.warn(
+      "[Upload] notes.drive_item_id column not found. Falling back to legacy notes insert."
+    );
+  }
+
+  await client.execute({
+    sql: `INSERT INTO notes (id, title, description, category_id, author_id, author_credit, thumbnail_url, file_url, file_name, file_type, file_size_bytes, source_url, license_type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    args: [
+      data.noteId,
+      data.title,
+      data.description,
+      data.categoryId,
+      data.authorId,
+      data.authorCredit,
+      data.thumbnailUrl,
+      data.fileUrl,
+      data.fileName,
+      data.fileType,
+      data.fileSizeBytes,
+      data.sourceUrl,
+      data.licenseType,
+      "pending"
+    ]
+  });
+}
+
+async function updateNoteDriveItemId(client: Client, noteId: string, driveItemId: string) {
+  try {
+    await client.execute({
+      sql: "UPDATE notes SET drive_item_id = ?, updated_at = datetime('now') WHERE id = ?",
+      args: [driveItemId, noteId]
+    });
+  } catch (error) {
+    if (isMissingColumnError(error, "drive_item_id")) {
+      console.warn(
+        "[Upload] Skipping drive_item_id update because notes.drive_item_id is missing."
+      );
+      return;
+    }
+    throw error;
+  }
 }
 
 export async function POST(req: NextRequest) {
   let uploadedLocalFilePath: string | null = null;
 
   try {
+    const client = getClient();
+    await ensureDriveItemColumn(client);
     const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -208,70 +307,30 @@ export async function POST(req: NextRequest) {
       }
 
       const noteId = uuidv4();
-      const sqlite = new Database(DB_PATH);
+      const authorId = await ensureUserRecord(client, session.user);
+      if (!authorId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-      const authorId = ensureUserRecord(sqlite, session.user);
-      if (!authorId) {
-        sqlite.close();
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
+      const categoryId = await resolveCategoryId(client, category);
+      if (!categoryId) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
 
-      const categoryId = resolveCategoryId(sqlite, category);
-      if (!categoryId) {
-        sqlite.close();
-        return NextResponse.json({ error: "Invalid category" }, { status: 400 });
-      }
+      await client.execute({
+        sql: `INSERT INTO notes (id, title, description, category_id, author_id, author_credit, thumbnail_url, file_url, file_name, file_type, file_size_bytes, source_url, license_type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [noteId, title, description, categoryId, authorId, authorCredit, "", resourceUrl, "", "link", 0, resourceUrl, licenseType || "CC-BY-4.0", "pending"]
+      });
 
-      sqlite
-        .prepare(
-          `INSERT INTO notes (id, title, description, category_id, author_id, author_credit,
-           thumbnail_url, file_url, file_name, file_type, file_size_bytes, source_url,
-           license_type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-        )
-        .run(
-          noteId,
-          title,
-          description,
-          categoryId,
-          authorId,
-          authorCredit,
-          "",
-          resourceUrl,
-          "",
-          "link",
-          0,
-          resourceUrl,
-          licenseType || "CC-BY-4.0",
-          "pending"
-        );
-
-      if (tags) {
-        insertTags(sqlite, noteId, tags);
-      }
-
-      sqlite.close();
+      if (tags) await insertTags(client, noteId, tags);
 
       try {
         await appendLinkToExcel({
-          noteId,
-          title,
-          description,
-          category,
-          link: resourceUrl,
-          author: session.user.name || authorCredit,
-          authorEmail: session.user.email || "",
-          tags: tags || "",
-          license: licenseType || "CC-BY-4.0",
+          noteId, title, description, category,
+          link: resourceUrl, author: session.user.name || authorCredit,
+          authorEmail: session.user.email || "", tags: tags || "", license: licenseType || "CC-BY-4.0",
         });
       } catch (error) {
         console.error("[Excel] append failed:", error);
       }
 
-      return NextResponse.json({
-        success: true,
-        noteId,
-        message: "Resource shared successfully! It will be reviewed before publishing.",
-      });
+      return NextResponse.json({ success: true, noteId, message: "Resource shared successfully!" });
     }
 
     if (!file || !title || !description || !category || !authorCredit) {
@@ -280,14 +339,9 @@ export async function POST(req: NextRequest) {
 
     const allowedTypes = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Invalid file type. Allowed: PNG, JPG, WEBP, PDF" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid file type. Allowed: PNG, JPG, WEBP, PDF" }, { status: 400 });
     }
-
-    const MAX_SIZE = 10 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
+    if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json({ error: "File too large. Maximum size: 10MB" }, { status: 400 });
     }
 
@@ -301,115 +355,73 @@ export async function POST(req: NextRequest) {
     fs.writeFileSync(filePath, fileBuffer);
     uploadedLocalFilePath = filePath;
 
-    const fileUrl = `/uploads/${fileName}`;
-    const thumbnailUrl =
-      (await createLocalThumbnail(noteId, fileName, fileBuffer, file.type)) || fileUrl;
+    const fileUrl = `/api/files/${noteId}`; // Do not rely on local /uploads/ URL
+    const thumbnailUrl = (await createLocalThumbnail(noteId, fileName, fileBuffer, file.type)) || fileUrl;
 
-    const sqlite = new Database(DB_PATH);
+    const authorId = await ensureUserRecord(client, session.user);
+    if (!authorId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const authorId = ensureUserRecord(sqlite, session.user);
-    if (!authorId) {
-      sqlite.close();
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const categoryId = await resolveCategoryId(client, category);
+    if (!categoryId) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
 
-    const categoryId = resolveCategoryId(sqlite, category);
-    if (!categoryId) {
-      sqlite.close();
-      return NextResponse.json({ error: "Invalid category" }, { status: 400 });
-    }
+    await insertUploadedFileNote(client, {
+      noteId,
+      title,
+      description,
+      categoryId,
+      authorId,
+      authorCredit,
+      thumbnailUrl,
+      fileUrl,
+      fileName: file.name,
+      fileType: file.type,
+      fileSizeBytes: file.size,
+      sourceUrl: sourceUrl || null,
+      licenseType: licenseType || "CC-BY-4.0",
+    });
 
-    sqlite
-      .prepare(
-        `INSERT INTO notes (id, title, description, category_id, author_id, author_credit,
-         thumbnail_url, file_url, file_name, file_type, file_size_bytes, source_url,
-         license_type, status, drive_item_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
-        noteId,
-        title,
-        description,
-        categoryId,
-        authorId,
-        authorCredit,
-        thumbnailUrl,
-        fileUrl,
-        file.name,
-        file.type,
-        file.size,
-        sourceUrl || null,
-        licenseType || "CC-BY-4.0",
-        "pending",
-        null
-      );
-
-    if (tags) {
-      insertTags(sqlite, noteId, tags);
-    }
-
-    sqlite.close();
+    if (tags) await insertTags(client, noteId, tags);
 
     const stableFileUrl = `${req.nextUrl.origin}/api/files/${noteId}`;
-
     try {
-      await appendLinkToExcel({
-        noteId,
-        title,
-        description,
-        category,
-        link: stableFileUrl,
-        author: session.user.name || authorCredit,
-        authorEmail: session.user.email || "",
-        tags: tags || "",
-        license: licenseType || "CC-BY-4.0",
-      });
+      await appendLinkToExcel({ noteId, title, description, category, link: stableFileUrl, author: session.user.name || authorCredit, authorEmail: session.user.email || "", tags: tags || "", license: licenseType || "CC-BY-4.0" });
     } catch (error) {
       console.error("[Excel] append failed for file upload:", error);
     }
 
     const oneDriveEnabled = isOneDriveConfigured();
     if (oneDriveEnabled) {
-      syncNoteToOneDriveInBackground({
-        noteId,
-        fileBuffer,
-        fileName,
-        fileType: file.type,
-        category,
-      });
+      syncNoteToOneDriveInBackground({ noteId, fileBuffer, fileName, fileType: file.type, category });
     }
 
     return NextResponse.json({
       success: true,
       noteId,
       storage: oneDriveEnabled ? "OneDrive + local fallback" : "local",
-      message: oneDriveEnabled
-        ? "Note saved locally and queued for background cloud sync. It will be reviewed before publishing."
-        : "Note uploaded successfully! It will be reviewed before publishing.",
+      message: "Note uploaded successfully! It will be reviewed before publishing.",
     });
   } catch (error) {
     console.error("POST /api/upload error:", error);
-
     if (uploadedLocalFilePath && fs.existsSync(uploadedLocalFilePath)) {
-      try {
-        fs.unlinkSync(uploadedLocalFilePath);
-      } catch {
-        // Best effort cleanup for a failed upload transaction.
-      }
+      try { fs.unlinkSync(uploadedLocalFilePath); } catch {}
     }
-
+    if (isStorageConfigError(error)) {
+      return NextResponse.json(
+        { error: "Upload service is not configured. Please contact support." },
+        { status: 503 }
+      );
+    }
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }
 }
 
-function insertTags(sqlite: Database.Database, noteId: string, tags: string) {
-  const tagList = tags
-    .split(",")
-    .map((tag) => tag.trim().toLowerCase().replace(/\s+/g, "-"))
-    .filter(Boolean);
-
+async function insertTags(client: Client, noteId: string, tags: string) {
+  const tagList = tags.split(",").map((tag) => tag.trim().toLowerCase().replace(/\s+/g, "-")).filter(Boolean);
   for (const tagSlug of tagList) {
-    sqlite.prepare("INSERT OR IGNORE INTO tags (name, slug) VALUES (?, ?)").run(tagSlug, tagSlug);
-    const tagRow = sqlite.prepare("SELECT id FROM tags WHERE slug = ?").get(tagSlug) as { id: number };
-    sqlite.prepare("INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)").run(noteId, tagRow.id);
+    await client.execute({ sql: "INSERT OR IGNORE INTO tags (name, slug) VALUES (?, ?)", args: [tagSlug, tagSlug] });
+    const tagRes = await client.execute({ sql: "SELECT id FROM tags WHERE slug = ?", args: [tagSlug] });
+    if (tagRes.rows.length > 0) {
+      await client.execute({ sql: "INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)", args: [noteId, tagRes.rows[0].id as number] });
+    }
   }
 }

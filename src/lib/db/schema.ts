@@ -52,6 +52,7 @@ export const notes = sqliteTable("notes", {
   fileName: text("file_name").notNull(),
   fileType: text("file_type").notNull(),
   fileSizeBytes: integer("file_size_bytes").notNull().default(0),
+  driveItemId: text("drive_item_id"),
   sourceUrl: text("source_url"),
   licenseType: text("license_type")
     .notNull()

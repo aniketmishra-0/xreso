@@ -142,11 +142,22 @@ export async function GET(
         return NextResponse.json({ error: "Download URL not available" }, { status: 500 });
       }
 
-      // For ALL OneDrive files: redirect to the temporary download URL.
-      // This avoids buffering large files (up to 100 MB) through Vercel's
-      // serverless memory. The download URL is temporary (~1 hour TTL)
-      // and cannot be guessed, so it remains secure.
-      return NextResponse.redirect(downloadUrl);
+      // Fetch the file and stream it directly to bypass Vercel's 4.5MB payload limit 
+      // without triggering SharePoint's X-Frame-Options restrictions on iframes.
+      const fileRes = await fetch(downloadUrl);
+      if (!fileRes.ok) {
+        return NextResponse.json({ error: "Failed to download from OneDrive" }, { status: 500 });
+      }
+
+      return new NextResponse(fileRes.body, {
+        headers: {
+          "Content-Type": note.file_type || "application/pdf",
+          "Content-Disposition": action === "download" 
+            ? `attachment; filename="${note.file_name}"` 
+            : "inline",
+          "Cache-Control": "public, max-age=3600",
+        },
+      });
     }
 
     const tempFilePath = findTempUploadFilePath(noteId, action);

@@ -16,7 +16,6 @@ import {
   SiTerraform,
   SiTypescript,
 } from "react-icons/si";
-import Logo from "./Logo";
 import styles from "./HeroDigitalLibraryDashboard.module.css";
 
 type OrbitNode = {
@@ -140,7 +139,7 @@ export default function HeroDigitalLibraryDashboard({
         <div className={styles.centerShell}>
           <span className={styles.centerBorder} />
           <div className={styles.centerInner}>
-            <Logo className={styles.centerLogo} />
+            <span className={styles.centerWordmark}>xreso</span>
           </div>
         </div>
       </div>

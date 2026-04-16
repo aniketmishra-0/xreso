@@ -101,12 +101,6 @@
   margin-bottom: 10px;
 }
 
-.logoIcon {
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-}
-
 .logoText {
   font-size: 1.8rem;
   font-weight: 900;

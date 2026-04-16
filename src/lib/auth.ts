@@ -295,7 +295,7 @@ if (LINKEDIN_CLIENT_ID && LINKEDIN_CLIENT_SECRET) {
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers,
   callbacks: {
-    async signIn({ user, account, request }) {
+    async signIn({ user, account }) {
       if (!account || account.provider === "credentials") return true;
 
       const normalizedEmail =

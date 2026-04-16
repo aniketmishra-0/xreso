@@ -302,7 +302,6 @@ export default async function Home() {
                 <div className={styles.featuredScroller}>
                   <div className={styles.featuredTrack}>
                   {featuredNotes.map((note) => {
-                    const hasSocials = note.authorGithub || note.authorLinkedin || note.authorTwitter || note.authorWebsite;
                     const authorUrl = note.authorId ? `/user/${note.authorId}` : "#";
 
                     return (
@@ -365,15 +364,6 @@ export default async function Home() {
                                     <Link href={authorUrl} className={styles.popoverLink}>View Profile</Link>
                                   </div>
                                 </div>
-
-                                {hasSocials && (
-                                  <div className={styles.popoverSocials}>
-                                    {note.authorGithub && <a href={note.authorGithub} target="_blank" rel="noopener noreferrer" className={styles.popSocial}><GithubIcon /> GitHub</a>}
-                                    {note.authorLinkedin && <a href={note.authorLinkedin} target="_blank" rel="noopener noreferrer" className={styles.popSocial}><LinkedInIcon /> LinkedIn</a>}
-                                    {note.authorTwitter && <a href={note.authorTwitter} target="_blank" rel="noopener noreferrer" className={styles.popSocial}><TwitterIcon /> Twitter</a>}
-                                    {note.authorWebsite && <a href={note.authorWebsite} target="_blank" rel="noopener noreferrer" className={styles.popSocial}><WebIcon /> Website</a>}
-                                  </div>
-                                )}
                               </div>
                             </div>
                           </div>

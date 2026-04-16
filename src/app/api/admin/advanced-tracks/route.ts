@@ -1,8 +1,9 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import Database from "better-sqlite3";
+import { createClient, Client } from "@libsql/client/web";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import {
   deleteOneDriveItem,
@@ -12,18 +13,43 @@ import {
 import { appendAdvancedLinkToExcel } from "@/lib/excel";
 import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
-const ADVANCED_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "advanced");
+const ADVANCED_UPLOAD_DIR = path.join(os.tmpdir(), "xreso_advanced_uploads");
+const LEGACY_ADVANCED_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "advanced");
 const ADVANCED_MAX_FILE_SIZE = 25 * 1024 * 1024;
+const ONE_DRIVE_UPLOAD_MAX_ATTEMPTS = 4;
 
 export const maxDuration = 300;
 
 type ResourceType = "link" | "pdf" | "doc" | "video";
-
 type UpdateAction = "approve" | "reject" | "archive" | "feature" | "unfeature";
+
+function getClient(): Client {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
 
 function toTrimmedString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function toRecord(row: Record<string, unknown>) {
+  const output: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    output[key] = typeof value === "bigint" ? Number(value) : value;
+  }
+  return output;
+}
+
+function toNumber(value: unknown, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
 }
 
 function parseBoolean(value: unknown, fallback: boolean): boolean {
@@ -109,6 +135,45 @@ function ensureDir(targetDir: string) {
   }
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function uploadToOneDriveWithRetry(params: {
+  fileBuffer: Buffer;
+  fileName: string;
+  mimeType: string;
+  trackSlug: string;
+  sourceLabel: string;
+}) {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= ONE_DRIVE_UPLOAD_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await uploadToOneDrive(
+        params.fileBuffer,
+        params.fileName,
+        params.mimeType,
+        params.trackSlug
+      );
+    } catch (error) {
+      lastError = error;
+      if (attempt >= ONE_DRIVE_UPLOAD_MAX_ATTEMPTS) break;
+
+      const backoffMs = Math.min(1200 * 2 ** (attempt - 1), 12_000);
+      const jitterMs = Math.floor(Math.random() * 450);
+      const waitMs = backoffMs + jitterMs;
+      console.warn(
+        `[AdvancedTracks] OneDrive ${params.sourceLabel} retry ${attempt}/${ONE_DRIVE_UPLOAD_MAX_ATTEMPTS} in ${waitMs}ms:`,
+        error
+      );
+      await wait(waitMs);
+    }
+  }
+
+  throw lastError;
+}
+
 function syncAdvancedResourceToOneDriveInBackground(params: {
   resourceId: string;
   fileBuffer: Buffer;
@@ -118,25 +183,19 @@ function syncAdvancedResourceToOneDriveInBackground(params: {
 }) {
   after(async () => {
     try {
-      const uploaded = await uploadToOneDrive(
-        params.fileBuffer,
-        params.fileName,
-        params.mimeType,
-        params.trackSlug
-      );
+      const uploaded = await uploadToOneDriveWithRetry({
+        fileBuffer: params.fileBuffer,
+        fileName: params.fileName,
+        mimeType: params.mimeType,
+        trackSlug: params.trackSlug,
+        sourceLabel: "background sync",
+      });
 
-      const sqlite = new Database(DB_PATH);
-      sqlite.pragma("foreign_keys = ON");
-
-      try {
-        sqlite
-          .prepare(
-            "UPDATE advanced_track_resources SET content_url = ?, updated_at = datetime('now') WHERE id = ?"
-          )
-          .run(`onedrive://${uploaded.driveItemId}`, params.resourceId);
-      } finally {
-        sqlite.close();
-      }
+      const client = getClient();
+      await client.execute({
+        sql: "UPDATE advanced_track_resources SET content_url = ?, updated_at = datetime('now') WHERE id = ?",
+        args: [`onedrive://${uploaded.driveItemId}`, params.resourceId],
+      });
 
       console.log(
         `[AdvancedTracks] Background OneDrive sync complete for resource ${params.resourceId}`
@@ -157,12 +216,16 @@ function deleteAdvancedLocalBackups(resourceId: string, contentUrl?: string) {
     candidatePaths.add(
       path.join(process.cwd(), "public", contentUrl.replace(/^\/+/, ""))
     );
+
+    const fileName = path.basename(contentUrl);
+    candidatePaths.add(path.join(ADVANCED_UPLOAD_DIR, fileName));
   }
 
-  if (fs.existsSync(ADVANCED_UPLOAD_DIR)) {
-    for (const entry of fs.readdirSync(ADVANCED_UPLOAD_DIR)) {
+  for (const scanDir of [ADVANCED_UPLOAD_DIR, LEGACY_ADVANCED_UPLOAD_DIR]) {
+    if (!fs.existsSync(scanDir)) continue;
+    for (const entry of fs.readdirSync(scanDir)) {
       if (entry.startsWith(`${resourceId}.`)) {
-        candidatePaths.add(path.join(ADVANCED_UPLOAD_DIR, entry));
+        candidatePaths.add(path.join(scanDir, entry));
       }
     }
   }
@@ -189,39 +252,26 @@ async function requireAdminSession() {
     return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
-  const sqlite = new Database(DB_PATH);
-  sqlite.pragma("foreign_keys = ON");
-  return { session, sqlite };
+  return { session, client: getClient() };
 }
 
 export async function GET() {
   const admin = await requireAdminSession();
   if ("error" in admin) return admin.error;
 
-  const { sqlite } = admin;
+  const { client } = admin;
 
   try {
     runAutoApprovalSweepIfNeeded();
 
-    const tracks = sqlite
-      .prepare(
-        `SELECT id, slug, name, description, premium, status, sort_order
+    const [tracksRes, topicsRes, resourcesRes] = await Promise.all([
+      client.execute(`SELECT id, slug, name, description, premium, status, sort_order
          FROM advanced_tracks
-         ORDER BY sort_order ASC, name ASC`
-      )
-      .all();
-
-    const topics = sqlite
-      .prepare(
-        `SELECT id, track_id, slug, name, description, level, sort_order
+         ORDER BY sort_order ASC, name ASC`),
+      client.execute(`SELECT id, track_id, slug, name, description, level, sort_order
          FROM advanced_track_topics
-         ORDER BY sort_order ASC, name ASC`
-      )
-      .all();
-
-    const resources = sqlite
-      .prepare(
-        `SELECT
+         ORDER BY sort_order ASC, name ASC`),
+      client.execute(`SELECT
           atr.id,
           atr.title,
           atr.summary,
@@ -255,9 +305,14 @@ export async function GET() {
              WHEN 'rejected' THEN 3
              ELSE 4
            END,
-           atr.created_at DESC`
-      )
-      .all();
+           atr.created_at DESC`),
+    ]);
+
+    const tracks = tracksRes.rows.map((row) => toRecord(row as Record<string, unknown>));
+    const topics = topicsRes.rows.map((row) => toRecord(row as Record<string, unknown>));
+    const resources = resourcesRes.rows.map((row) =>
+      toRecord(row as Record<string, unknown>)
+    );
 
     return NextResponse.json({ tracks, topics, resources });
   } catch (error) {
@@ -266,8 +321,6 @@ export async function GET() {
       { error: "Failed to load advanced track admin data" },
       { status: 500 }
     );
-  } finally {
-    sqlite.close();
   }
 }
 
@@ -275,11 +328,10 @@ export async function POST(req: NextRequest) {
   const admin = await requireAdminSession();
   if ("error" in admin) return admin.error;
 
-  const { session, sqlite } = admin;
+  const { session, client } = admin;
   const authorId = session.user?.id;
 
   if (!authorId) {
-    sqlite.close();
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -397,28 +449,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const track = sqlite
-      .prepare("SELECT id, name FROM advanced_tracks WHERE slug = ?")
-      .get(trackSlug) as { id: number; name: string } | undefined;
+    const trackResult = await client.execute({
+      sql: "SELECT id, name FROM advanced_tracks WHERE slug = ? LIMIT 1",
+      args: [trackSlug],
+    });
 
-    if (!track) {
+    if (trackResult.rows.length === 0) {
       return NextResponse.json({ error: "Invalid trackSlug" }, { status: 400 });
     }
+
+    const track = toRecord(trackResult.rows[0] as Record<string, unknown>) as {
+      id: number;
+      name: string;
+    };
 
     let topicId: number | null = null;
     let topicName = "";
     if (topicSlug) {
-      const topic = sqlite
-        .prepare(
-          "SELECT id, name FROM advanced_track_topics WHERE track_id = ? AND slug = ?"
-        )
-        .get(track.id, topicSlug) as { id: number; name: string } | undefined;
+      const topicResult = await client.execute({
+        sql: "SELECT id, name FROM advanced_track_topics WHERE track_id = ? AND slug = ? LIMIT 1",
+        args: [track.id, topicSlug],
+      });
 
-      if (!topic) {
+      if (topicResult.rows.length === 0) {
         return NextResponse.json({ error: "Invalid topicSlug" }, { status: 400 });
       }
-      topicId = topic.id;
-      topicName = topic.name;
+
+      const topic = toRecord(topicResult.rows[0] as Record<string, unknown>) as {
+        id: number;
+        name: string;
+      };
+
+      topicId = toNumber(topic.id);
+      topicName = toTrimmedString(topic.name);
     }
 
     const resourceId = uuidv4();
@@ -429,6 +492,7 @@ export async function POST(req: NextRequest) {
           mimeType: string;
         }
       | null = null;
+    let foregroundOneDriveSuccess = false;
 
     if (uploadedFile) {
       const fallbackExtension =
@@ -450,21 +514,44 @@ export async function POST(req: NextRequest) {
       }
 
       if (isOneDriveConfigured()) {
-        backgroundSyncPayload = {
-          fileBuffer,
-          fileName,
-          mimeType,
-        };
+        try {
+          const uploaded = await uploadToOneDriveWithRetry({
+            fileBuffer,
+            fileName,
+            mimeType,
+            trackSlug,
+            sourceLabel: "foreground upload",
+          });
+          contentUrl = `onedrive://${uploaded.driveItemId}`;
+          foregroundOneDriveSuccess = true;
+
+          if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
+            try {
+              fs.unlinkSync(uploadedFilePath);
+              uploadedFilePath = null;
+            } catch {
+              // Keep temp copy if cleanup fails.
+            }
+          }
+        } catch (foregroundError) {
+          console.error(
+            `[AdvancedTracks] Foreground OneDrive upload failed for resource ${resourceId}, queued for background retry:`,
+            foregroundError
+          );
+          backgroundSyncPayload = {
+            fileBuffer,
+            fileName,
+            mimeType,
+          };
+        }
       }
     }
 
-    sqlite
-      .prepare(
-        `INSERT INTO advanced_track_resources
+    await client.execute({
+      sql: `INSERT INTO advanced_track_resources
           (id, track_id, topic_id, author_id, title, summary, resource_type, content_url, thumbnail_url, premium_only, featured, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .run(
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
         resourceId,
         track.id,
         topicId,
@@ -476,23 +563,22 @@ export async function POST(req: NextRequest) {
         thumbnailUrl || null,
         premiumOnly ? 1 : 0,
         featured ? 1 : 0,
-        status
-      );
+        status,
+      ],
+    });
 
-    if (tags.length > 0) {
-      const insertTag = sqlite.prepare(
-        "INSERT OR IGNORE INTO advanced_track_resource_tags (resource_id, tag) VALUES (?, ?)"
-      );
-      tags.forEach((tag) => insertTag.run(resourceId, tag));
+    for (const tag of tags) {
+      await client.execute({
+        sql: "INSERT OR IGNORE INTO advanced_track_resource_tags (resource_id, tag) VALUES (?, ?)",
+        args: [resourceId, tag],
+      });
     }
 
     const excelLink =
       contentUrl.startsWith("http://") || contentUrl.startsWith("https://")
         ? contentUrl
         : `${req.nextUrl.origin}/api/advanced-tracks/resource/${resourceId}`;
-    const excelCategory = topicName
-      ? `${track.name} / ${topicName}`
-      : track.name;
+    const excelCategory = topicName ? `${track.name} / ${topicName}` : track.name;
 
     try {
       await appendAdvancedLinkToExcel({
@@ -524,9 +610,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       resourceId,
-      message: backgroundSyncPayload
-        ? "Advanced resource saved locally and queued for background cloud sync."
-        : "Advanced resource saved successfully.",
+      message: foregroundOneDriveSuccess
+        ? "Advanced resource uploaded to OneDrive and queued for review."
+        : backgroundSyncPayload
+          ? "Advanced resource saved and OneDrive sync is queued for retry."
+          : "Advanced resource saved successfully.",
     });
   } catch (error) {
     if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
@@ -542,8 +630,6 @@ export async function POST(req: NextRequest) {
       { error: "Failed to create advanced track resource" },
       { status: 500 }
     );
-  } finally {
-    sqlite.close();
   }
 }
 
@@ -551,7 +637,7 @@ export async function PATCH(req: NextRequest) {
   const admin = await requireAdminSession();
   if ("error" in admin) return admin.error;
 
-  const { sqlite } = admin;
+  const { client } = admin;
 
   try {
     const payload = await req.json();
@@ -579,35 +665,30 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === "approve") {
-      sqlite
-        .prepare(
-          "UPDATE advanced_track_resources SET status = 'approved', updated_at = datetime('now') WHERE id = ?"
-        )
-        .run(resourceId);
+      await client.execute({
+        sql: "UPDATE advanced_track_resources SET status = 'approved', updated_at = datetime('now') WHERE id = ?",
+        args: [resourceId],
+      });
     } else if (action === "reject") {
-      sqlite
-        .prepare(
-          "UPDATE advanced_track_resources SET status = 'rejected', updated_at = datetime('now') WHERE id = ?"
-        )
-        .run(resourceId);
+      await client.execute({
+        sql: "UPDATE advanced_track_resources SET status = 'rejected', updated_at = datetime('now') WHERE id = ?",
+        args: [resourceId],
+      });
     } else if (action === "archive") {
-      sqlite
-        .prepare(
-          "UPDATE advanced_track_resources SET status = 'archived', updated_at = datetime('now') WHERE id = ?"
-        )
-        .run(resourceId);
+      await client.execute({
+        sql: "UPDATE advanced_track_resources SET status = 'archived', updated_at = datetime('now') WHERE id = ?",
+        args: [resourceId],
+      });
     } else if (action === "feature") {
-      sqlite
-        .prepare(
-          "UPDATE advanced_track_resources SET featured = 1, updated_at = datetime('now') WHERE id = ?"
-        )
-        .run(resourceId);
+      await client.execute({
+        sql: "UPDATE advanced_track_resources SET featured = 1, updated_at = datetime('now') WHERE id = ?",
+        args: [resourceId],
+      });
     } else if (action === "unfeature") {
-      sqlite
-        .prepare(
-          "UPDATE advanced_track_resources SET featured = 0, updated_at = datetime('now') WHERE id = ?"
-        )
-        .run(resourceId);
+      await client.execute({
+        sql: "UPDATE advanced_track_resources SET featured = 0, updated_at = datetime('now') WHERE id = ?",
+        args: [resourceId],
+      });
     }
 
     return NextResponse.json({ success: true });
@@ -617,8 +698,6 @@ export async function PATCH(req: NextRequest) {
       { error: "Failed to update advanced track resource" },
       { status: 500 }
     );
-  } finally {
-    sqlite.close();
   }
 }
 
@@ -626,7 +705,7 @@ export async function DELETE(req: NextRequest) {
   const admin = await requireAdminSession();
   if ("error" in admin) return admin.error;
 
-  const { sqlite } = admin;
+  const { client } = admin;
 
   try {
     const payload = await req.json();
@@ -637,15 +716,18 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "resourceId is required" }, { status: 400 });
     }
 
-    const existing = sqlite
-      .prepare("SELECT content_url FROM advanced_track_resources WHERE id = ?")
-      .get(resourceId) as { content_url?: string } | undefined;
+    const existingResult = await client.execute({
+      sql: "SELECT content_url FROM advanced_track_resources WHERE id = ? LIMIT 1",
+      args: [resourceId],
+    });
 
-    sqlite
-      .prepare("DELETE FROM advanced_track_resources WHERE id = ?")
-      .run(resourceId);
+    const contentUrl = toTrimmedString(existingResult.rows[0]?.content_url);
 
-    const contentUrl = existing?.content_url || "";
+    await client.execute({
+      sql: "DELETE FROM advanced_track_resources WHERE id = ?",
+      args: [resourceId],
+    });
+
     if (contentUrl.startsWith("onedrive://")) {
       const driveItemId = contentUrl.replace("onedrive://", "").trim();
       if (driveItemId) {
@@ -666,7 +748,5 @@ export async function DELETE(req: NextRequest) {
       { error: "Failed to delete advanced track resource" },
       { status: 500 }
     );
-  } finally {
-    sqlite.close();
   }
 }

@@ -1,14 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
-import Database from "better-sqlite3";
+import { createClient, Client } from "@libsql/client/web";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { auth } from "@/lib/auth";
 import { getOneDriveItemDownloadInfo } from "@/lib/onedrive";
 import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+const TMP_ADVANCED_UPLOAD_DIR = path.join(os.tmpdir(), "xreso_advanced_uploads");
 
 type ViewerRole = "admin" | "moderator" | "user" | "guest";
+
+function getClient(): Client {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
 
 function getMimeTypeFromPath(filePath: string): string {
   const extension = path.extname(filePath).toLowerCase();
@@ -41,17 +54,30 @@ async function getViewerAccess() {
         : "guest";
 
   return {
-    isPrivileged:
-      viewerRole === "admin" || viewerRole === "moderator",
+    isPrivileged: viewerRole === "admin" || viewerRole === "moderator",
   };
+}
+
+function resolveLocalAdvancedPath(contentUrl: string) {
+  if (!contentUrl.startsWith("/uploads/")) {
+    return "";
+  }
+
+  const relativePath = contentUrl.replace(/^\/+/, "");
+  const publicPath = path.join(process.cwd(), "public", relativePath);
+  if (fs.existsSync(publicPath)) return publicPath;
+
+  const fileName = path.basename(contentUrl);
+  const tmpPath = path.join(TMP_ADVANCED_UPLOAD_DIR, fileName);
+  if (fs.existsSync(tmpPath)) return tmpPath;
+
+  return "";
 }
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ resourceId: string }> }
 ) {
-  let sqlite: Database.Database | null = null;
-
   try {
     const { resourceId } = await params;
     if (!resourceId) {
@@ -60,40 +86,36 @@ export async function GET(
 
     runAutoApprovalSweepIfNeeded();
 
-    sqlite = new Database(DB_PATH);
-    sqlite.pragma("foreign_keys = ON");
-
+    const client = getClient();
     const access = await getViewerAccess();
 
-    const resource = sqlite
-      .prepare(
-        `SELECT
+    const resourceResult = await client.execute({
+      sql: `SELECT
           atr.content_url,
           atr.status,
           at.status as track_status
          FROM advanced_track_resources atr
          JOIN advanced_tracks at ON atr.track_id = at.id
-         WHERE atr.id = ?`
-      )
-      .get(resourceId) as
-      | {
-          content_url: string;
-          status: string;
-          track_status: string;
-        }
-      | undefined;
+         WHERE atr.id = ?
+         LIMIT 1`,
+      args: [resourceId],
+    });
 
-    if (!resource) {
+    if (resourceResult.rows.length === 0) {
       return NextResponse.json({ error: "Resource not found" }, { status: 404 });
     }
 
+    const row = resourceResult.rows[0] as Record<string, unknown>;
+    const status = typeof row.status === "string" ? row.status : "pending";
+    const trackStatus = typeof row.track_status === "string" ? row.track_status : "active";
+
     if (!access.isPrivileged) {
-      if (resource.status !== "approved" || resource.track_status !== "active") {
+      if (status !== "approved" || trackStatus !== "active") {
         return NextResponse.json({ error: "Resource not available" }, { status: 404 });
       }
     }
 
-    const contentUrl = typeof resource.content_url === "string" ? resource.content_url.trim() : "";
+    const contentUrl = typeof row.content_url === "string" ? row.content_url.trim() : "";
     if (!contentUrl) {
       return NextResponse.json({ error: "Resource URL not available" }, { status: 404 });
     }
@@ -109,9 +131,8 @@ export async function GET(
     }
 
     if (contentUrl.startsWith("/uploads/")) {
-      const relativePath = contentUrl.replace(/^\/+/, "");
-      const absolutePath = path.join(process.cwd(), "public", relativePath);
-      if (!fs.existsSync(absolutePath)) {
+      const absolutePath = resolveLocalAdvancedPath(contentUrl);
+      if (!absolutePath) {
         return NextResponse.json({ error: "Resource file not found" }, { status: 404 });
       }
 
@@ -140,7 +161,5 @@ export async function GET(
   } catch (error) {
     console.error("GET /api/advanced-tracks/resource/[resourceId] error:", error);
     return NextResponse.json({ error: "Failed to serve advanced resource" }, { status: 500 });
-  } finally {
-    if (sqlite) sqlite.close();
   }
 }

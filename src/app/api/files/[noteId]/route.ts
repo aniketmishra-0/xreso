@@ -261,8 +261,8 @@ async function getAccessToken(): Promise<string> {
         refresh_token: data.refresh_token,
         expires_at: Date.now() + data.expires_in * 1000,
       }, null, 2));
-    } catch (e) {
-      console.warn("Failed to write to token cache (read-only FS on Vercel?)", e);
+    } catch {
+      // Expected on Vercel — read-only filesystem
     }
   }
 

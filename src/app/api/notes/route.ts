@@ -1,17 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient } from "@libsql/client/web";
 import { auth } from "@/lib/auth";
 import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+function getClient() {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
 
 // GET /api/notes — List notes with filtering, search, sorting, and pagination
 export async function GET(req: NextRequest) {
   try {
     runAutoApprovalSweepIfNeeded();
 
-    const sqlite = new Database(DB_PATH, { readonly: true });
+    const client = getClient();
     const { searchParams } = new URL(req.url);
     const session = await auth();
     const requesterId = session?.user?.id || null;
@@ -34,7 +43,6 @@ export async function GET(req: NextRequest) {
 
     let query = `
       SELECT n.*, c.name as category_name, c.slug as category_slug, u.name as author_name,
-        u.github_url as author_github, u.linkedin_url as author_linkedin, u.twitter_url as author_twitter, u.website_url as author_website,
         GROUP_CONCAT(DISTINCT t.name) as tag_names
       FROM notes n
       LEFT JOIN categories c ON n.category_id = c.id
@@ -86,17 +94,8 @@ export async function GET(req: NextRequest) {
       )`;
       const like = `%${search}%`;
       params.push(
-        like,
-        like,
-        like,
-        like,
-        like,
-        like,
-        like,
-        like,
-        like,
-        like,
-        like
+        like, like, like, like, like,
+        like, like, like, like, like, like
       );
     }
 
@@ -120,24 +119,24 @@ export async function GET(req: NextRequest) {
         query += " ORDER BY n.created_at DESC";
     }
 
+    // Count query
     const countQuery = query
       .replace(
         `SELECT n.*, c.name as category_name, c.slug as category_slug, u.name as author_name,
-        u.github_url as author_github, u.linkedin_url as author_linkedin, u.twitter_url as author_twitter, u.website_url as author_website,
         GROUP_CONCAT(DISTINCT t.name) as tag_names`,
         "SELECT COUNT(DISTINCT n.id) as total"
       )
       .replace(" GROUP BY n.id", "");
-    const total =
-      (sqlite.prepare(countQuery).get(...params) as { total: number } | undefined)
-        ?.total || 0;
+
+    const countResult = await client.execute({ sql: countQuery, args: params });
+    const total = Number(countResult.rows[0]?.total ?? 0);
 
     query += " LIMIT ? OFFSET ?";
     params.push(limit, offset);
 
-    const rows = sqlite.prepare(query).all(...params) as Record<string, unknown>[];
+    const result = await client.execute({ sql: query, args: params });
 
-    const notes = rows.map((row) => ({
+    const notes = result.rows.map((row) => ({
       id: row.id,
       title: row.title,
       description: row.description,
@@ -146,10 +145,6 @@ export async function GET(req: NextRequest) {
       author: row.author_name,
       authorCredit: row.author_credit,
       authorId: row.author_id,
-      authorGithub: row.author_github,
-      authorLinkedin: row.author_linkedin,
-      authorTwitter: row.author_twitter,
-      authorWebsite: row.author_website,
       thumbnailUrl: row.thumbnail_url,
       fileUrl: row.file_url,
       fileName: row.file_name,
@@ -160,11 +155,9 @@ export async function GET(req: NextRequest) {
       featured: row.featured === 1,
       viewCount: row.view_count,
       bookmarkCount: row.bookmark_count,
-      tags: row.tag_names ? (row.tag_names as string).split(",") : [],
+      tags: row.tag_names ? String(row.tag_names).split(",") : [],
       createdAt: row.created_at,
     }));
-
-    sqlite.close();
 
     return NextResponse.json({
       notes,

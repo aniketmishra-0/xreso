@@ -5,12 +5,22 @@ import {
   isOneDriveConfigured,
   uploadProfilePhotoToOneDrive,
 } from "@/lib/onedrive";
-import Database from "better-sqlite3";
+import { createClient, Client } from "@libsql/client/web";
 import fs from "fs";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+function getClient(): Client {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
+
 const USER_PHOTO_API_PREFIX = "/api/profile-photo";
 const USER_PHOTO_REL_DIR = "/uploads/user-photos";
 const USER_PHOTO_DIR = path.join(process.cwd(), "public", "uploads", "user-photos");
@@ -183,15 +193,13 @@ export async function GET() {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    const db = new Database(DB_PATH);
-    const user = db
-      .prepare(
-        "SELECT id, name, email, avatar, bio, github_url, linkedin_url, twitter_url, website_url, role, premium_access, premium_expires_at, created_at FROM users WHERE id = ?"
-      )
-      .get(session.user.id) as Record<string, unknown> | undefined;
-    db.close();
-    if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-    return NextResponse.json({ user });
+    const client = getClient();
+    const result = await client.execute({
+      sql: "SELECT id, name, email, avatar, bio, role, premium_access, premium_expires_at, created_at FROM users WHERE id = ?",
+      args: [session.user.id],
+    });
+    if (result.rows.length === 0) return NextResponse.json({ error: "User not found" }, { status: 404 });
+    return NextResponse.json({ user: result.rows[0] });
   } catch (err) {
     console.error("GET /api/profile error:", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
@@ -257,35 +265,28 @@ export async function PATCH(req: NextRequest) {
       return u;
     };
 
-    const db = new Database(DB_PATH);
+    const client = getClient();
 
-    const current = db
-      .prepare(
-        "SELECT id, name, email, avatar, bio, github_url, linkedin_url, twitter_url, website_url FROM users WHERE id = ?"
-      )
-      .get(session.user.id) as {
-      id: string;
-      name: string;
-      email: string;
-      avatar: string | null;
-      bio: string | null;
-      github_url: string | null;
-      linkedin_url: string | null;
-      twitter_url: string | null;
-      website_url: string | null;
-    } | undefined;
+    const currentResult = await client.execute({
+      sql: "SELECT id, name, email, avatar, bio FROM users WHERE id = ?",
+      args: [session.user.id],
+    });
 
-    if (!current) {
-      db.close();
+    if (currentResult.rows.length === 0) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
+    const currentRow = currentResult.rows[0];
+    const current = {
+      id: String(currentRow.id),
+      name: String(currentRow.name || ""),
+      email: String(currentRow.email || ""),
+      avatar: currentRow.avatar ? String(currentRow.avatar) : null,
+      bio: currentRow.bio ? String(currentRow.bio) : null,
+    };
+
     const nextName = name && name.length > 0 ? name : current.name;
     const nextBio = bio !== undefined ? bio.trim() || null : current.bio;
-    const nextGithub = githubUrl !== undefined ? sanitizeUrl(githubUrl) : current.github_url;
-    const nextLinkedin = linkedinUrl !== undefined ? sanitizeUrl(linkedinUrl) : current.linkedin_url;
-    const nextTwitter = twitterUrl !== undefined ? sanitizeUrl(twitterUrl) : current.twitter_url;
-    const nextWebsite = websiteUrl !== undefined ? sanitizeUrl(websiteUrl) : current.website_url;
 
     let nextAvatar = current.avatar;
     let oldAvatarToDelete: string | null = null;
@@ -299,7 +300,6 @@ export async function PATCH(req: NextRequest) {
       }
     } else if (avatarFile) {
       if (!avatarFile.type.startsWith("image/")) {
-        db.close();
         return NextResponse.json({ error: "Please choose an image file" }, { status: 400 });
       }
 
@@ -347,45 +347,43 @@ export async function PATCH(req: NextRequest) {
             }
           }
         } else {
-          db.close();
           return NextResponse.json({ error: "Invalid avatar image" }, { status: 400 });
         }
       }
     }
 
-    db.prepare(
-      `UPDATE users SET
+    await client.execute({
+      sql: `UPDATE users SET
          name = ?,
          avatar = ?,
          bio = ?,
-         github_url = ?,
-         linkedin_url = ?,
-         twitter_url = ?,
-         website_url = ?,
          updated_at = datetime('now')
-       WHERE id = ?`
-    ).run(
-      nextName,
-      nextAvatar,
-      nextBio,
-      nextGithub,
-      nextLinkedin,
-      nextTwitter,
-      nextWebsite,
-      session.user.id
-    );
+       WHERE id = ?`,
+      args: [
+        nextName,
+        nextAvatar,
+        nextBio,
+        session.user.id,
+      ],
+    });
 
-    const updated = db
-      .prepare("SELECT id, name, email, avatar, bio, github_url, linkedin_url, twitter_url, website_url, role FROM users WHERE id = ?")
-      .get(session.user.id);
-    db.close();
+    const updatedResult = await client.execute({
+      sql: "SELECT id, name, email, avatar, bio, role FROM users WHERE id = ?",
+      args: [session.user.id],
+    });
+    const updated = updatedResult.rows[0];
 
     if (oldAvatarToDelete && oldAvatarToDelete !== nextAvatar) {
       await deleteAvatarAsset(oldAvatarToDelete);
     }
 
     if (avatarAction) {
-      const updatedUser = updated as { id: string; name: string; email: string; avatar: string | null };
+      const updatedUser = {
+        id: String(updated.id),
+        name: String(updated.name),
+        email: String(updated.email),
+        avatar: updated.avatar ? String(updated.avatar) : null,
+      };
       try {
         const excelModule = await import("@/lib/excel");
         if (typeof excelModule.upsertUserPhotoInExcel === "function") {

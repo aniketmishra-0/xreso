@@ -1,22 +1,30 @@
 import { NextResponse } from "next/server";
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient } from "@libsql/client/web";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+function getClient() {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
 
 // GET /api/categories — List all categories with live note counts
 export async function GET() {
   try {
-    const sqlite = new Database(DB_PATH, { readonly: true });
-    const rows = sqlite.prepare(`
+    const client = getClient();
+    const result = await client.execute(`
       SELECT c.*,
         (SELECT COUNT(*) FROM notes n WHERE n.category_id = c.id AND n.status = 'approved') as live_count
       FROM categories c
       ORDER BY live_count DESC
-    `).all() as Record<string, unknown>[];
-    sqlite.close();
+    `);
 
-    const categories = rows.map((r) => ({
+    const categories = result.rows.map((r) => ({
       id: r.id,
       name: r.name,
       slug: r.slug,

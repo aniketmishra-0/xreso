@@ -1,15 +1,26 @@
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient, Client } from "@libsql/client/web";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+let _client: Client | null = null;
 
-let _db: Database.Database | null = null;
+/**
+ * Returns a Turso (libSQL) client connected to the production database.
+ *
+ * Compatible with both local dev and Vercel serverless.
+ * Replaces the old better-sqlite3 driver which failed on Vercel
+ * because it required native bindings + a local .db file.
+ */
+export function getDb(): Client {
+  if (_client) return _client;
 
-export function getDb(readonly = false): Database.Database {
-  if (!_db || !_db.open) {
-    _db = new Database(DB_PATH, { readonly });
-    _db.pragma("journal_mode = WAL");
-    _db.pragma("foreign_keys = ON");
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
   }
-  return _db;
+
+  _client = createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+
+  return _client;
 }

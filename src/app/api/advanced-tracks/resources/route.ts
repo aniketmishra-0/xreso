@@ -1,12 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient, Client } from "@libsql/client/web";
 import { auth } from "@/lib/auth";
 import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
-
 type SortValue = "newest" | "popular" | "featured";
+
+function getClient(): Client {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
 
 function buildOrderBy(sort: SortValue) {
   switch (sort) {
@@ -19,9 +28,20 @@ function buildOrderBy(sort: SortValue) {
   }
 }
 
-export async function GET(req: NextRequest) {
-  let sqlite: Database.Database | null = null;
+function toRecord(row: Record<string, unknown>) {
+  const output: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    output[key] = typeof value === "bigint" ? Number(value) : value;
+  }
+  return output;
+}
 
+function toNumber(value: unknown, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+export async function GET(req: NextRequest) {
   try {
     runAutoApprovalSweepIfNeeded();
 
@@ -40,8 +60,7 @@ export async function GET(req: NextRequest) {
           ? "user"
           : "guest";
 
-    sqlite = new Database(DB_PATH);
-    sqlite.pragma("foreign_keys = ON");
+    const client = getClient();
 
     const { searchParams } = new URL(req.url);
     const track = searchParams.get("track");
@@ -50,7 +69,9 @@ export async function GET(req: NextRequest) {
     const sort = (searchParams.get("sort") || "newest") as SortValue;
     const page = Number(searchParams.get("page") || "1");
     const limit = Number(searchParams.get("limit") || "20");
-    const offset = (Math.max(page, 1) - 1) * Math.max(limit, 1);
+    const safePage = Math.max(page, 1);
+    const safeLimit = Math.max(limit, 1);
+    const offset = (safePage - 1) * safeLimit;
 
     let where = "WHERE atr.status = 'approved' AND at.status = 'active'";
     const params: Array<string | number> = [];
@@ -83,20 +104,19 @@ export async function GET(req: NextRequest) {
       params.push(like, like, like, like, like, like);
     }
 
-    const countQuery = `
-      SELECT COUNT(*) as total
+    const totalResult = await client.execute({
+      sql: `SELECT COUNT(*) as total
       FROM advanced_track_resources atr
       JOIN advanced_tracks at ON atr.track_id = at.id
       LEFT JOIN advanced_track_topics att ON atr.topic_id = att.id
-      ${where}
-    `;
+      ${where}`,
+      args: params,
+    });
 
-    const total =
-      (sqlite.prepare(countQuery).get(...params) as { total: number } | undefined)
-        ?.total || 0;
+    const total = toNumber(totalResult.rows[0]?.total, 0);
 
-    const query = `
-      SELECT
+    const rowsResult = await client.execute({
+      sql: `SELECT
         atr.id,
         atr.title,
         atr.summary,
@@ -115,10 +135,10 @@ export async function GET(req: NextRequest) {
         att.name as topic_name,
         u.id as author_id,
         u.name as author_name,
-        u.github_url as author_github,
-        u.linkedin_url as author_linkedin,
-        u.twitter_url as author_twitter,
-        u.website_url as author_website,
+        NULL as author_github,
+        NULL as author_linkedin,
+        NULL as author_twitter,
+        NULL as author_website,
         GROUP_CONCAT(DISTINCT atrt.tag) as tag_names
       FROM advanced_track_resources atr
       JOIN advanced_tracks at ON atr.track_id = at.id
@@ -128,45 +148,46 @@ export async function GET(req: NextRequest) {
       ${where}
       GROUP BY atr.id
       ORDER BY ${buildOrderBy(sort)}
-      LIMIT ? OFFSET ?
-    `;
+      LIMIT ? OFFSET ?`,
+      args: [...params, safeLimit, offset],
+    });
 
-    const rows = sqlite.prepare(query).all(...params, limit, offset) as Array<
-      Record<string, unknown>
-    >;
-
-    const resources = rows.map((row) => {
+    const resources = rowsResult.rows.map((row) => {
+      const normalized = toRecord(row as Record<string, unknown>);
       const rawContentUrl =
-        typeof row.content_url === "string" ? row.content_url : "";
+        typeof normalized.content_url === "string" ? normalized.content_url : "";
       const resolvedContentUrl = rawContentUrl.startsWith("onedrive://")
-        ? `/api/advanced-tracks/resource/${row.id}`
+        ? `/api/advanced-tracks/resource/${normalized.id}`
         : rawContentUrl;
 
       return {
-        id: row.id,
-        title: row.title,
-        summary: row.summary,
-        resourceType: row.resource_type,
+        id: normalized.id,
+        title: normalized.title,
+        summary: normalized.summary,
+        resourceType: normalized.resource_type,
         contentUrl: resolvedContentUrl,
         accessLocked: false,
-        thumbnailUrl: row.thumbnail_url,
+        thumbnailUrl: normalized.thumbnail_url,
         premiumOnly: false,
-        featured: Boolean(row.featured),
-        status: row.status,
-        viewCount: row.view_count,
-        saveCount: row.save_count,
-        createdAt: row.created_at,
-        trackSlug: row.track_slug,
-        trackName: row.track_name,
-        topicSlug: row.topic_slug,
-        topicName: row.topic_name,
-        authorId: row.author_id,
-        authorName: row.author_name,
-        authorGithub: row.author_github,
-        authorLinkedin: row.author_linkedin,
-        authorTwitter: row.author_twitter,
-        authorWebsite: row.author_website,
-        tags: row.tag_names ? String(row.tag_names).split(",") : [],
+        featured: Boolean(normalized.featured),
+        status: normalized.status,
+        viewCount: toNumber(normalized.view_count),
+        saveCount: toNumber(normalized.save_count),
+        createdAt: normalized.created_at,
+        trackSlug: normalized.track_slug,
+        trackName: normalized.track_name,
+        topicSlug: normalized.topic_slug,
+        topicName: normalized.topic_name,
+        authorId: normalized.author_id,
+        authorName: normalized.author_name,
+        authorGithub: normalized.author_github,
+        authorLinkedin: normalized.author_linkedin,
+        authorTwitter: normalized.author_twitter,
+        authorWebsite: normalized.author_website,
+        tags:
+          typeof normalized.tag_names === "string" && normalized.tag_names
+            ? normalized.tag_names.split(",")
+            : [],
       };
     });
 
@@ -178,10 +199,10 @@ export async function GET(req: NextRequest) {
         hasPremiumAccess: true,
       },
       pagination: {
-        page,
-        limit,
+        page: safePage,
+        limit: safeLimit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / safeLimit),
       },
     });
   } catch (error) {
@@ -190,7 +211,5 @@ export async function GET(req: NextRequest) {
       { error: "Failed to fetch advanced resources" },
       { status: 500 }
     );
-  } finally {
-    if (sqlite) sqlite.close();
   }
 }

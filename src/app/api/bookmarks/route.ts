@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient } from "@libsql/client/web";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+function getClient() {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
 
 // POST /api/bookmarks — Toggle bookmark
 export async function POST(req: NextRequest) {
@@ -18,21 +27,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing noteId" }, { status: 400 });
     }
 
-    const sqlite = new Database(DB_PATH);
+    const client = getClient();
 
-    const existing = sqlite
-      .prepare("SELECT id FROM bookmarks WHERE user_id = ? AND note_id = ?")
-      .get(session.user.id, noteId) as { id: number } | undefined;
+    const existing = await client.execute({
+      sql: "SELECT id FROM bookmarks WHERE user_id = ? AND note_id = ?",
+      args: [session.user.id, noteId],
+    });
 
-    if (existing) {
-      sqlite.prepare("DELETE FROM bookmarks WHERE user_id = ? AND note_id = ?").run(session.user.id, noteId);
-      sqlite.prepare("UPDATE notes SET bookmark_count = MAX(0, bookmark_count - 1) WHERE id = ?").run(noteId);
-      sqlite.close();
+    if (existing.rows.length > 0) {
+      await client.execute({
+        sql: "DELETE FROM bookmarks WHERE user_id = ? AND note_id = ?",
+        args: [session.user.id, noteId],
+      });
+      await client.execute({
+        sql: "UPDATE notes SET bookmark_count = MAX(0, bookmark_count - 1) WHERE id = ?",
+        args: [noteId],
+      });
       return NextResponse.json({ bookmarked: false });
     } else {
-      sqlite.prepare("INSERT INTO bookmarks (user_id, note_id) VALUES (?, ?)").run(session.user.id, noteId);
-      sqlite.prepare("UPDATE notes SET bookmark_count = bookmark_count + 1 WHERE id = ?").run(noteId);
-      sqlite.close();
+      await client.execute({
+        sql: "INSERT INTO bookmarks (user_id, note_id) VALUES (?, ?)",
+        args: [session.user.id, noteId],
+      });
+      await client.execute({
+        sql: "UPDATE notes SET bookmark_count = bookmark_count + 1 WHERE id = ?",
+        args: [noteId],
+      });
       return NextResponse.json({ bookmarked: true });
     }
   } catch (error) {
@@ -49,23 +69,21 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const sqlite = new Database(DB_PATH, { readonly: true });
+    const client = getClient();
 
-    const rows = sqlite
-      .prepare(
-        `SELECT n.id, n.title, n.thumbnail_url, n.view_count, n.bookmark_count,
+    const result = await client.execute({
+      sql: `SELECT n.id, n.title, n.thumbnail_url, n.view_count, n.bookmark_count,
           c.name as category_name, u.name as author_name, b.created_at as bookmarked_at
         FROM bookmarks b
         JOIN notes n ON b.note_id = n.id
         LEFT JOIN categories c ON n.category_id = c.id
         LEFT JOIN users u ON n.author_id = u.id
         WHERE b.user_id = ?
-        ORDER BY b.created_at DESC`
-      )
-      .all(session.user.id) as Record<string, unknown>[];
+        ORDER BY b.created_at DESC`,
+      args: [session.user.id],
+    });
 
-    sqlite.close();
-    return NextResponse.json({ bookmarks: rows });
+    return NextResponse.json({ bookmarks: result.rows });
   } catch (error) {
     console.error("GET /api/bookmarks error:", error);
     return NextResponse.json({ error: "Failed" }, { status: 500 });

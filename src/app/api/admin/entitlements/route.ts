@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient } from "@libsql/client/web";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+function getClient() {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
 
 type Role = "user" | "admin" | "moderator";
 
@@ -59,8 +68,6 @@ async function getCurrentUserRole() {
 }
 
 export async function GET() {
-  const sqlite = new Database(DB_PATH);
-
   try {
     const current = await getCurrentUserRole();
     if (current.status !== 200) {
@@ -71,41 +78,32 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const rows = sqlite
-      .prepare(
-        `SELECT
-          id,
-          name,
-          email,
-          role,
-          premium_access,
-          premium_expires_at,
-          created_at
-         FROM users
-         ORDER BY
-           CASE role WHEN 'admin' THEN 0 WHEN 'moderator' THEN 1 ELSE 2 END,
-           created_at DESC`
-      )
-      .all() as Array<{
-      id: string;
-      name: string;
-      email: string;
-      role: Role;
-      premium_access: number;
-      premium_expires_at: string | null;
-      created_at: string;
-    }>;
+    const client = getClient();
+    const result = await client.execute(
+      `SELECT
+        id,
+        name,
+        email,
+        role,
+        premium_access,
+        premium_expires_at,
+        created_at
+       FROM users
+       ORDER BY
+         CASE role WHEN 'admin' THEN 0 WHEN 'moderator' THEN 1 ELSE 2 END,
+         created_at DESC`
+    );
 
-    const users = rows.map((row) => ({
+    const users = result.rows.map((row) => ({
       id: row.id,
       name: row.name,
       email: row.email,
       role: row.role,
       premiumAccess: Boolean(row.premium_access),
-      premiumExpiresAt: row.premium_expires_at,
+      premiumExpiresAt: row.premium_expires_at as string | null,
       premiumActive: hasActivePremiumEntitlement(
-        row.premium_access,
-        row.premium_expires_at
+        Number(row.premium_access),
+        row.premium_expires_at as string | null
       ),
       createdAt: row.created_at,
     }));
@@ -122,14 +120,10 @@ export async function GET() {
     }
 
     return NextResponse.json({ error: "Server error" }, { status: 500 });
-  } finally {
-    sqlite.close();
   }
 }
 
 export async function PATCH(req: NextRequest) {
-  const sqlite = new Database(DB_PATH);
-
   try {
     const current = await getCurrentUserRole();
     if (current.status !== 200) {
@@ -166,39 +160,34 @@ export async function PATCH(req: NextRequest) {
       ? normalizePremiumExpiry(payload.premiumExpiresAt)
       : null;
 
-    const existing = sqlite
-      .prepare("SELECT id FROM users WHERE id = ?")
-      .get(userId) as { id: string } | undefined;
+    const client = getClient();
 
-    if (!existing) {
+    const existing = await client.execute({
+      sql: "SELECT id FROM users WHERE id = ?",
+      args: [userId],
+    });
+
+    if (existing.rows.length === 0) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    sqlite
-      .prepare(
-        `UPDATE users
+    await client.execute({
+      sql: `UPDATE users
          SET premium_access = ?,
              premium_expires_at = ?,
              updated_at = datetime('now')
-         WHERE id = ?`
-      )
-      .run(premiumAccess ? 1 : 0, premiumExpiresAt, userId);
+         WHERE id = ?`,
+      args: [premiumAccess ? 1 : 0, premiumExpiresAt, userId],
+    });
 
-    const updated = sqlite
-      .prepare(
-        `SELECT id, name, email, role, premium_access, premium_expires_at, created_at
+    const updatedResult = await client.execute({
+      sql: `SELECT id, name, email, role, premium_access, premium_expires_at, created_at
          FROM users
-         WHERE id = ?`
-      )
-      .get(userId) as {
-      id: string;
-      name: string;
-      email: string;
-      role: Role;
-      premium_access: number;
-      premium_expires_at: string | null;
-      created_at: string;
-    };
+         WHERE id = ?`,
+      args: [userId],
+    });
+
+    const updated = updatedResult.rows[0];
 
     return NextResponse.json({
       user: {
@@ -207,10 +196,10 @@ export async function PATCH(req: NextRequest) {
         email: updated.email,
         role: updated.role,
         premiumAccess: Boolean(updated.premium_access),
-        premiumExpiresAt: updated.premium_expires_at,
+        premiumExpiresAt: updated.premium_expires_at as string | null,
         premiumActive: hasActivePremiumEntitlement(
-          updated.premium_access,
-          updated.premium_expires_at
+          Number(updated.premium_access),
+          updated.premium_expires_at as string | null
         ),
         createdAt: updated.created_at,
       },
@@ -230,7 +219,5 @@ export async function PATCH(req: NextRequest) {
     }
 
     return NextResponse.json({ error: "Server error" }, { status: 500 });
-  } finally {
-    sqlite.close();
   }
 }

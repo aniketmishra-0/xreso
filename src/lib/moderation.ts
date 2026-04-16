@@ -1,7 +1,5 @@
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient, Client } from "@libsql/client/web";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
 const AUTO_APPROVE_AFTER_DAYS = 3;
 const SWEEP_COOLDOWN_MS = 60_000;
 
@@ -14,101 +12,111 @@ type ModerationSweepResult = {
 type ModerationRegistry = typeof globalThis & {
   __xresoModerationSweepAt?: number;
   __xresoModerationSweepRunning?: boolean;
+  __xresoModerationSweepPromise?: Promise<ModerationSweepResult>;
 };
 
-function rebuildNotesFtsIndex(sqlite: Database.Database) {
-  sqlite.prepare("INSERT INTO notes_fts(notes_fts) VALUES('delete-all')").run();
-  sqlite
-    .prepare(
-      `INSERT INTO notes_fts(rowid, title, description, tags)
-       SELECT n.rowid,
-              n.title,
-              n.description,
-              COALESCE((
-                SELECT GROUP_CONCAT(t.name, ' ')
-                FROM note_tags nt
-                JOIN tags t ON nt.tag_id = t.id
-                WHERE nt.note_id = n.id
-              ), '')
-       FROM notes n
-       WHERE n.status = 'approved'`
-    )
-    .run();
+function getClient(): Client {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
 }
 
-export function runAutoApprovalSweepIfNeeded(force = false): ModerationSweepResult {
+async function performSweep(): Promise<ModerationSweepResult> {
+  const client = getClient();
+
+  // Auto-approve pending notes older than threshold
+  const notesResult = await client.execute({
+    sql: `UPDATE notes
+         SET status = 'approved',
+             updated_at = datetime('now')
+         WHERE status = 'pending'
+           AND datetime(created_at) <= datetime('now', ?)`,
+    args: [`-${AUTO_APPROVE_AFTER_DAYS} days`],
+  });
+  const notesApproved = notesResult.rowsAffected;
+
+  // Refresh category note counts if any notes were approved
+  if (notesApproved > 0) {
+    await client.execute(
+      `UPDATE categories
+       SET note_count = (
+         SELECT COUNT(*)
+         FROM notes
+         WHERE notes.category_id = categories.id
+           AND notes.status = 'approved'
+       )`
+    );
+  }
+
+  // Auto-approve pending advanced track resources older than threshold
+  const advancedResult = await client.execute({
+    sql: `UPDATE advanced_track_resources
+         SET status = 'approved',
+             updated_at = datetime('now')
+         WHERE status = 'pending'
+           AND datetime(created_at) <= datetime('now', ?)`,
+    args: [`-${AUTO_APPROVE_AFTER_DAYS} days`],
+  });
+  const advancedApproved = advancedResult.rowsAffected;
+
+  return {
+    notesApproved,
+    advancedApproved,
+    skipped: false,
+  };
+}
+
+/**
+ * Runs the auto-approval sweep if enough time has passed since the last run.
+ *
+ * Uses Turso (@libsql/client) so it works correctly in both local dev
+ * and on Vercel serverless functions.
+ *
+ * The sweep is non-blocking — callers fire-and-forget. Any errors are
+ * caught and logged so they never crash the parent request handler.
+ */
+export function runAutoApprovalSweepIfNeeded(force = false): void {
   const registry = globalThis as ModerationRegistry;
   const now = Date.now();
 
+  // Skip if already running
   if (!force && registry.__xresoModerationSweepRunning) {
-    return { notesApproved: 0, advancedApproved: 0, skipped: true };
+    return;
   }
 
+  // Skip if within cooldown
   if (
     !force &&
     registry.__xresoModerationSweepAt &&
     now - registry.__xresoModerationSweepAt < SWEEP_COOLDOWN_MS
   ) {
-    return { notesApproved: 0, advancedApproved: 0, skipped: true };
+    return;
   }
 
   registry.__xresoModerationSweepRunning = true;
-  let sqlite: Database.Database | null = null;
+  registry.__xresoModerationSweepAt = now;
 
-  try {
-    sqlite = new Database(DB_PATH);
-    sqlite.pragma("foreign_keys = ON");
-
-    const notesApproved = sqlite
-      .prepare(
-        `UPDATE notes
-         SET status = 'approved',
-             updated_at = datetime('now')
-         WHERE status = 'pending'
-           AND datetime(created_at) <= datetime('now', ?)`
-      )
-      .run(`-${AUTO_APPROVE_AFTER_DAYS} days`).changes;
-
-    if (notesApproved > 0) {
-      try {
-        rebuildNotesFtsIndex(sqlite);
-      } catch (error) {
-        console.warn("[Moderation] FTS rebuild skipped during auto-approval:", error);
+  // Fire-and-forget — do NOT await this in the calling route
+  registry.__xresoModerationSweepPromise = performSweep()
+    .then((result) => {
+      if (result.notesApproved > 0 || result.advancedApproved > 0) {
+        console.log(
+          `[Moderation] Auto-approved ${result.notesApproved} note(s), ${result.advancedApproved} advanced resource(s).`
+        );
       }
-
-      sqlite.exec(
-        `UPDATE categories
-         SET note_count = (
-           SELECT COUNT(*)
-           FROM notes
-           WHERE notes.category_id = categories.id
-             AND notes.status = 'approved'
-         )`
-      );
-    }
-
-    const advancedApproved = sqlite
-      .prepare(
-        `UPDATE advanced_track_resources
-         SET status = 'approved',
-             updated_at = datetime('now')
-         WHERE status = 'pending'
-           AND datetime(created_at) <= datetime('now', ?)`
-      )
-      .run(`-${AUTO_APPROVE_AFTER_DAYS} days`).changes;
-
-    registry.__xresoModerationSweepAt = now;
-
-    return {
-      notesApproved,
-      advancedApproved,
-      skipped: false,
-    };
-  } catch (error) {
-    console.error("[Moderation] Auto-approval sweep failed:", error);
-    return { notesApproved: 0, advancedApproved: 0, skipped: true };
-  } finally {
-    registry.__xresoModerationSweepRunning = false;
-    sqlite?.close();
-  }
+      return result;
+    })
+    .catch((error) => {
+      console.error("[Moderation] Auto-approval sweep failed:", error);
+      return { notesApproved: 0, advancedApproved: 0, skipped: true };
+    })
+    .finally(() => {
+      registry.__xresoModerationSweepRunning = false;
+    });
 }

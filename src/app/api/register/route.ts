@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import Database from "better-sqlite3";
+import { createClient } from "@libsql/client/web";
 import { hashSync } from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
-import path from "path";
 import { appendUserToExcel } from "@/lib/excel";
 import { checkRateLimit, registerLimiter } from "@/lib/ratelimit";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+function getClient() {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
+
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const STRONG_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).{10,128}$/;
 
@@ -66,14 +76,14 @@ export async function POST(req: NextRequest) {
       safeAvatar = trimmed;
     }
 
-    const sqlite = new Database(DB_PATH);
+    const client = getClient();
 
-    const existing = sqlite
-      .prepare("SELECT id FROM users WHERE lower(email) = lower(?)")
-      .get(safeEmail) as { id: string } | undefined;
+    const existing = await client.execute({
+      sql: "SELECT id FROM users WHERE lower(email) = lower(?)",
+      args: [safeEmail],
+    });
 
-    if (existing) {
-      sqlite.close();
+    if (existing.rows.length > 0) {
       return NextResponse.json(
         { error: "An account with this email already exists" },
         { status: 409 }
@@ -83,13 +93,10 @@ export async function POST(req: NextRequest) {
     const userId = uuidv4();
     const hashedPassword = hashSync(safePassword, 12);
 
-    sqlite
-      .prepare(
-        "INSERT INTO users (id, name, email, password, avatar, role) VALUES (?, ?, ?, ?, ?, ?)"
-      )
-      .run(userId, safeName, safeEmail, hashedPassword, safeAvatar, "user");
-
-    sqlite.close();
+    await client.execute({
+      sql: "INSERT INTO users (id, name, email, password, avatar, role) VALUES (?, ?, ?, ?, ?, ?)",
+      args: [userId, safeName, safeEmail, hashedPassword, safeAvatar, "user"],
+    });
 
     // ── Append to Excel sheet (Tracking Registered Users) ──
     try {

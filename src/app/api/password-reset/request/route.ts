@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient } from "@libsql/client/web";
 import { createPasswordResetToken } from "@/lib/password-reset";
 import { sendPasswordResetEmail } from "@/lib/email";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+function getClient() {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,19 +23,19 @@ export async function POST(req: NextRequest) {
     }
 
     const normalizedEmail = email.trim().toLowerCase();
-    const db = new Database(DB_PATH);
+    const client = getClient();
 
-    const user = db
-      .prepare("SELECT id, name, email FROM users WHERE lower(email) = lower(?) LIMIT 1")
-      .get(normalizedEmail) as { id: string; name: string; email: string } | undefined;
+    const result = await client.execute({
+      sql: "SELECT id, name, email FROM users WHERE lower(email) = lower(?) LIMIT 1",
+      args: [normalizedEmail],
+    });
 
-    if (user) {
-      const token = createPasswordResetToken(db, user.id);
-      await sendPasswordResetEmail(user.email, user.name || "there", token);
+    if (result.rows.length > 0) {
+      const user = result.rows[0];
+      const token = await createPasswordResetToken(client, String(user.id));
+      await sendPasswordResetEmail(String(user.email), String(user.name || "there"), token);
 
       if (process.env.NODE_ENV !== "production") {
-        db.close();
-
         return NextResponse.json({
           success: true,
           message: "If an account exists for that email, a reset link has been sent.",
@@ -35,8 +43,6 @@ export async function POST(req: NextRequest) {
         });
       }
     }
-
-    db.close();
 
     return NextResponse.json({
       success: true,

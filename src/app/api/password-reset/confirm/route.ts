@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import Database from "better-sqlite3";
+import { createClient } from "@libsql/client/web";
 import { hashSync } from "bcryptjs";
-import path from "path";
 import { findActivePasswordResetToken, markPasswordResetTokenUsed } from "@/lib/password-reset";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+function getClient() {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,31 +26,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Password must be at least 6 characters" }, { status: 400 });
     }
 
-    const db = new Database(DB_PATH);
-    const resetRecord = findActivePasswordResetToken(db, token.trim());
+    const client = getClient();
+    const resetRecord = await findActivePasswordResetToken(client, token.trim());
 
     if (!resetRecord) {
-      db.close();
       return NextResponse.json({ error: "Reset link is invalid or expired" }, { status: 400 });
     }
 
-    const user = db
-      .prepare("SELECT id, password FROM users WHERE id = ? LIMIT 1")
-      .get(resetRecord.user_id) as { id: string; password: string | null } | undefined;
+    const userResult = await client.execute({
+      sql: "SELECT id, password FROM users WHERE id = ? LIMIT 1",
+      args: [resetRecord.user_id],
+    });
 
-    if (!user) {
-      db.close();
+    if (userResult.rows.length === 0) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const hashedPassword = hashSync(password, 10);
-    db.prepare("UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?").run(
-      hashedPassword,
-      user.id
-    );
+    await client.execute({
+      sql: "UPDATE users SET password = ?, updated_at = datetime('now') WHERE id = ?",
+      args: [hashedPassword, resetRecord.user_id],
+    });
 
-    markPasswordResetTokenUsed(db, resetRecord.id);
-    db.close();
+    await markPasswordResetTokenUsed(client, resetRecord.id);
 
     return NextResponse.json({ success: true, message: "Password updated successfully" });
   } catch (error) {

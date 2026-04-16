@@ -1,9 +1,16 @@
 import { MetadataRoute } from "next";
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient } from "@libsql/client/web";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://xreso.dev";
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+
+function getClient() {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) return null;
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Static pages
@@ -26,32 +33,30 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   // Dynamic note pages
-  let notePages: MetadataRoute.Sitemap = [];
   try {
-    const db = new Database(DB_PATH, { readonly: true });
-    const allNotes = db
-      .prepare("SELECT id, updated_at FROM notes WHERE status = 'approved'")
-      .all() as { id: string; updated_at: string }[];
+    const client = getClient();
+    if (!client) return staticPages;
 
-    notePages = allNotes.map((note) => ({
+    const notesResult = await client.execute(
+      "SELECT id, updated_at FROM notes WHERE status = 'approved'"
+    );
+
+    const notePages: MetadataRoute.Sitemap = notesResult.rows.map((note) => ({
       url: `${APP_URL}/note/${note.id}`,
-      lastModified: new Date(note.updated_at),
+      lastModified: new Date(String(note.updated_at)),
       changeFrequency: "weekly" as const,
       priority: 0.8,
     }));
 
-    const allCategories = db
-      .prepare("SELECT slug FROM categories")
-      .all() as { slug: string }[];
+    const categoriesResult = await client.execute("SELECT slug FROM categories");
 
-    const categoryPages = allCategories.map((cat) => ({
+    const categoryPages: MetadataRoute.Sitemap = categoriesResult.rows.map((cat) => ({
       url: `${APP_URL}/browse?category=${cat.slug}`,
       lastModified: new Date(),
       changeFrequency: "daily" as const,
       priority: 0.7,
     }));
 
-    db.close();
     return [...staticPages, ...notePages, ...categoryPages];
   } catch (e) {
     console.error("Sitemap generation error:", e);

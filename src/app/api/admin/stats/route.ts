@@ -1,10 +1,24 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient } from "@libsql/client/web";
 import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+function getClient() {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN
+  });
+}
+
+function toCount(value: unknown) {
+  const numeric = Number(value ?? 0);
+  return Number.isFinite(numeric) ? numeric : 0;
+}
 
 // GET /api/admin/stats — Dashboard statistics
 export async function GET() {
@@ -21,20 +35,39 @@ export async function GET() {
 
     runAutoApprovalSweepIfNeeded();
 
-    const sqlite = new Database(DB_PATH, { readonly: true });
+    const client = getClient();
+
+    const [
+      totalNotesResult,
+      approvedNotesResult,
+      pendingNotesResult,
+      totalUsersResult,
+      totalViewsResult,
+      totalBookmarksResult,
+      pendingReportsResult,
+      recentViewsResult,
+    ] = await Promise.all([
+      client.execute("SELECT COUNT(*) as c FROM notes"),
+      client.execute("SELECT COUNT(*) as c FROM notes WHERE status = 'approved'"),
+      client.execute("SELECT COUNT(*) as c FROM notes WHERE status = 'pending'"),
+      client.execute("SELECT COUNT(*) as c FROM users"),
+      client.execute("SELECT COALESCE(SUM(view_count), 0) as c FROM notes"),
+      client.execute("SELECT COALESCE(SUM(bookmark_count), 0) as c FROM notes"),
+      client.execute("SELECT COUNT(*) as c FROM reports WHERE status = 'pending'"),
+      client.execute("SELECT COUNT(*) as c FROM views WHERE viewed_at > datetime('now', '-7 days')"),
+    ]);
 
     const stats = {
-      totalNotes: (sqlite.prepare("SELECT COUNT(*) as c FROM notes").get() as { c: number }).c,
-      approvedNotes: (sqlite.prepare("SELECT COUNT(*) as c FROM notes WHERE status = 'approved'").get() as { c: number }).c,
-      pendingNotes: (sqlite.prepare("SELECT COUNT(*) as c FROM notes WHERE status = 'pending'").get() as { c: number }).c,
-      totalUsers: (sqlite.prepare("SELECT COUNT(*) as c FROM users").get() as { c: number }).c,
-      totalViews: (sqlite.prepare("SELECT SUM(view_count) as c FROM notes").get() as { c: number }).c || 0,
-      totalBookmarks: (sqlite.prepare("SELECT SUM(bookmark_count) as c FROM notes").get() as { c: number }).c || 0,
-      pendingReports: (sqlite.prepare("SELECT COUNT(*) as c FROM reports WHERE status = 'pending'").get() as { c: number }).c,
-      recentViews: (sqlite.prepare("SELECT COUNT(*) as c FROM views WHERE viewed_at > datetime('now', '-7 days')").get() as { c: number }).c,
+      totalNotes: toCount(totalNotesResult.rows[0]?.c),
+      approvedNotes: toCount(approvedNotesResult.rows[0]?.c),
+      pendingNotes: toCount(pendingNotesResult.rows[0]?.c),
+      totalUsers: toCount(totalUsersResult.rows[0]?.c),
+      totalViews: toCount(totalViewsResult.rows[0]?.c),
+      totalBookmarks: toCount(totalBookmarksResult.rows[0]?.c),
+      pendingReports: toCount(pendingReportsResult.rows[0]?.c),
+      recentViews: toCount(recentViewsResult.rows[0]?.c),
     };
 
-    sqlite.close();
     return NextResponse.json({ stats });
   } catch (error) {
     console.error("GET /api/admin/stats error:", error);

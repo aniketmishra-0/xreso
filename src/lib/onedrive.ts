@@ -30,9 +30,11 @@ function getClientSecret() { return process.env.ONEDRIVE_CLIENT_SECRET || ""; }
 function getRedirectUri() { return process.env.ONEDRIVE_REDIRECT_URI || "http://localhost:3000/api/onedrive/callback"; }
 
 function getStoredRefreshToken(): string {
-  // First check env
+  // 1. In-memory rotated token (survives within a single serverless invocation)
+  if (cachedRefreshToken) return cachedRefreshToken;
+  // 2. Env var (set on Vercel — most reliable for production)
   if (process.env.ONEDRIVE_REFRESH_TOKEN) return process.env.ONEDRIVE_REFRESH_TOKEN;
-  // Then check file cache
+  // 3. File cache (local dev)
   try {
     const raw = fs.readFileSync(TOKEN_CACHE_PATH, "utf-8");
     const data = JSON.parse(raw);
@@ -43,12 +45,19 @@ function getStoredRefreshToken(): string {
 }
 
 function saveTokenCache(data: { access_token: string; refresh_token: string; expires_at: number }) {
-  fs.writeFileSync(TOKEN_CACHE_PATH, JSON.stringify(data, null, 2));
+  try {
+    fs.writeFileSync(TOKEN_CACHE_PATH, JSON.stringify(data, null, 2));
+  } catch (error) {
+    // Vercel has a read-only filesystem — this is expected.
+    // The in-memory cache + env var fallback will keep things working.
+    console.warn("[OneDrive] Token cache write skipped (read-only FS):", error instanceof Error ? error.message : error);
+  }
 }
 
 /* ── In-memory token cache ──────────────────────────────── */
 let cachedAccessToken = "";
 let cachedExpiresAt = 0;
+let cachedRefreshToken = ""; // Survives within a single serverless invocation
 
 /* ── Token refresh ──────────────────────────────────────── */
 async function getAccessToken(): Promise<string> {
@@ -88,6 +97,7 @@ async function getAccessToken(): Promise<string> {
 
   // Persist new refresh token (they rotate)
   if (data.refresh_token) {
+    cachedRefreshToken = data.refresh_token; // Keep in memory for this invocation
     saveTokenCache({
       access_token: data.access_token,
       refresh_token: data.refresh_token,

@@ -1,12 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { appendAdminActionToExcel, updateLinkStatusInExcel } from "@/lib/excel";
+import { deleteOneDriveItem } from "@/lib/onedrive";
 import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
-import Database from "better-sqlite3";
+import { createClient, Client } from "@libsql/client/web";
 import fs from "fs";
 import path from "path";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+function getClient(): Client {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error || "");
+}
+
+function isMissingColumnError(error: unknown, columnName: string): boolean {
+  const message = getErrorMessage(error).toLowerCase();
+  const normalizedColumn = columnName.toLowerCase();
+  return (
+    message.includes(`no such column: ${normalizedColumn}`) ||
+    message.includes(`has no column named ${normalizedColumn}`) ||
+    message.includes(`unknown column: ${normalizedColumn}`)
+  );
+}
+
+function normalizeRecord(row: Record<string, unknown>) {
+  const output: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    output[key] = typeof value === "bigint" ? Number(value) : value;
+  }
+  return output;
+}
+
+function asNumber(value: unknown, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function asString(value: unknown, fallback = "") {
+  return typeof value === "string" ? value : fallback;
+}
 
 function deleteLocalUploadFile(fileUrl?: string | null) {
   if (!fileUrl || !fileUrl.startsWith("/uploads/")) return;
@@ -21,28 +64,54 @@ function deleteLocalUploadFile(fileUrl?: string | null) {
   }
 }
 
-function rebuildNotesFtsIndex(sqlite: Database.Database) {
+async function getDeleteCandidate(client: Client, noteId: string) {
+  const selectWithDriveItem = `SELECT n.id,
+      n.category_id,
+      n.title,
+      n.file_url,
+      n.thumbnail_url,
+      n.drive_item_id,
+      COALESCE(u.name, n.author_credit, 'Unknown') as author_name,
+      COALESCE(u.email, '') as author_email
+    FROM notes n
+    LEFT JOIN users u ON n.author_id = u.id
+    WHERE n.id = ?`;
+
   try {
-    sqlite.prepare("INSERT INTO notes_fts(notes_fts) VALUES('delete-all')").run();
-    sqlite
-      .prepare(
-        `INSERT INTO notes_fts(rowid, title, description, tags)
-         SELECT n.rowid,
-                n.title,
-                n.description,
-                COALESCE((
-                  SELECT GROUP_CONCAT(t.name, ' ')
-                  FROM note_tags nt
-                  JOIN tags t ON nt.tag_id = t.id
-                  WHERE nt.note_id = n.id
-                ), '')
-         FROM notes n
-         WHERE n.status = 'approved'`
-      )
-      .run();
+    const withDriveItem = await client.execute({
+      sql: selectWithDriveItem,
+      args: [noteId],
+    });
+
+    if (withDriveItem.rows.length === 0) return null;
+
+    return normalizeRecord(withDriveItem.rows[0] as Record<string, unknown>);
   } catch (error) {
-    console.warn("[Admin Delete] FTS rebuild skipped:", error);
+    if (!isMissingColumnError(error, "drive_item_id")) {
+      throw error;
+    }
   }
+
+  const fallback = await client.execute({
+    sql: `SELECT n.id,
+      n.category_id,
+      n.title,
+      n.file_url,
+      n.thumbnail_url,
+      COALESCE(u.name, n.author_credit, 'Unknown') as author_name,
+      COALESCE(u.email, '') as author_email
+    FROM notes n
+    LEFT JOIN users u ON n.author_id = u.id
+    WHERE n.id = ?`,
+    args: [noteId],
+  });
+
+  if (fallback.rows.length === 0) return null;
+
+  return {
+    ...normalizeRecord(fallback.rows[0] as Record<string, unknown>),
+    drive_item_id: null,
+  };
 }
 
 // GET /api/admin/notes — List all notes for moderation
@@ -60,22 +129,17 @@ export async function GET() {
 
     runAutoApprovalSweepIfNeeded();
 
-    const sqlite = new Database(DB_PATH, { readonly: true });
-
-    const rows = sqlite
-      .prepare(
-        `SELECT n.*, c.name as category_name, u.name as author_name, u.email as author_email
+    const client = getClient();
+    const result = await client.execute(`SELECT n.*, c.name as category_name, u.name as author_name, u.email as author_email
         FROM notes n
         LEFT JOIN categories c ON n.category_id = c.id
         LEFT JOIN users u ON n.author_id = u.id
-        ORDER BY 
+        ORDER BY
           CASE n.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
-          n.created_at DESC`
-      )
-      .all() as Record<string, unknown>[];
+          n.created_at DESC`);
 
-    sqlite.close();
-    return NextResponse.json({ notes: rows });
+    const notes = result.rows.map((row) => normalizeRecord(row as Record<string, unknown>));
+    return NextResponse.json({ notes });
   } catch (error) {
     console.error("GET /api/admin/notes error:", error);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
@@ -95,56 +159,89 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const sqlite = new Database(DB_PATH);
+    const client = getClient();
+    const { noteId, action, featured } = (await req.json()) as {
+      noteId?: string;
+      action?: "approve" | "reject" | "feature";
+      featured?: boolean;
+    };
 
-    const { noteId, action, featured } = await req.json();
-    const previousNote = sqlite
-      .prepare("SELECT status, featured, title, category_id FROM notes WHERE id = ?")
-      .get(noteId) as { status: string; featured: number; title: string; category_id: number } | undefined;
-    const categoryName = previousNote
-      ? (sqlite
-          .prepare("SELECT name FROM categories WHERE id = ?")
-          .get(previousNote.category_id) as { name: string } | undefined)
-      : undefined;
-
-    if (action === "approve") {
-      sqlite
-        .prepare("UPDATE notes SET status = 'approved', updated_at = datetime('now') WHERE id = ?")
-        .run(noteId);
-
-      const note = sqlite.prepare("SELECT rowid, title, description FROM notes WHERE id = ?").get(noteId) as { rowid: number; title: string; description: string } | undefined;
-      if (note) {
-        const tagsStr = sqlite.prepare(
-          "SELECT GROUP_CONCAT(t.name, ' ') as tags FROM note_tags nt JOIN tags t ON nt.tag_id = t.id WHERE nt.note_id = ?"
-        ).get(noteId) as { tags: string } | undefined;
-        sqlite.prepare(
-          "INSERT INTO notes_fts(rowid, title, description, tags) VALUES (?, ?, ?, ?)"
-        ).run(note.rowid, note.title, note.description, tagsStr?.tags || "");
-      }
-
-      sqlite.exec(`UPDATE categories SET note_count = (SELECT COUNT(*) FROM notes WHERE notes.category_id = categories.id AND notes.status = 'approved')`);
-    } else if (action === "reject") {
-      sqlite
-        .prepare("UPDATE notes SET status = 'rejected', updated_at = datetime('now') WHERE id = ?")
-        .run(noteId);
-    } else if (action === "feature") {
-      sqlite
-        .prepare("UPDATE notes SET featured = ?, updated_at = datetime('now') WHERE id = ?")
-        .run(featured ? 1 : 0, noteId);
+    const normalizedNoteId = typeof noteId === "string" ? noteId.trim() : "";
+    if (!normalizedNoteId || !action) {
+      return NextResponse.json({ error: "Missing noteId/action" }, { status: 400 });
     }
 
-    const syncRow = sqlite
-      .prepare(
-        `SELECT n.status as note_status,
+    const previousResult = await client.execute({
+      sql: "SELECT status, featured, title, category_id FROM notes WHERE id = ? LIMIT 1",
+      args: [normalizedNoteId],
+    });
+
+    if (previousResult.rows.length === 0) {
+      return NextResponse.json({ error: "Note not found" }, { status: 404 });
+    }
+
+    const previousNote = normalizeRecord(
+      previousResult.rows[0] as Record<string, unknown>
+    ) as {
+      status: string;
+      featured: number;
+      title: string;
+      category_id: number;
+    };
+
+    const categoryResult = await client.execute({
+      sql: "SELECT name FROM categories WHERE id = ? LIMIT 1",
+      args: [previousNote.category_id],
+    });
+
+    const categoryName = asString(categoryResult.rows[0]?.name, "Unknown");
+
+    if (action === "approve") {
+      await client.execute({
+        sql: "UPDATE notes SET status = 'approved', updated_at = datetime('now') WHERE id = ?",
+        args: [normalizedNoteId],
+      });
+
+      await client.execute(`UPDATE categories
+        SET note_count = (
+          SELECT COUNT(*)
+          FROM notes
+          WHERE notes.category_id = categories.id
+            AND notes.status = 'approved'
+        )`);
+    } else if (action === "reject") {
+      await client.execute({
+        sql: "UPDATE notes SET status = 'rejected', updated_at = datetime('now') WHERE id = ?",
+        args: [normalizedNoteId],
+      });
+    } else if (action === "feature") {
+      await client.execute({
+        sql: "UPDATE notes SET featured = ?, updated_at = datetime('now') WHERE id = ?",
+        args: [featured ? 1 : 0, normalizedNoteId],
+      });
+    } else {
+      return NextResponse.json({ error: "Invalid action" }, { status: 400 });
+    }
+
+    const syncRowResult = await client.execute({
+      sql: `SELECT n.status as note_status,
                 COALESCE(u.name, n.author_credit, 'Unknown') as author_name,
                 COALESCE(u.email, '') as author_email
          FROM notes n
          LEFT JOIN users u ON n.author_id = u.id
-         WHERE n.id = ?`
-      )
-      .get(noteId) as { note_status: string; author_name: string; author_email: string } | undefined;
+         WHERE n.id = ?
+         LIMIT 1`,
+      args: [normalizedNoteId],
+    });
 
-    sqlite.close();
+    const syncRow =
+      syncRowResult.rows.length > 0
+        ? (normalizeRecord(syncRowResult.rows[0] as Record<string, unknown>) as {
+            note_status: string;
+            author_name: string;
+            author_email: string;
+          })
+        : null;
 
     if (syncRow) {
       const mappedStatus: "Pending" | "Approved" | "Rejected" =
@@ -155,39 +252,36 @@ export async function PATCH(req: NextRequest) {
             : "Pending";
 
       await updateLinkStatusInExcel({
-        noteId,
+        noteId: normalizedNoteId,
         status: mappedStatus,
         authorName: syncRow.author_name,
         authorEmail: syncRow.author_email,
       });
     }
 
-    if (previousNote) {
-      const adminId = session.user.id as string;
-      const nextStatus =
-        action === "approve"
-          ? "approved"
-          : action === "reject"
-            ? "rejected"
-            : previousNote.status;
+    const nextStatus =
+      action === "approve"
+        ? "approved"
+        : action === "reject"
+          ? "rejected"
+          : previousNote.status;
 
-      await appendAdminActionToExcel({
-        adminId,
-        adminName: session.user.name || "Admin",
-        adminEmail: session.user.email || "",
-        noteId,
-        noteTitle: previousNote.title,
-        category: categoryName?.name || "Unknown",
-        action: action === "feature" ? "featured" : action === "approve" ? "approved" : "rejected",
-        previousStatus: previousNote.status,
-        newStatus: nextStatus,
-        featured: action === "feature" ? Boolean(featured) : Boolean(previousNote.featured),
-        details:
-          action === "feature"
-            ? `Featured toggled to ${featured ? "on" : "off"}`
-            : `Status changed to ${nextStatus}`,
-      });
-    }
+    await appendAdminActionToExcel({
+      adminId: session.user.id as string,
+      adminName: session.user.name || "Admin",
+      adminEmail: session.user.email || "",
+      noteId: normalizedNoteId,
+      noteTitle: previousNote.title,
+      category: categoryName,
+      action: action === "feature" ? "featured" : action === "approve" ? "approved" : "rejected",
+      previousStatus: previousNote.status,
+      newStatus: nextStatus,
+      featured: action === "feature" ? Boolean(featured) : Boolean(previousNote.featured),
+      details:
+        action === "feature"
+          ? `Featured toggled to ${featured ? "on" : "off"}`
+          : `Status changed to ${nextStatus}`,
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -198,8 +292,6 @@ export async function PATCH(req: NextRequest) {
 
 // DELETE /api/admin/notes — Permanently delete a note (admin only)
 export async function DELETE(req: NextRequest) {
-  let sqlite: Database.Database | null = null;
-
   try {
     const session = await auth();
     if (!session?.user) {
@@ -211,103 +303,83 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Only admins can delete notes" }, { status: 403 });
     }
 
-    sqlite = new Database(DB_PATH);
+    const payload = (await req.json()) as { noteId?: string };
+    const noteId = typeof payload.noteId === "string" ? payload.noteId.trim() : "";
 
-    const { noteId } = await req.json();
-    if (typeof noteId !== "string" || !noteId.trim()) {
-      sqlite.close();
-      sqlite = null;
+    if (!noteId) {
       return NextResponse.json({ error: "Missing noteId" }, { status: 400 });
     }
 
-    const existing = sqlite
-      .prepare(
-       `SELECT n.id, n.category_id, n.title, n.file_url, n.thumbnail_url,
-          COALESCE(u.name, n.author_credit, 'Unknown') as author_name,
-          COALESCE(u.email, '') as author_email
-        FROM notes n
-        LEFT JOIN users u ON n.author_id = u.id
-        WHERE n.id = ?`
-      )
-      .get(noteId) as {
-      id: string;
-      category_id: number;
-          title: string;
-      file_url: string | null;
-      thumbnail_url: string | null;
-      author_name: string;
-      author_email: string;
-    } | undefined;
+    const client = getClient();
 
-    const categoryName = existing
-      ? (sqlite
-          .prepare("SELECT name FROM categories WHERE id = ?")
-          .get(existing.category_id) as { name: string } | undefined)
-      : undefined;
-
+    const existing = await getDeleteCandidate(client, noteId);
     if (!existing) {
-      sqlite.close();
-      sqlite = null;
       return NextResponse.json({ error: "Note not found" }, { status: 404 });
     }
 
-    const deleteTx = sqlite.transaction((id: string, categoryId: number) => {
-      sqlite?.prepare("DELETE FROM note_tags WHERE note_id = ?").run(id);
-      sqlite?.prepare("DELETE FROM bookmarks WHERE note_id = ?").run(id);
-      sqlite?.prepare("DELETE FROM views WHERE note_id = ?").run(id);
-      sqlite?.prepare("DELETE FROM reports WHERE note_id = ?").run(id);
-      sqlite?.prepare("DELETE FROM notes WHERE id = ?").run(id);
-      sqlite?.prepare("DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM note_tags)").run();
-
-      if (sqlite) {
-        rebuildNotesFtsIndex(sqlite);
-      }
-
-      sqlite
-        ?.prepare(
-          "UPDATE categories SET note_count = (SELECT COUNT(*) FROM notes WHERE notes.category_id = ? AND notes.status = 'approved') WHERE id = ?"
-        )
-        .run(categoryId, categoryId);
+    const categoryId = asNumber(existing.category_id, 0);
+    const categoryResult = await client.execute({
+      sql: "SELECT name FROM categories WHERE id = ? LIMIT 1",
+      args: [categoryId],
     });
+    const categoryName = asString(categoryResult.rows[0]?.name, "Unknown");
 
-    deleteTx(existing.id, existing.category_id);
+    await client.execute({ sql: "DELETE FROM note_tags WHERE note_id = ?", args: [noteId] });
+    await client.execute({ sql: "DELETE FROM bookmarks WHERE note_id = ?", args: [noteId] });
+    await client.execute({ sql: "DELETE FROM views WHERE note_id = ?", args: [noteId] });
+    await client.execute({ sql: "DELETE FROM reports WHERE note_id = ?", args: [noteId] });
+    await client.execute({ sql: "DELETE FROM notes WHERE id = ?", args: [noteId] });
+    await client.execute("DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM note_tags)");
 
-    sqlite.close();
-    sqlite = null;
-
-    deleteLocalUploadFile(existing.file_url);
-    deleteLocalUploadFile(existing.thumbnail_url);
-
-    await updateLinkStatusInExcel({
-      noteId: existing.id,
-      status: "Rejected",
-      authorName: existing.author_name,
-      authorEmail: existing.author_email,
-    });
-
-    if (session?.user) {
-      const adminId = session.user.id as string;
-      await appendAdminActionToExcel({
-        adminId,
-        adminName: session.user.name || "Admin",
-        adminEmail: session.user.email || "",
-        noteId: existing.id,
-        noteTitle: existing.title,
-        category: categoryName?.name || "Unknown",
-        action: "deleted",
-        previousStatus: "approved",
-        newStatus: "deleted",
-        featured: false,
-        details: "Permanent note deletion from admin panel",
+    if (categoryId > 0) {
+      await client.execute({
+        sql: `UPDATE categories
+          SET note_count = (
+            SELECT COUNT(*)
+            FROM notes
+            WHERE notes.category_id = ?
+              AND notes.status = 'approved'
+          )
+          WHERE id = ?`,
+        args: [categoryId, categoryId],
       });
     }
 
-    return NextResponse.json({ success: true, noteId: existing.id });
-  } catch (error) {
-    if (sqlite) {
-      sqlite.close();
+    const driveItemId = asString(existing.drive_item_id, "").trim();
+    if (driveItemId) {
+      try {
+        await deleteOneDriveItem(driveItemId);
+      } catch (driveDeleteError) {
+        console.warn(`[Admin Delete] Failed to remove OneDrive file ${driveItemId}:`, driveDeleteError);
+      }
     }
 
+    deleteLocalUploadFile(asString(existing.file_url, ""));
+    deleteLocalUploadFile(asString(existing.thumbnail_url, ""));
+
+    await updateLinkStatusInExcel({
+      noteId,
+      status: "Rejected",
+      authorName: asString(existing.author_name, "Unknown"),
+      authorEmail: asString(existing.author_email, ""),
+    });
+
+    await appendAdminActionToExcel({
+      adminId: session.user.id as string,
+      adminName: session.user.name || "Admin",
+      adminEmail: session.user.email || "",
+      noteId,
+      noteTitle: asString(existing.title, "Untitled"),
+      category: categoryName,
+      action: "deleted",
+      previousStatus: "approved",
+      newStatus: "deleted",
+      featured: false,
+      details: "Permanent note deletion from admin panel",
+    });
+
+    return NextResponse.json({ success: true, noteId });
+  } catch (error) {
     console.error("DELETE /api/admin/notes error:", error);
     const message = error instanceof Error ? error.message : "Delete failed";
     return NextResponse.json({ error: message }, { status: 500 });

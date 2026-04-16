@@ -1,9 +1,17 @@
 import { NextResponse } from "next/server";
-import Database from "better-sqlite3";
-import path from "path";
+import { createClient } from "@libsql/client/web";
 import { getOneDriveItemDownloadInfo, isOneDriveConfigured } from "@/lib/onedrive";
 
-const DB_PATH = path.join(process.cwd(), "xreso.db");
+function getClient() {
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured");
+  }
+  return createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+}
 
 // GET /api/profile-photo/[driveItemId] — stream avatar from OneDrive
 export async function GET(
@@ -21,13 +29,13 @@ export async function GET(
     const avatarPath = `/api/profile-photo/${driveItemId}`;
 
     // Only serve drive item IDs that are actually linked as user avatars.
-    const db = new Database(DB_PATH);
-    const linkedUser = db
-      .prepare("SELECT id FROM users WHERE avatar = ? LIMIT 1")
-      .get(avatarPath) as { id: string } | undefined;
-    db.close();
+    const client = getClient();
+    const result = await client.execute({
+      sql: "SELECT id FROM users WHERE avatar = ? LIMIT 1",
+      args: [avatarPath],
+    });
 
-    if (!linkedUser) {
+    if (result.rows.length === 0) {
       return NextResponse.json({ error: "Photo not found" }, { status: 404 });
     }
 

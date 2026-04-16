@@ -48,7 +48,7 @@ function isPremiumSchemaMissing(error: unknown) {
   return msg.includes("no such column") && msg.includes("premium_");
 }
 
-async function getCurrentUserRole(_sqlite: Database.Database) {
+async function getCurrentUserRole() {
   const session = await auth();
   if (!session?.user?.id) {
     return { status: 401 as const, role: null };
@@ -62,7 +62,7 @@ export async function GET() {
   const sqlite = new Database(DB_PATH);
 
   try {
-    const current = await getCurrentUserRole(sqlite);
+    const current = await getCurrentUserRole();
     if (current.status !== 200) {
       return NextResponse.json({ error: "Unauthorized" }, { status: current.status });
     }
@@ -131,7 +131,7 @@ export async function PATCH(req: NextRequest) {
   const sqlite = new Database(DB_PATH);
 
   try {
-    const current = await getCurrentUserRole(sqlite);
+    const current = await getCurrentUserRole();
     if (current.status !== 200) {
       return NextResponse.json({ error: "Unauthorized" }, { status: current.status });
     }

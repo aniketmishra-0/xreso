@@ -275,7 +275,7 @@ function TrackNotesContent() {
                 type="text"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Search inside premium tracks"
+                placeholder="Search inside the open tracks library"
               />
               {searchQuery ? (
                 <button
@@ -398,15 +398,15 @@ function TrackNotesContent() {
 
         {lockedResourceCount > 0 && !viewer.hasPremiumAccess ? (
           <div className={styles.accessNotice}>
-            <h2 className={styles.accessTitle}>Some resources are premium-only</h2>
+            <h2 className={styles.accessTitle}>Some resources need review access</h2>
             <p className={styles.accessText}>
               {viewer.isAuthenticated
-                ? `${lockedResourceCount} premium resource links are hidden for this account.`
-                : `Sign in with an entitled account to unlock ${lockedResourceCount} premium resource links.`}
+                ? `${lockedResourceCount} resource links are still hidden for this account.`
+                : `Sign in to check access for ${lockedResourceCount} resource links.`}
             </p>
             {!viewer.isAuthenticated ? (
               <Link href={unlockHref} className="btn btn-secondary btn-sm">
-                Sign In to Unlock
+                Sign In
               </Link>
             ) : null}
           </div>
@@ -414,7 +414,7 @@ function TrackNotesContent() {
 
         {error ? (
           <div className={styles.emptyState}>
-            <h2 className={styles.emptyTitle}>Could not load premium resources</h2>
+            <h2 className={styles.emptyTitle}>Could not load track resources</h2>
             <p className={styles.emptyText}>{error}</p>
           </div>
         ) : isLoading ? (
@@ -443,7 +443,7 @@ function TrackNotesContent() {
                     <span className={styles.topicBadge}>{resource.topicName}</span>
                   ) : null}
                   {resource.premiumOnly ? (
-                    <span className={styles.premiumBadge}>Premium</span>
+                    <span className={styles.premiumBadge}>Open</span>
                   ) : null}
                 </div>
 
@@ -470,10 +470,10 @@ function TrackNotesContent() {
                   <span className={styles.authorName}>{resource.authorName || "Unknown author"}</span>
                   {resource.accessLocked ? (
                     viewer.isAuthenticated ? (
-                      <span className={styles.lockedPill}>Premium Locked</span>
+                      <span className={styles.lockedPill}>Review Locked</span>
                     ) : (
                       <Link href={unlockHref} className="btn btn-secondary btn-sm">
-                        Sign In to Unlock
+                        Sign In
                       </Link>
                     )
                   ) : resource.contentUrl ? (

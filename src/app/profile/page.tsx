@@ -334,13 +334,7 @@ export default function ProfilePage() {
 
   const totalViews = userNotes.reduce((s, n) => s + (n.view_count || 0), 0);
   const hasSocials = profile?.github_url || profile?.linkedin_url || profile?.twitter_url || profile?.website_url;
-  const premiumActive = Boolean(profile?.premium_access);
-  const premiumExpiry = profile?.premium_expires_at;
-  const premiumLabel = premiumActive
-    ? premiumExpiry
-      ? `Premium until ${new Date(premiumExpiry).toLocaleDateString()}`
-      : "Premium Lifetime"
-    : "Free Plan";
+  const premiumLabel = "Open Access";
   const handleProfileSave = async (updated: UserProfile) => {
     setProfile(updated);
 

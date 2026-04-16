@@ -129,11 +129,11 @@ function TracksPageContent() {
     <section className={styles.page} id="cloud-native-library-page">
       <div className={styles.container}>
         <header className={styles.header}>
-          <p className={styles.eyebrow}>Premium Library</p>
+          <p className={styles.eyebrow}>Open Library</p>
           <h1 className={styles.title}>Advanced Tracks</h1>
           <p className={styles.subtitle}>
-            Dedicated premium module. These tracks are managed separately from standard notes,
-            categories, and the regular upload flow.
+            Open learning tracks for Kubernetes, DevOps, and system design, managed with
+            a dedicated queue apart from the standard notes library.
           </p>
 
           <div className={styles.searchWrap}>
@@ -236,7 +236,7 @@ function TracksPageContent() {
                         href={`/tracks/notes?track=${track.slug}&topic=${topic.slug}`}
                         className={styles.topicLink}
                       >
-                        Open Premium Notes
+                        Open Track Resources
                       </Link>
                     </li>
                   ))}

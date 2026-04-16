@@ -87,7 +87,7 @@ const getStorageFlowLabel = (workbookKey: StorageWorkbook["key"]) => {
 };
 
 export default function AdminPage() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [notes, setNotes] = useState<AdminNote[]>([]);
@@ -269,6 +269,16 @@ export default function AdminPage() {
   const isNoteLocked = (noteId: string) =>
     activeAction ? activeAction.startsWith(`${noteId}:`) : false;
 
+  if (status === "loading") {
+    return (
+      <div className={styles.page}>
+        <div className={styles.container}>
+          <div className={styles.loading}>Loading admin access...</div>
+        </div>
+      </div>
+    );
+  }
+
   if (!session?.user || userRole !== "admin") {
     return (
       <div className={styles.page}>
@@ -290,7 +300,8 @@ export default function AdminPage() {
           <div>
             <h1 className={styles.title}>Admin Command Center</h1>
             <p className={styles.subtitle}>
-              Review submissions, curate featured notes, and monitor library health.
+              Review submissions, curate featured notes, monitor library health, and
+              auto-publish pending items after 3 days.
             </p>
           </div>
           <button
@@ -576,7 +587,7 @@ export default function AdminPage() {
 
             <div className={styles.controlActions}>
               <Link href="/admin/advanced-tracks" className="btn btn-secondary btn-sm">
-                Advanced Tracks Admin
+                Open Tracks Admin
               </Link>
               <Link href="/browse?featured=true" className="btn btn-ghost btn-sm">
                 View Featured Feed

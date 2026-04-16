@@ -188,7 +188,12 @@
   padding: 14px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-secondary);
-  background: linear-gradient(180deg, rgba(139, 92, 246, 0.12) 0%, rgba(38, 29, 61, 0.94) 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--primary) 12%, var(--bg-surface)) 0%,
+    color-mix(in srgb, var(--bg-elevated) 88%, var(--bg-surface)) 100%
+  );
+  box-shadow: var(--shadow-sm);
   min-width: 0;
 }
 
@@ -233,7 +238,8 @@
   flex-shrink: 0;
   padding: 6px 10px;
   border-radius: var(--radius-full);
-  background: rgba(139, 92, 246, 0.12);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, transparent);
   color: var(--primary);
   font-size: 10px;
   font-weight: 700;
@@ -258,8 +264,8 @@
   align-items: center;
   padding: 6px 10px;
   border-radius: var(--radius-full);
-  background: rgba(139, 92, 246, 0.08);
-  border: 1px solid rgba(139, 92, 246, 0.12);
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg-surface));
+  border: 1px solid color-mix(in srgb, var(--primary) 14%, var(--border-secondary));
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
@@ -405,7 +411,11 @@
   border-top: 1px solid var(--border-primary);
   border-top-left-radius: 24px;
   border-top-right-radius: 24px;
-  background: linear-gradient(180deg, rgba(26, 18, 42, 0.98) 0%, rgba(15, 10, 26, 1) 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--bg-surface) 96%, transparent) 0%,
+    color-mix(in srgb, var(--bg-elevated) 92%, var(--bg-surface)) 100%
+  );
   box-shadow: 0 -18px 48px rgba(0, 0, 0, 0.45);
 }
 
@@ -469,7 +479,7 @@
   padding: 14px 16px;
   border-radius: 16px;
   border: 1px solid var(--border-secondary);
-  background: rgba(38, 29, 61, 0.84);
+  background: color-mix(in srgb, var(--bg-elevated) 92%, var(--bg-surface));
   text-align: left;
   transition:
     border-color var(--transition-fast),
@@ -482,8 +492,8 @@
 }
 
 .mobileSelectOptionActive {
-  border-color: rgba(139, 92, 246, 0.55);
-  background: rgba(139, 92, 246, 0.18);
+  border-color: color-mix(in srgb, var(--primary) 50%, var(--border-primary));
+  background: color-mix(in srgb, var(--primary) 14%, var(--bg-surface));
 }
 
 .mobileSelectOptionText {
@@ -499,6 +509,73 @@
   height: 18px;
   color: var(--primary);
   flex-shrink: 0;
+}
+
+[data-theme="light"] .resourceChoiceBtnActive {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--primary) 10%, white) 0%,
+    color-mix(in srgb, var(--primary) 4%, var(--bg-surface)) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 0 0 1px rgba(139, 92, 246, 0.1);
+}
+
+[data-theme="light"] .resourceSectionSummary {
+  border-color: color-mix(in srgb, var(--primary) 18%, var(--border-secondary));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--primary) 8%, white) 0%,
+    color-mix(in srgb, var(--primary) 3%, var(--bg-elevated)) 100%
+  );
+  box-shadow: 0 18px 44px rgba(139, 92, 246, 0.08);
+}
+
+[data-theme="light"] .resourceSectionSummaryBadge {
+  background: color-mix(in srgb, var(--primary) 10%, white);
+  border-color: color-mix(in srgb, var(--primary) 16%, var(--border-primary));
+}
+
+[data-theme="light"] .resourceSectionSummaryExample {
+  background: color-mix(in srgb, var(--primary) 6%, white);
+  border-color: color-mix(in srgb, var(--primary) 12%, var(--border-secondary));
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .mobileSelectOverlay {
+  background: rgba(34, 24, 60, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme="light"] .mobileSelectSheet {
+  border-top-color: color-mix(in srgb, var(--primary) 16%, var(--border-secondary));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, white 88%, var(--bg-surface)) 0%,
+    color-mix(in srgb, var(--primary) 4%, white) 100%
+  );
+  box-shadow: 0 -18px 48px rgba(87, 59, 150, 0.16);
+}
+
+[data-theme="light"] .mobileSelectSheetHandle {
+  background: color-mix(in srgb, var(--primary) 18%, var(--border-hover));
+}
+
+[data-theme="light"] .mobileSelectSheetClose {
+  background: color-mix(in srgb, white 78%, var(--bg-elevated));
+}
+
+[data-theme="light"] .mobileSelectOption {
+  background: color-mix(in srgb, white 82%, var(--bg-elevated));
+  border-color: color-mix(in srgb, var(--primary) 14%, var(--border-secondary));
+  box-shadow: 0 6px 18px rgba(139, 92, 246, 0.05);
+}
+
+[data-theme="light"] .mobileSelectOptionActive {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border-primary));
+  background: color-mix(in srgb, var(--primary) 10%, white);
 }
 
 .required {

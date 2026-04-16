@@ -50,6 +50,11 @@ function isStorageConfigError(error: unknown): boolean {
 }
 
 let ensureDriveColumnPromise: Promise<void> | null = null;
+const ONE_DRIVE_UPLOAD_MAX_ATTEMPTS = 4;
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 async function ensureDriveItemColumn(client: Client): Promise<void> {
   if (ensureDriveColumnPromise) {
@@ -159,10 +164,51 @@ async function createLocalThumbnail(noteId: string, fileName: string, fileBuffer
   }
 }
 
+async function uploadToOneDriveWithRetry(params: {
+  fileBuffer: Buffer;
+  fileName: string;
+  fileType: string;
+  category: string;
+  sourceLabel: string;
+}) {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= ONE_DRIVE_UPLOAD_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      return await uploadToOneDrive(
+        params.fileBuffer,
+        params.fileName,
+        params.fileType,
+        params.category
+      );
+    } catch (error) {
+      lastError = error;
+      if (attempt >= ONE_DRIVE_UPLOAD_MAX_ATTEMPTS) break;
+
+      const backoffMs = Math.min(1200 * 2 ** (attempt - 1), 12_000);
+      const jitterMs = Math.floor(Math.random() * 450);
+      const waitMs = backoffMs + jitterMs;
+      console.warn(
+        `[Upload] OneDrive ${params.sourceLabel} retry ${attempt}/${ONE_DRIVE_UPLOAD_MAX_ATTEMPTS} in ${waitMs}ms:`,
+        error
+      );
+      await wait(waitMs);
+    }
+  }
+
+  throw lastError;
+}
+
 function syncNoteToOneDriveInBackground(params: { noteId: string; fileBuffer: Buffer; fileName: string; fileType: string; category: string; }) {
   after(async () => {
     try {
-      const uploaded = await uploadToOneDrive(params.fileBuffer, params.fileName, params.fileType, params.category);
+      const uploaded = await uploadToOneDriveWithRetry({
+        fileBuffer: params.fileBuffer,
+        fileName: params.fileName,
+        fileType: params.fileType,
+        category: params.category,
+        sourceLabel: "background sync",
+      });
       const client = getClient();
       await updateNoteDriveItemId(client, params.noteId, uploaded.driveItemId);
       console.log(`[Upload] Background OneDrive sync complete for note ${params.noteId}`);
@@ -390,15 +436,43 @@ export async function POST(req: NextRequest) {
     }
 
     const oneDriveEnabled = isOneDriveConfigured();
+    let storageMode: "local" | "onedrive" | "onedrive-pending-sync" = "local";
+    let uploadMessage = "Note uploaded successfully! It will be reviewed before publishing.";
+
     if (oneDriveEnabled) {
-      syncNoteToOneDriveInBackground({ noteId, fileBuffer, fileName, fileType: file.type, category });
+      try {
+        const uploaded = await uploadToOneDriveWithRetry({
+          fileBuffer,
+          fileName,
+          fileType: file.type,
+          category,
+          sourceLabel: "foreground upload",
+        });
+        await updateNoteDriveItemId(client, noteId, uploaded.driveItemId);
+        storageMode = "onedrive";
+      } catch (oneDriveError) {
+        console.error(
+          `[Upload] Foreground OneDrive upload failed for note ${noteId}, queued for background retry:`,
+          oneDriveError
+        );
+        syncNoteToOneDriveInBackground({
+          noteId,
+          fileBuffer,
+          fileName,
+          fileType: file.type,
+          category,
+        });
+        storageMode = "onedrive-pending-sync";
+        uploadMessage =
+          "Note uploaded successfully. OneDrive sync is delayed and will retry automatically.";
+      }
     }
 
     return NextResponse.json({
       success: true,
       noteId,
-      storage: oneDriveEnabled ? "OneDrive + local fallback" : "local",
-      message: "Note uploaded successfully! It will be reviewed before publishing.",
+      storage: storageMode,
+      message: uploadMessage,
     });
   } catch (error) {
     console.error("POST /api/upload error:", error);

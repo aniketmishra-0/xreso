@@ -271,7 +271,7 @@ export default async function Home() {
               <p className={styles.eyebrow}>Featured</p>
               <h2 className={styles.sectionTitle}>Curated Notes</h2>
               <p className={styles.sectionSubtitle}>
-                Premium picks from the community.
+                High-signal picks from the community.
               </p>
             </div>
             <Link href="/browse?featured=true" className="btn btn-secondary btn-sm">

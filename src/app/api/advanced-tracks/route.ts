@@ -43,7 +43,7 @@ export async function GET() {
       slug: track.slug as string,
       name: track.name as string,
       description: track.description as string,
-      premium: Boolean(track.premium),
+      premium: false,
       approvedCount: (track.approved_count as number) || 0,
       topics: topicRows
         .filter((topic) => topic.track_id === track.id)

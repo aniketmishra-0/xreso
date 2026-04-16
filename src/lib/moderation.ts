@@ -70,7 +70,12 @@ export function runAutoApprovalSweepIfNeeded(force = false): ModerationSweepResu
       .run(`-${AUTO_APPROVE_AFTER_DAYS} days`).changes;
 
     if (notesApproved > 0) {
-      rebuildNotesFtsIndex(sqlite);
+      try {
+        rebuildNotesFtsIndex(sqlite);
+      } catch (error) {
+        console.warn("[Moderation] FTS rebuild skipped during auto-approval:", error);
+      }
+
       sqlite.exec(
         `UPDATE categories
          SET note_count = (

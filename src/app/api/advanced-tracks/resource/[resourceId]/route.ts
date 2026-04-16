@@ -24,7 +24,7 @@ function getMimeTypeFromPath(filePath: string): string {
   return "application/octet-stream";
 }
 
-async function getViewerAccess(sqlite: Database.Database) {
+async function getViewerAccess() {
   const session = await auth();
   const sessionUser = session?.user as
     | {
@@ -41,7 +41,6 @@ async function getViewerAccess(sqlite: Database.Database) {
         : "guest";
 
   return {
-    viewerRole,
     isPrivileged:
       viewerRole === "admin" || viewerRole === "moderator",
   };
@@ -64,7 +63,7 @@ export async function GET(
     sqlite = new Database(DB_PATH);
     sqlite.pragma("foreign_keys = ON");
 
-    const access = await getViewerAccess(sqlite);
+    const access = await getViewerAccess();
 
     const resource = sqlite
       .prepare(

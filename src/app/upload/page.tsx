@@ -787,7 +787,7 @@ function UploadPageContent() {
         advancedBody.append("tags", formData.tags);
         advancedBody.append("licenseType", formData.licenseType);
         advancedBody.append("status", "pending");
-        advancedBody.append("premiumOnly", "true");
+        advancedBody.append("premiumOnly", "false");
         advancedBody.append("featured", "false");
 
         if (uploadMode === "link") {

@@ -165,7 +165,7 @@ function BrowseContent() {
           <h1 className={styles.title}>{featuredOnly ? "Curated Notes" : "Browse Notes"}</h1>
           <p className={styles.subtitle}>
             {featuredOnly
-              ? "Handpicked, premium notes selected by our moderators"
+              ? "Handpicked featured notes selected by our moderators"
               : "Discover handwritten programming notes from our community"
             }
           </p>

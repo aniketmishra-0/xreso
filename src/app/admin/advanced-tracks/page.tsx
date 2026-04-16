@@ -474,7 +474,7 @@ export default function AdvancedTracksAdminPage() {
             </label>
 
             <div className={styles.openAccessHint}>
-              New advanced resources are saved as open access. No premium unlock step is required.
+              New advanced resources are saved as open access. No extra unlock step is required.
             </div>
 
             <div className={styles.formActions}>

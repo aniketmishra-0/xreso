@@ -52,6 +52,9 @@ function LoginPageContent() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const hasSocialProviders = configuredProviderIds.length > 0;
+  const activeSocialProviders = SOCIAL_PROVIDERS.filter((provider) =>
+    configuredProviderIds.includes(provider.id)
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -175,6 +178,7 @@ function LoginPageContent() {
             <Link href="/" className={styles.logoLink}>
               <span className={styles.logoText}>xreso</span>
             </Link>
+            <p className={styles.eyebrow}>Account Access</p>
             <h1 className={styles.title}>
               {mode === "login" ? "Welcome back" : "Create account"}
             </h1>
@@ -205,10 +209,8 @@ function LoginPageContent() {
 
           <div className={styles.socialSection}>
             <div className={styles.socialButtons}>
-              {SOCIAL_PROVIDERS.map((provider) => {
-                const isConfigured = configuredProviderIds.includes(provider.id);
-                const isDisabled =
-                  loading || socialLoadingProvider !== null || !isConfigured;
+              {activeSocialProviders.map((provider) => {
+                const isDisabled = loading || socialLoadingProvider !== null;
                 const providerClassName =
                   provider.id === "google"
                     ? styles.socialBtnGoogle
@@ -220,9 +222,7 @@ function LoginPageContent() {
                   <button
                     key={provider.id}
                     type="button"
-                    className={`${styles.socialBtn} ${providerClassName} ${
-                      !isConfigured ? styles.socialBtnUnavailable : ""
-                    }`}
+                    className={`${styles.socialBtn} ${providerClassName}`}
                     disabled={isDisabled}
                     onClick={() => {
                       void handleOAuthSignIn(provider.id);
@@ -232,9 +232,7 @@ function LoginPageContent() {
                     <span>
                       {socialLoadingProvider === provider.id
                         ? "Redirecting..."
-                        : isConfigured
-                        ? `Continue with ${provider.name}`
-                        : `${provider.name} not configured`}
+                        : `Continue with ${provider.name}`}
                     </span>
                   </button>
                 );
@@ -248,11 +246,11 @@ function LoginPageContent() {
             ) : (
               <div className={styles.socialHintBlock}>
                 <p className={styles.socialHint}>
-                  Social sign-in is not configured yet. Add Google, GitHub, or LinkedIn
-                  OAuth credentials in your environment file to enable these buttons.
+                  Social sign-in is currently unavailable. Use email and password, or
+                  configure OAuth providers in the environment settings.
                 </p>
                 <p className={styles.socialTip}>
-                  Tip: restart your dev server after updating environment variables.
+                  After adding provider credentials, restart the server to activate them.
                 </p>
               </div>
             )}
@@ -364,6 +362,10 @@ function LoginPageContent() {
                 ? "Sign In"
                 : "Create Account"}
             </button>
+
+            <p className={styles.footnote}>
+              Secure session, encrypted credentials, and role-based access controls.
+            </p>
           </form>
         </div>
       </div>

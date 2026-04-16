@@ -1,4 +1,5 @@
 .orbit {
+  --orbit-duration: 38s;
   pointer-events: none;
   position: relative;
   margin: 0 auto;
@@ -59,11 +60,20 @@
 .nodesLayer {
   position: absolute;
   inset: 0;
+  animation: orbitSpin var(--orbit-duration) linear infinite;
+  transform-origin: 50% 50%;
+  will-change: transform;
 }
 
 .nodePosition {
   position: absolute;
   transform: translate(-50%, -50%);
+}
+
+.nodeMotion {
+  position: relative;
+  animation: counterOrbitSpin var(--orbit-duration) linear infinite;
+  will-change: transform;
 }
 
 .nodeHalo {
@@ -166,6 +176,26 @@
   }
 }
 
+@keyframes orbitSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes counterOrbitSpin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @keyframes haloPulse {
   0%,
   100% {
@@ -237,6 +267,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .nodesLayer,
+  .nodeMotion,
   .nodeHalo,
   .nodeBadge,
   .centerShell {

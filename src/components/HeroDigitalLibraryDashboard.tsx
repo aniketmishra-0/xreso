@@ -124,10 +124,12 @@ export default function HeroDigitalLibraryDashboard({
             style={getNodePosition(node)}
             aria-label={`${node.label} tech logo`}
           >
-            <span className={styles.nodeHalo} style={getNodeHaloStyle(node)} />
-            <div className={styles.nodeBadge} style={getNodeBadgeStyle(node)}>
-              <span className={styles.nodeRing} style={getNodeRingStyle(node)} />
-              <node.Icon className={styles.nodeIcon} style={getNodeIconStyle(node)} />
+            <div className={styles.nodeMotion}>
+              <span className={styles.nodeHalo} style={getNodeHaloStyle(node)} />
+              <div className={styles.nodeBadge} style={getNodeBadgeStyle(node)}>
+                <span className={styles.nodeRing} style={getNodeRingStyle(node)} />
+                <node.Icon className={styles.nodeIcon} style={getNodeIconStyle(node)} />
+              </div>
             </div>
           </div>
         ))}

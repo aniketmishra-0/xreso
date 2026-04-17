@@ -9,6 +9,8 @@ import { getTechIcon } from "@/lib/techIcons";
 import HeroDigitalLibraryDashboard from "@/components/HeroDigitalLibraryDashboard";
 import styles from "./page.module.css";
 
+export const dynamic = "force-dynamic";
+
 const formatDate = (dateStr: string) => {
   try {
     return new Date(dateStr).toLocaleDateString("en-US", {

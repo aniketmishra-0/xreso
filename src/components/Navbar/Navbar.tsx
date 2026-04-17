@@ -146,12 +146,12 @@ export default function Navbar() {
 
   const modeAwareSecondary =
     browseMode === "advanced"
-      ? { href: "/tracks/library", label: "Library" }
+      ? { href: "/tracks/categories", label: "Categories" }
       : { href: "/categories", label: "Categories" };
 
   const modeAwareBrowse =
     browseMode === "advanced"
-      ? { href: "/tracks", label: "Browse Tracks" }
+      ? { href: "/browse", label: "Browse Notes" }
       : { href: "/browse", label: "Browse Notes" };
 
   const uploadHref =
@@ -223,18 +223,18 @@ export default function Navbar() {
               Advanced
             </Link>
           </div>
-        </div>
 
-        <div className={styles.navActions}>
           <button
-            className={styles.themeToggle}
+            className={`${styles.themeToggle} ${styles.themeToggleInline}`}
             onClick={() => setTheme(isDark ? "light" : "dark")}
             aria-label="Toggle theme"
             id="theme-toggle"
           >
             {themeLabel}
           </button>
+        </div>
 
+        <div className={styles.navActions}>
           <Link href={uploadHref} className={`btn btn-primary btn-sm ${styles.uploadBtn}`} id="nav-upload">
             Upload
           </Link>

@@ -293,6 +293,7 @@ function BrowseContent() {
                 <span className={styles.langDropdownLabel}>{selectedLanguageLabel}</span>
               </button>
 
+              {/* Desktop dropdown */}
               {langMenuOpen && (
                 <div className={styles.langMenu} role="listbox" aria-label="Language filter options">
                   <button
@@ -320,6 +321,50 @@ function BrowseContent() {
                   ))}
                 </div>
               )}
+
+              {/* Mobile bottom sheet */}
+              {langMenuOpen && (
+                <>
+                  <div className={styles.sheetOverlay} onClick={() => setLangMenuOpen(false)} />
+                  <div className={styles.sheetPanel}>
+                    <div className={styles.sheetHandle} />
+                    <div className={styles.sheetHeader}>
+                      <div>
+                        <div className={styles.sheetLabel}>CHOOSE ONE</div>
+                        <div className={styles.sheetTitle}>Programming Language / Topic</div>
+                      </div>
+                      <button className={styles.sheetClose} onClick={() => setLangMenuOpen(false)} aria-label="Close">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                      </button>
+                    </div>
+                    <div className={styles.sheetOptions}>
+                      <button
+                        type="button"
+                        className={`${styles.sheetOption} ${!selectedLanguageSlug ? styles.sheetOptionActive : ""}`}
+                        onClick={() => { setActiveCategory("All"); setLangMenuOpen(false); }}
+                      >
+                        <span className={styles.sheetOptionText}>Select a programming topic</span>
+                        {!selectedLanguageSlug && (
+                          <svg className={styles.sheetOptionCheck} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        )}
+                      </button>
+                      {ALL_CATEGORIES.map((cat) => (
+                        <button
+                          key={cat.slug}
+                          type="button"
+                          className={`${styles.sheetOption} ${selectedLanguageSlug === cat.slug ? styles.sheetOptionActive : ""}`}
+                          onClick={() => { setActiveCategory(cat.name); setLangMenuOpen(false); }}
+                        >
+                          <span className={styles.sheetOptionText}>{cat.name}</span>
+                          {selectedLanguageSlug === cat.slug && (
+                            <svg className={styles.sheetOptionCheck} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -336,6 +381,7 @@ function BrowseContent() {
               <span className={styles.sortDropdownLabel}>{activeSortLabel}</span>
             </button>
 
+            {/* Desktop dropdown */}
             {sortMenuOpen && (
               <div className={styles.sortMenu} role="listbox" aria-label="Sort options">
                 {SORT_OPTIONS.map((opt) => (
@@ -352,6 +398,40 @@ function BrowseContent() {
                   </button>
                 ))}
               </div>
+            )}
+
+            {/* Mobile bottom sheet for sort */}
+            {sortMenuOpen && (
+              <>
+                <div className={styles.sheetOverlay} onClick={() => setSortMenuOpen(false)} />
+                <div className={styles.sheetPanel}>
+                  <div className={styles.sheetHandle} />
+                  <div className={styles.sheetHeader}>
+                    <div>
+                      <div className={styles.sheetLabel}>SORT BY</div>
+                      <div className={styles.sheetTitle}>Sort Order</div>
+                    </div>
+                    <button className={styles.sheetClose} onClick={() => setSortMenuOpen(false)} aria-label="Close">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                    </button>
+                  </div>
+                  <div className={styles.sheetOptions}>
+                    {SORT_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        className={`${styles.sheetOption} ${sortBy === opt.value ? styles.sheetOptionActive : ""}`}
+                        onClick={() => { setSortBy(opt.value); setSortMenuOpen(false); }}
+                      >
+                        <span className={styles.sheetOptionText}>{opt.label}</span>
+                        {sortBy === opt.value && (
+                          <svg className={styles.sheetOptionCheck} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </div>

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@libsql/client/web";
 import { hashSync } from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
-import { appendUserToExcel } from "@/lib/excel";
+import { logAuthEvent } from "@/lib/auth-events";
 import { checkRateLimit, registerLimiter } from "@/lib/ratelimit";
 
 function getClient() {
@@ -98,16 +98,19 @@ export async function POST(req: NextRequest) {
       args: [userId, safeName, safeEmail, hashedPassword, safeAvatar, "user"],
     });
 
-    // ── Append to Excel sheet (Tracking Registered Users) ──
-    try {
-      await appendUserToExcel({
+    const forwarded = req.headers.get("x-forwarded-for");
+    const ipAddress = forwarded?.split(",")[0]?.trim() || "anonymous";
+
+    await logAuthEvent(
+      {
+        eventType: "register",
         userId,
-        name: safeName,
         email: safeEmail,
-      });
-    } catch (err) {
-      console.error("[Excel] Failed to append user:", err);
-    }
+        provider: "credentials",
+        ipAddress,
+      },
+      client
+    );
 
     return NextResponse.json({
       success: true,

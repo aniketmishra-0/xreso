@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@libsql/client/web";
 import { hashSync } from "bcryptjs";
+import { logAuthEvent } from "@/lib/auth-events";
 import { findActivePasswordResetToken, markPasswordResetTokenUsed } from "@/lib/password-reset";
 
 function getClient() {
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
     }
 
     const userResult = await client.execute({
-      sql: "SELECT id, password FROM users WHERE id = ? LIMIT 1",
+      sql: "SELECT id, password, email FROM users WHERE id = ? LIMIT 1",
       args: [resetRecord.user_id],
     });
 
@@ -49,6 +50,22 @@ export async function POST(req: NextRequest) {
     });
 
     await markPasswordResetTokenUsed(client, resetRecord.id);
+
+    const forwarded = req.headers.get("x-forwarded-for");
+    const ipAddress = forwarded?.split(",")[0]?.trim() || "anonymous";
+    const userEmail =
+      typeof userResult.rows[0].email === "string" ? String(userResult.rows[0].email) : null;
+
+    await logAuthEvent(
+      {
+        eventType: "password_reset_confirm",
+        userId: resetRecord.user_id,
+        email: userEmail,
+        provider: "credentials",
+        ipAddress,
+      },
+      client
+    );
 
     return NextResponse.json({ success: true, message: "Password updated successfully" });
   } catch (error) {

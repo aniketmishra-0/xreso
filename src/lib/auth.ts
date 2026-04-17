@@ -7,7 +7,7 @@ import LinkedIn from "next-auth/providers/linkedin";
 import { compareSync } from "bcryptjs";
 import { randomUUID } from "crypto";
 import { createClient } from "@libsql/client/web";
-import { appendAdminLoginToExcel } from "@/lib/excel";
+import { logAuthEvent } from "@/lib/auth-events";
 import { isRateLimited, loginLimiter } from "@/lib/ratelimit";
 
 function getTursoClient() {
@@ -71,32 +71,6 @@ function hasActivePremiumEntitlement(
   }
 
   return expiryTime > Date.now();
-}
-
-async function logAdminLogin(data: {
-  id: string;
-  name: string;
-  email: string;
-  role: AppRole;
-  provider: string;
-  ipAddress?: string;
-}) {
-  if (data.role !== "admin" && data.role !== "moderator") {
-    return;
-  }
-
-  try {
-    await appendAdminLoginToExcel({
-      adminId: data.id,
-      adminName: data.name,
-      adminEmail: data.email,
-      role: data.role,
-      provider: data.provider,
-      ipAddress: data.ipAddress,
-    });
-  } catch (error) {
-    console.error("[Excel] Failed to log admin login:", error);
-  }
 }
 
 function getFallbackOAuthEmail(account: {
@@ -238,13 +212,16 @@ const providers: Provider[] = [
       );
       const role = normalizeRole(user.role);
 
-      await logAdminLogin({
-        id: user.id,
-        name: user.name,
+      await logAuthEvent({
+        eventType: "login",
+        userId: user.id,
         email: user.email,
-        role,
         provider: "credentials",
         ipAddress: ip,
+        metadata: {
+          role,
+          premium,
+        },
       });
 
       return {
@@ -359,12 +336,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       mutableUser.premium = premium;
       mutableUser.premiumExpiresAt = syncedUser.premium_expires_at;
 
-      await logAdminLogin({
-        id: syncedUser.id,
-        name: syncedUser.name,
+      await logAuthEvent({
+        eventType: "oauth_login",
+        userId: syncedUser.id,
         email: syncedUser.email,
-        role: mutableUser.role,
         provider: account.provider || "oauth",
+        metadata: {
+          role: mutableUser.role,
+          premium,
+        },
       });
 
       return true;

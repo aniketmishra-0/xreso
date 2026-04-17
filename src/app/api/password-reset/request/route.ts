@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@libsql/client/web";
+import { logAuthEvent } from "@/lib/auth-events";
 import { createPasswordResetToken } from "@/lib/password-reset";
 import { sendPasswordResetEmail } from "@/lib/email";
 
@@ -34,6 +35,19 @@ export async function POST(req: NextRequest) {
       const user = result.rows[0];
       const token = await createPasswordResetToken(client, String(user.id));
       await sendPasswordResetEmail(String(user.email), String(user.name || "there"), token);
+
+      const forwarded = req.headers.get("x-forwarded-for");
+      const ipAddress = forwarded?.split(",")[0]?.trim() || "anonymous";
+      await logAuthEvent(
+        {
+          eventType: "password_reset_request",
+          userId: String(user.id),
+          email: String(user.email),
+          provider: "credentials",
+          ipAddress,
+        },
+        client
+      );
 
       if (process.env.NODE_ENV !== "production") {
         return NextResponse.json({

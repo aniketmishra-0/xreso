@@ -224,14 +224,7 @@ export default function Navbar() {
             </Link>
           </div>
 
-          <button
-            className={`${styles.themeToggle} ${styles.themeToggleInline}`}
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            aria-label="Toggle theme"
-            id="theme-toggle"
-          >
-            {themeLabel}
-          </button>
+
         </div>
 
         <div className={styles.navActions}>

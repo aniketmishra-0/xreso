@@ -294,24 +294,11 @@ export default function NoteDetailPage() {
             {/* File Viewer */}
             <div className={styles.viewer} ref={viewerRef}>
               {note.fileType === "application/pdf" ? (
-                isMobile ? (
-                  /* Mobile: directly load via Google Docs viewer (native PDF iframes don't work on mobile) */
-                  <iframe
-                    src={`https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(
-                      note.fileUrl.startsWith("/api/files/")
-                        ? `${window.location.origin}${note.fileUrl}`
-                        : note.fileUrl
-                    )}`}
-                    className={styles.viewerPdf}
-                    title={note.title}
-                  />
-                ) : (
-                  <iframe
-                    src={note.fileUrl.startsWith("/api/files/") ? note.fileUrl : note.fileUrl}
-                    className={styles.viewerPdf}
-                    title={note.title}
-                  />
-                )
+                <iframe
+                  src={note.fileUrl}
+                  className={styles.viewerPdf}
+                  title={note.title}
+                />
               ) : note.fileType === "link" && embeddableLink ? (
                 <iframe
                   src={embeddableLink}

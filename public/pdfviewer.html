@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+<title>PDF Viewer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #1a1625;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #viewer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    width: 100%;
+  }
+
+  .page-canvas {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    background: white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    border-radius: 4px;
+  }
+
+  #loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    color: #a09cb0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    gap: 16px;
+  }
+
+  .spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(139, 92, 246, 0.2);
+    border-top-color: #8b5cf6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #error {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    color: #a09cb0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    gap: 12px;
+    text-align: center;
+    padding: 24px;
+  }
+
+  #error h3 { color: #ef4444; font-size: 18px; }
+  #error p { font-size: 14px; max-width: 280px; }
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <span>Loading PDF...</span>
+</div>
+
+<div id="error">
+  <h3>Could not load PDF</h3>
+  <p>Try using the Download or Open in Browser button below.</p>
+</div>
+
+<div id="viewer"></div>
+
+<script type="module">
+  const params = new URLSearchParams(window.location.search);
+  const fileUrl = params.get('file');
+  
+  if (!fileUrl) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('error').style.display = 'flex';
+  } else {
+    loadPdf(fileUrl);
+  }
+
+  async function loadPdf(url) {
+    try {
+      const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs';
+
+      const loadingTask = pdfjsLib.getDocument(url);
+      const pdf = await loadingTask.promise;
+      
+      document.getElementById('loading').style.display = 'none';
+      
+      const viewer = document.getElementById('viewer');
+      const containerWidth = viewer.clientWidth - 16; // padding
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        
+        // Fit to container width
+        const unscaledViewport = page.getViewport({ scale: 1 });
+        const scale = containerWidth / unscaledViewport.width;
+        // Use higher resolution for retina displays
+        const pixelRatio = window.devicePixelRatio || 1;
+        const viewport = page.getViewport({ scale: scale * pixelRatio });
+        
+        const canvas = document.createElement('canvas');
+        canvas.className = 'page-canvas';
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        // CSS size = logical size (not pixel size)
+        canvas.style.width = (viewport.width / pixelRatio) + 'px';
+        canvas.style.height = (viewport.height / pixelRatio) + 'px';
+        
+        viewer.appendChild(canvas);
+        
+        const ctx = canvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+      }
+    } catch (err) {
+      console.error('PDF load error:', err);
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('error').style.display = 'flex';
+    }
+  }
+</script>
+</body>
+</html>

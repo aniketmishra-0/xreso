@@ -37,7 +37,7 @@ function buildContentSecurityPolicy() {
     "frame-ancestors 'self'",
     "object-src 'none'",
     "manifest-src 'self'",
-    "script-src " + scriptSrc.join(" "),
+    "script-src " + scriptSrc.join(" ") + " https://cdnjs.cloudflare.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
     "img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.amazonaws.com https://avatars.githubusercontent.com https://lh3.googleusercontent.com",

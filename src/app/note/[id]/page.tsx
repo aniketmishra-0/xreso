@@ -295,9 +295,10 @@ export default function NoteDetailPage() {
             <div className={styles.viewer} ref={viewerRef}>
               {note.fileType === "application/pdf" ? (
                 <iframe
-                  src={note.fileUrl}
+                  src={isMobile ? `/pdfviewer.html?file=${encodeURIComponent(note.fileUrl)}` : note.fileUrl}
                   className={styles.viewerPdf}
                   title={note.title}
+                  sandbox={isMobile ? "allow-scripts allow-same-origin" : undefined}
                 />
               ) : note.fileType === "link" && embeddableLink ? (
                 <iframe

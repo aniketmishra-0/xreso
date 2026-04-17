@@ -86,7 +86,9 @@ function BrowseContent() {
   const [sortBy, setSortBy] = useState("newest");
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [catMenuOpen, setCatMenuOpen] = useState(false);
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const catDropdownRef = useRef<HTMLDivElement | null>(null);
+  const sortDropdownRef = useRef<HTMLDivElement | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -175,6 +177,9 @@ function BrowseContent() {
       }
       if (catDropdownRef.current && !catDropdownRef.current.contains(event.target as Node)) {
         setCatMenuOpen(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setSortMenuOpen(false);
       }
     };
 
@@ -316,20 +321,36 @@ function BrowseContent() {
             </div>
           </div>
 
-          <div className={styles.sortWrap}>
-            <label className={styles.sortLabel}>Sort by</label>
-            <select
-              className={styles.sortSelect}
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              id="sort-select"
+          {/* Custom Sort Dropdown */}
+          <div className={styles.sortDropdownWrap} ref={sortDropdownRef}>
+            <button
+              type="button"
+              className={styles.sortDropdown}
+              onClick={() => setSortMenuOpen((current) => !current)}
+              aria-haspopup="listbox"
+              aria-expanded={sortMenuOpen}
+              id="sort-dropdown"
             >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              <span className={styles.sortDropdownLabel}>{activeSortLabel}</span>
+            </button>
+
+            {sortMenuOpen && (
+              <div className={styles.sortMenu} role="listbox" aria-label="Sort options">
+                {SORT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={`${styles.sortMenuItem} ${sortBy === opt.value ? styles.sortMenuItemActive : ""}`}
+                    onClick={() => {
+                      setSortBy(opt.value);
+                      setSortMenuOpen(false);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

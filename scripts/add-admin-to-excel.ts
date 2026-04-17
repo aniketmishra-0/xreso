@@ -9,7 +9,7 @@ loadEnv();
 async function main() {
   await upsertAdminUserInExcel({
     name: "Aniket Mishra",
-    email: "aniketmishra492@gmail.com",
+    email: "xresoinc@gmail.com",
     photo: "Will share later",
     role: "admin",
     notes: "Added by admin request",

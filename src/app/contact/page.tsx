@@ -27,7 +27,7 @@ export default function ContactPage() {
               For account issues, login trouble, broken links, and upload errors.
             </p>
             <p>
-              Email: <a href="mailto:aniketmishra492@gmail.com" className={styles.link}>aniketmishra492@gmail.com</a>
+              Email: <a href="mailto:xresoinc@gmail.com" className={styles.link}>xresoinc@gmail.com</a>
             </p>
           </section>
 

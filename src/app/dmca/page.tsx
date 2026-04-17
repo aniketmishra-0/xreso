@@ -46,7 +46,7 @@ export default function DmcaPage() {
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>Where to send notices</h2>
             <p>
-              Email: <a href="mailto:aniketmishra492@gmail.com" className={styles.link}>aniketmishra492@gmail.com</a>
+              Email: <a href="mailto:xresoinc@gmail.com" className={styles.link}>xresoinc@gmail.com</a>
             </p>
             <p>
               Subject line: <span className={styles.code}>[DMCA Notice]</span> or{" "}

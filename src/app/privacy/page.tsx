@@ -63,8 +63,8 @@ export default function PrivacyPage() {
             <h2 className={styles.sectionTitle}>Contact</h2>
             <p>
               Privacy requests can be sent to{" "}
-              <a href="mailto:aniketmishra492@gmail.com" className={styles.link}>
-                aniketmishra492@gmail.com
+              <a href="mailto:xresoinc@gmail.com" className={styles.link}>
+                xresoinc@gmail.com
               </a>
               .
             </p>

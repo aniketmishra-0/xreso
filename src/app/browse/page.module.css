@@ -284,6 +284,90 @@
   background: var(--bg-elevated);
 }
 
+/* Custom Sort Dropdown */
+.sortDropdownWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sortDropdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 32px 8px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B5F8A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  min-width: 150px;
+  text-align: left;
+}
+
+.sortDropdown:hover {
+  border-color: var(--primary);
+}
+
+.sortDropdown:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+  outline: none;
+}
+
+.sortDropdownLabel {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sortMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 160px;
+  max-height: 240px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+  padding: 4px;
+}
+
+.sortMenuItem {
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sortMenuItem:hover {
+  background: var(--bg-surface);
+}
+
+.sortMenuItemActive {
+  color: var(--primary);
+  background: var(--primary-subtle);
+}
+
 .resultsShell {
   padding: clamp(20px, 2.6vw, 30px);
   border: 1px solid var(--border-secondary);
@@ -476,20 +560,36 @@
   }
 
   .filterLeft {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
     gap: var(--space-sm);
   }
 
-  /* Hide desktop tabs on mobile, show mobile dropdown */
+  /* Mobile: show scrollable category tabs - full width */
   .categoryTabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    width: 100%;
+    padding-bottom: 4px;
+    order: 1;
+  }
+
+  .categoryTabs::-webkit-scrollbar {
     display: none;
   }
 
+  .categoryTab {
+    padding: 6px 12px;
+    font-size: var(--text-xs);
+  }
+
+  /* Hide mobile category dropdown (using tabs instead) */
   .mobileCatDropdownWrap {
-    display: block;
-    position: relative;
-    width: 100%;
+    display: none;
   }
 
   .mobileCatDropdown {
@@ -574,10 +674,7 @@
   }
 
   .sortWrap {
-    width: 100%;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: var(--space-xs);
+    display: none;
   }
 
   .sortSelect {
@@ -587,6 +684,39 @@
 
   .sortSelectWrap {
     width: 100%;
+  }
+
+  /* Language dropdown - mobile side by side */
+  .langDropdownWrap {
+    flex: 1;
+    order: 2;
+  }
+
+  .langDropdown {
+    width: 100%;
+    font-size: var(--text-xs);
+    padding: 6px 24px 6px 10px;
+    background-position: right 8px center;
+  }
+
+  /* Custom Sort Dropdown - Mobile */
+  .sortDropdownWrap {
+    flex: 0 0 auto;
+    order: 3;
+    width: auto;
+  }
+
+  .sortDropdown {
+    min-width: 120px;
+    padding: 6px 24px 6px 10px;
+    font-size: var(--text-xs);
+    background-position: right 8px center;
+  }
+
+  .sortMenu {
+    right: 0;
+    left: auto;
+    min-width: 120px;
   }
 
   .resultsShell {

@@ -1,190 +1,67 @@
 "use client";
 
-import { useState, useEffect, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
-import Link from "next/link";
 import Image from "next/image";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import styles from "./Navbar.module.css";
-
-interface MegaMenuItem {
-  id: string;
-  label: string;
-  href: string;
-  description?: string;
-  count?: number;
-}
 
 type BrowseMode = "programming" | "advanced";
 
 export default function Navbar() {
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
   const [scrolled, setScrolled] = useState(false);
   const [headerHidden, setHeaderHidden] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [megaMenuOpen, setMegaMenuOpen] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
-  const [discoverItems, setDiscoverItems] = useState<MegaMenuItem[]>([]);
-  const [advancedItems, setAdvancedItems] = useState<MegaMenuItem[]>([]);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const [scrollDirection, setScrollDirection] = useState<"up" | "down">("up");
-  const [scrollProgress, setScrollProgress] = useState(0);
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
 
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-      const progress = docHeight > 0 ? (currentScrollY / docHeight) * 100 : 0;
+      const currentY = window.scrollY;
+      setScrolled(currentY > 14);
 
-      setScrolled(currentScrollY > 20);
-      setScrollProgress(progress);
-
-      // Detect scroll direction
-      if (currentScrollY > lastScrollY) {
-        setScrollDirection("down");
-      } else if (currentScrollY < lastScrollY) {
-        setScrollDirection("up");
-      }
-
-      // Hide header on downward scroll, show on upward scroll (all screen sizes)
       if (mobileMenuOpen) {
         setHeaderHidden(false);
-        lastScrollY = currentScrollY;
+        lastScrollY = currentY;
         return;
       }
 
-      if (currentScrollY <= 24) {
+      if (currentY <= 16) {
         setHeaderHidden(false);
-      } else if (currentScrollY > lastScrollY + 8) {
+      } else if (currentY > lastScrollY + 8) {
         setHeaderHidden(true);
-      } else if (currentScrollY < lastScrollY - 8) {
+      } else if (currentY < lastScrollY - 8) {
         setHeaderHidden(false);
       }
 
-      lastScrollY = currentScrollY;
+      lastScrollY = currentY;
     };
 
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, [mobileMenuOpen]);
 
-  // Close user menu on outside click
   useEffect(() => {
-    const handleClick = () => setUserMenuOpen(false);
-    if (userMenuOpen) {
-      document.addEventListener("click", handleClick);
-      return () => document.removeEventListener("click", handleClick);
-    }
+    const closeUserMenu = () => setUserMenuOpen(false);
+
+    if (!userMenuOpen) return;
+
+    document.addEventListener("click", closeUserMenu);
+    return () => document.removeEventListener("click", closeUserMenu);
   }, [userMenuOpen]);
 
   useEffect(() => {
-    const handleClick = () => setMegaMenuOpen(false);
-    if (megaMenuOpen) {
-      document.addEventListener("click", handleClick);
-      return () => document.removeEventListener("click", handleClick);
-    }
-  }, [megaMenuOpen]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function fetchProfileAvatar() {
-      if (!session?.user?.id) {
-        if (active) setProfileAvatar(null);
-        return;
-      }
-
-      const sessionAvatar =
-        typeof session.user.image === "string" && session.user.image.trim().length > 0
-          ? session.user.image
-          : null;
-
-      if (sessionAvatar) {
-        if (active) setProfileAvatar(sessionAvatar);
-        return;
-      }
-
-      try {
-        const res = await fetch("/api/profile");
-        if (!res.ok) return;
-        const data = await res.json();
-        const nextAvatar =
-          data &&
-          data.user &&
-          typeof data.user.avatar === "string" &&
-          data.user.avatar.trim().length > 0
-            ? data.user.avatar
-            : null;
-
-        if (active) {
-          setProfileAvatar(nextAvatar);
-        }
-      } catch {
-        // Keep fallback avatar from session if profile fetch fails.
-      }
-    }
-
-    fetchProfileAvatar();
-    return () => {
-      active = false;
-    };
-  }, [session?.user?.id, session?.user?.image]);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadMegaMenu() {
-      try {
-        const [discoverRes, advancedRes] = await Promise.all([
-          fetch("/api/navigation/discover", { cache: "no-store" }),
-          fetch("/api/navigation/advanced-tracks", { cache: "no-store" }),
-        ]);
-
-        if (!discoverRes.ok || !advancedRes.ok) {
-          return;
-        }
-
-        const discoverPayload = (await discoverRes.json()) as {
-          items?: MegaMenuItem[];
-        };
-        const advancedPayload = (await advancedRes.json()) as {
-          items?: MegaMenuItem[];
-        };
-
-        if (!active) return;
-
-        setDiscoverItems(discoverPayload.items || []);
-        setAdvancedItems(advancedPayload.items || []);
-      } catch {
-        // Keep static fallbacks below if request fails.
-      }
-    }
-
-    loadMegaMenu();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    router.prefetch("/");
-    router.prefetch("/tracks");
-    router.prefetch("/browse");
-    router.prefetch("/tracks/library");
-  }, [router]);
-
-  useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth > 768) {
+      if (window.innerWidth > 860) {
         setMobileMenuOpen(false);
       }
     };
@@ -195,127 +72,115 @@ export default function Navbar() {
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
-    if (!window.matchMedia("(max-width: 768px)").matches) return;
 
     const previousOverflow = document.body.style.overflow;
-    const previousTouchAction = document.body.style.touchAction;
-
     document.body.style.overflow = "hidden";
-    document.body.style.touchAction = "none";
 
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.body.style.touchAction = previousTouchAction;
     };
   }, [mobileMenuOpen]);
 
-  const userRole = (session?.user as { role?: string })?.role;
-  const isDark = theme === "dark";
-  const resolvedAvatar = profileAvatar || session?.user?.image || null;
+  useEffect(() => {
+    let active = true;
 
-  const discoverFallback: MegaMenuItem[] = [
-    { id: "discover-all-notes", label: "All Notes", href: "/browse" },
-    { id: "discover-categories", label: "Categories", href: "/categories" },
-    {
-      id: "discover-featured",
-      label: "Featured Notes",
-      href: "/browse?featured=true",
-    },
-  ];
+    async function loadProfileAvatar() {
+      if (!session?.user?.id) {
+        if (active) setProfileAvatar(null);
+        return;
+      }
 
-  const advancedFallback: MegaMenuItem[] = [
-    { id: "advanced-library", label: "Open Tracks Library", href: "/tracks/library" },
-    {
-      id: "advanced-kubernetes",
-      label: "Kubernetes Notes",
-      href: "/tracks/notes?track=kubernetes",
-    },
-    {
-      id: "advanced-devops",
-      label: "DevOps Notes",
-      href: "/tracks/notes?track=devops",
-    },
-    {
-      id: "advanced-system-design",
-      label: "System Design Notes",
-      href: "/tracks/notes?track=system-design",
-    },
-  ];
+      const sessionImage =
+        typeof session.user.image === "string" && session.user.image.trim().length > 0
+          ? session.user.image
+          : null;
 
-  const discoverMenu = discoverItems.length > 0 ? discoverItems : discoverFallback;
-  const advancedMenu = advancedItems.length > 0 ? advancedItems : advancedFallback;
+      if (sessionImage) {
+        if (active) setProfileAvatar(sessionImage);
+        return;
+      }
+
+      try {
+        const response = await fetch("/api/profile");
+        if (!response.ok) return;
+
+        const payload = await response.json();
+        const avatar =
+          typeof payload?.user?.avatar === "string" && payload.user.avatar.trim().length > 0
+            ? payload.user.avatar
+            : null;
+
+        if (active) setProfileAvatar(avatar);
+      } catch {
+        // Keep initials fallback when profile fetch fails.
+      }
+    }
+
+    loadProfileAvatar();
+
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.id, session?.user?.image]);
+
   const browseModeFromQuery: BrowseMode | null =
     searchParams.get("mode") === "advanced"
       ? "advanced"
       : searchParams.get("mode") === "programming"
         ? "programming"
         : null;
+
   const browseMode: BrowseMode = pathname.startsWith("/tracks")
     ? "advanced"
     : browseModeFromQuery || "programming";
-  const uploadHref = browseMode === "advanced" ? "/upload?mode=advanced" : "/upload?mode=programming";
-  const browseModeConfig: Record<
-    BrowseMode,
-    {
-      title: string;
-      menu: MegaMenuItem[];
-      browseHref: string;
-      browseLabel: string;
-      secondaryHref: string;
-      secondaryLabel: string;
-    }
-  > = {
-    programming: {
-      title: "Programming",
-      menu: discoverMenu,
-      browseHref: "/browse",
-      browseLabel: "Browse Programming Notes",
-      secondaryHref: "/categories",
-      secondaryLabel: "Categories",
-    },
-    advanced: {
-      title: "Advanced",
-      menu: advancedMenu,
-      browseHref: "/tracks",
-      browseLabel: "Browse Advanced Notes",
-      secondaryHref: "/tracks/library",
-      secondaryLabel: "Categories",
-    },
-  };
 
-  const activeBrowseMode = browseModeConfig[browseMode];
+  const isDark = theme === "dark";
+  const userRole = (session?.user as { role?: string } | undefined)?.role;
+  const resolvedAvatar = profileAvatar || session?.user?.image || null;
+
+  const modeAwareSecondary =
+    browseMode === "advanced"
+      ? { href: "/tracks/library", label: "Library" }
+      : { href: "/categories", label: "Categories" };
+
+  const modeAwareBrowse =
+    browseMode === "advanced"
+      ? { href: "/tracks", label: "Browse Tracks" }
+      : { href: "/browse", label: "Browse Notes" };
+
+  const uploadHref =
+    browseMode === "advanced" ? "/upload?mode=advanced" : "/upload?mode=programming";
+
+  const navItems = useMemo(
+    () => [
+      { id: "browse", href: modeAwareBrowse.href, label: "Browse" },
+      { id: "secondary", href: modeAwareSecondary.href, label: modeAwareSecondary.label },
+      { id: "about", href: "/about", label: "About" },
+    ],
+    [modeAwareBrowse.href, modeAwareSecondary.href, modeAwareSecondary.label],
+  );
 
   const handleHomeLogoClick = (event: MouseEvent<HTMLAnchorElement>) => {
     setMobileMenuOpen(false);
     setUserMenuOpen(false);
-    setMegaMenuOpen(false);
 
     const isModifiedClick =
-      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
-    const isNonPrimaryClick = event.button !== 0;
+      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
 
-    // Let browser handle new-tab and modified clicks naturally.
-    if (event.defaultPrevented || isModifiedClick || isNonPrimaryClick) {
-      return;
-    }
+    if (event.defaultPrevented || isModifiedClick) return;
 
     if (pathname === "/") {
       event.preventDefault();
-      const root = document.documentElement;
-      const previousScrollBehavior = root.style.scrollBehavior;
-      root.style.scrollBehavior = "auto";
-      window.scrollTo({ top: 0, left: 0 });
-      root.style.scrollBehavior = previousScrollBehavior;
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     }
   };
 
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+
   return (
     <header
-      className={`${styles.header} ${scrolled ? styles.scrolled : ""} ${headerHidden ? styles.headerHidden : ""} ${scrollDirection === "down" ? styles.scrollingDown : styles.scrollingUp}`}
       id="main-navbar"
-      style={{ 
-        "--scroll-progress": `${scrollProgress}%` 
-      } as React.CSSProperties}
+      className={`${styles.header} ${scrolled ? styles.scrolled : ""} ${headerHidden ? styles.headerHidden : ""}`}
     >
       <nav className={styles.nav}>
         <Link href="/" className={styles.logo} id="nav-logo" onClick={handleHomeLogoClick}>
@@ -323,60 +188,22 @@ export default function Navbar() {
         </Link>
 
         <div className={styles.navLinks}>
-          <div
-            className={styles.megaMenuWrap}
-            onMouseEnter={() => setMegaMenuOpen(true)}
-            onMouseLeave={() => setMegaMenuOpen(false)}
-          >
-            <button
-              className={styles.navLink}
-              id="nav-browse"
-              onClick={(e) => {
-                e.stopPropagation();
-                setMegaMenuOpen(!megaMenuOpen);
-              }}
-              aria-expanded={megaMenuOpen}
-              aria-haspopup="menu"
+          {navItems.map((item) => (
+            <Link
+              key={item.id}
+              href={item.href}
+              id={`nav-${item.id}`}
+              className={`${styles.navLink} ${pathname.startsWith(item.href) ? styles.navLinkActive : ""}`}
             >
-              Browse
-            </button>
+              {item.label}
+            </Link>
+          ))}
 
-            {megaMenuOpen && (
-              <div className={styles.megaMenu} role="menu">
-                <div className={styles.megaMenuInner}>
-                  <div className={styles.megaColumn}>
-                    <p className={styles.megaTitle}>{activeBrowseMode.title}</p>
-                    <div className={styles.megaList}>
-                      {activeBrowseMode.menu.map((item) => (
-                        <Link key={item.id} href={item.href} className={styles.megaItem}>
-                          <span>{item.label}</span>
-                          {typeof item.count === "number" ? (
-                            <span className={styles.megaItemCount}>{item.count}</span>
-                          ) : null}
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          <Link
-            href={activeBrowseMode.secondaryHref}
-            className={`${styles.navLink} ${styles.modeAwareLink}`}
-            id={browseMode === "advanced" ? "nav-tracks" : "nav-categories"}
-          >
-            {activeBrowseMode.secondaryLabel}
-          </Link>
           <div className={styles.modeToggle} role="group" aria-label="Browse mode toggle">
             <Link
               href="/"
               className={`${styles.modeToggleBtn} ${browseMode === "programming" ? styles.modeToggleBtnActive : ""}`}
-              id="nav-mode-programming"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                setMegaMenuOpen(false);
-              }}
+              onClick={closeMobileMenu}
               aria-current={browseMode === "programming" ? "page" : undefined}
             >
               Programming
@@ -384,90 +211,39 @@ export default function Navbar() {
             <Link
               href="/tracks"
               className={`${styles.modeToggleBtn} ${browseMode === "advanced" ? styles.modeToggleBtnActive : ""}`}
-              id="nav-mode-advanced"
-              onClick={() => {
-                setMobileMenuOpen(false);
-                setMegaMenuOpen(false);
-              }}
+              onClick={closeMobileMenu}
               aria-current={browseMode === "advanced" ? "page" : undefined}
             >
               Advanced
             </Link>
           </div>
-          <Link href="/about" className={styles.navLink} id="nav-about">
-            About
-          </Link>
-
-          {/* Search Bar - Expandable */}
-          <div className={`${styles.searchBar} ${searchOpen ? styles.searchBarOpen : ""}`}>
-            <button
-              className={styles.searchButton}
-              onClick={() => setSearchOpen(!searchOpen)}
-              aria-label="Search"
-              id="nav-search"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.35-4.35" />
-              </svg>
-            </button>
-            {searchOpen && (
-              <input
-                type="text"
-                placeholder="Search..."
-                className={styles.searchInput}
-                autoFocus
-                onBlur={() => setSearchOpen(false)}
-              />
-            )}
-          </div>
         </div>
 
         <div className={styles.navActions}>
-          <Link
-            href={uploadHref}
-            className={`btn btn-primary btn-sm ${styles.uploadBtn}`}
-            id="nav-upload"
+          <button
+            className={styles.themeToggle}
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            aria-label="Toggle theme"
+            id="theme-toggle"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
+            {isDark ? "Light" : "Dark"}
+          </button>
+
+          <Link href={uploadHref} className={`btn btn-primary btn-sm ${styles.uploadBtn}`} id="nav-upload">
             Upload
           </Link>
 
-          {status === "loading" ? (
-            <div className={styles.userMenu} aria-hidden="true">
-              <div className={`${styles.userAvatar} ${styles.userAvatarLoading}`} />
-            </div>
-          ) : session?.user ? (
+          {session?.user ? (
             <div className={styles.userMenu}>
               <button
                 className={styles.userAvatar}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setUserMenuOpen(!userMenuOpen);
-                }}
                 id="nav-user-menu"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setUserMenuOpen((open) => !open);
+                }}
+                aria-expanded={userMenuOpen}
+                aria-haspopup="menu"
               >
                 {resolvedAvatar ? (
                   <Image
@@ -482,16 +258,14 @@ export default function Navbar() {
                   session.user.name?.charAt(0).toUpperCase() || "U"
                 )}
               </button>
-              {userMenuOpen && (
-                <div className={styles.dropdown}>
+
+              {userMenuOpen ? (
+                <div className={styles.dropdown} role="menu">
                   <div className={styles.dropdownHeader}>
-                    <span className={styles.dropdownName}>
-                      {session.user.name}
-                    </span>
-                    <span className={styles.dropdownEmail}>
-                      {session.user.email}
-                    </span>
+                    <span className={styles.dropdownName}>{session.user.name}</span>
+                    <span className={styles.dropdownEmail}>{session.user.email}</span>
                   </div>
+
                   <div className={styles.dropdownDivider} />
                   <Link href="/profile" className={styles.dropdownItem}>
                     My Profile
@@ -499,42 +273,19 @@ export default function Navbar() {
                   <Link href="/profile?tab=bookmarks" className={styles.dropdownItem}>
                     Bookmarks
                   </Link>
-                  {userRole === "admin" && (
+                  {userRole === "admin" ? (
                     <Link href="/admin" className={styles.dropdownItem}>
                       Admin Dashboard
                     </Link>
-                  )}
-                  <div className={styles.dropdownDivider} />
+                  ) : null}
 
-                  {/* ── Theme Toggle (inside dropdown) ── */}
+                  <div className={styles.dropdownDivider} />
                   <button
-                    className={`${styles.dropdownItem} ${styles.themeRow}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setTheme(isDark ? "light" : "dark");
-                    }}
-                    id="theme-toggle"
+                    className={styles.dropdownItem}
+                    onClick={() => setTheme(isDark ? "light" : "dark")}
                   >
-                    <span className={styles.themeLabel}>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="12" cy="12" r="5" />
-                        <line x1="12" y1="1" x2="12" y2="3" />
-                        <line x1="12" y1="21" x2="12" y2="23" />
-                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                        <line x1="1" y1="12" x2="3" y2="12" />
-                        <line x1="21" y1="12" x2="23" y2="12" />
-                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                      </svg>
-                      Toggle Theme
-                    </span>
-                    <span className={styles.themeToggleTrack} data-active={isDark ? "false" : "true"}>
-                      <span className={styles.themeToggleThumb} />
-                    </span>
+                    Toggle Theme
                   </button>
-
-                  <div className={styles.dropdownDivider} />
                   <button
                     className={styles.dropdownItem}
                     onClick={() => signOut({ callbackUrl: "/" })}
@@ -542,14 +293,10 @@ export default function Navbar() {
                     Sign Out
                   </button>
                 </div>
-              )}
+              ) : null}
             </div>
           ) : (
-            <Link
-              href="/login"
-              className={`btn btn-ghost btn-sm ${styles.loginBtn}`}
-              id="nav-login"
-            >
+            <Link href="/login" className={`btn btn-ghost btn-sm ${styles.loginBtn}`} id="nav-login">
               Sign In
             </Link>
           )}
@@ -557,113 +304,100 @@ export default function Navbar() {
 
         <button
           className={styles.mobileToggle}
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          aria-label="Toggle mobile menu"
           id="nav-mobile-toggle"
+          onClick={() => setMobileMenuOpen((open) => !open)}
+          aria-label={mobileMenuOpen ? "Close mobile menu" : "Open mobile menu"}
+          aria-expanded={mobileMenuOpen}
         >
-          <span
-            className={`${styles.hamburger} ${mobileMenuOpen ? styles.open : ""}`}
-          />
+          <span className={`${styles.hamburger} ${mobileMenuOpen ? styles.open : ""}`} />
         </button>
       </nav>
 
-      {/* Mobile Menu */}
-      <div
-        className={`${styles.mobileMenu} ${mobileMenuOpen ? styles.mobileMenuOpen : ""}`}
-      >
-        <div className={`${styles.modeToggle} ${styles.mobileModeToggle}`} role="group" aria-label="Browse mode toggle">
-          <Link
-            href="/"
-            className={`${styles.modeToggleBtn} ${browseMode === "programming" ? styles.modeToggleBtnActive : ""}`}
-            onClick={() => {
-              setMobileMenuOpen(false);
-              setMegaMenuOpen(false);
-            }}
-            aria-current={browseMode === "programming" ? "page" : undefined}
+      <div className={`${styles.mobileMenu} ${mobileMenuOpen ? styles.mobileMenuOpen : ""}`}>
+        <div className={styles.mobilePanelHeader}>
+          <span className={styles.mobilePanelTitle}>Navigation</span>
+          <button
+            className={styles.mobileClose}
+            onClick={closeMobileMenu}
+            aria-label="Close menu"
           >
-            Programming
-          </Link>
-          <Link
-            href="/tracks"
-            className={`${styles.modeToggleBtn} ${browseMode === "advanced" ? styles.modeToggleBtnActive : ""}`}
-            onClick={() => {
-              setMobileMenuOpen(false);
-              setMegaMenuOpen(false);
-            }}
-            aria-current={browseMode === "advanced" ? "page" : undefined}
-          >
-            Advanced
-          </Link>
+            x
+          </button>
         </div>
-        <Link
-          href={activeBrowseMode.browseHref}
-          className={styles.mobileLink}
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          {activeBrowseMode.browseLabel}
-        </Link>
-        <Link
-          href={activeBrowseMode.secondaryHref}
-          className={styles.mobileLink}
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          {activeBrowseMode.secondaryLabel}
-        </Link>
-        <Link
-          href="/about"
-          className={styles.mobileLink}
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          About
-        </Link>
-        <div className={styles.mobileDivider} />
 
-        {/* Mobile theme toggle */}
-        <button
-          className={styles.mobileLink}
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-        >
-          Toggle Theme
-        </button>
-
-        <div className={styles.mobileDivider} />
-        <Link
-          href={uploadHref}
-          className={`btn btn-primary ${styles.mobileUpload}`}
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          Upload Notes
-        </Link>
-        {status === "loading" ? (
-          <div className={styles.mobileDivider} />
-        ) : session?.user ? (
-          <>
+        <div className={styles.mobileBody}>
+          <div className={styles.modeToggle} role="group" aria-label="Browse mode toggle">
             <Link
-              href="/profile"
-              className={`btn btn-secondary ${styles.mobileLogin}`}
-              onClick={() => setMobileMenuOpen(false)}
+              href="/"
+              className={`${styles.modeToggleBtn} ${browseMode === "programming" ? styles.modeToggleBtnActive : ""}`}
+              onClick={closeMobileMenu}
             >
-              My Profile
+              Programming
             </Link>
-            <button
-              className={`btn btn-ghost ${styles.mobileLogin}`}
-              onClick={() => {
-                setMobileMenuOpen(false);
-                signOut({ callbackUrl: "/" });
-              }}
+            <Link
+              href="/tracks"
+              className={`${styles.modeToggleBtn} ${browseMode === "advanced" ? styles.modeToggleBtnActive : ""}`}
+              onClick={closeMobileMenu}
             >
-              Sign Out
-            </button>
-          </>
-        ) : (
-          <Link
-            href="/login"
-            className={`btn btn-secondary ${styles.mobileLogin}`}
-            onClick={() => setMobileMenuOpen(false)}
+              Advanced
+            </Link>
+          </div>
+
+          {navItems.map((item) => (
+            <Link
+              key={`mobile-${item.id}`}
+              href={item.href}
+              className={styles.mobileLink}
+              onClick={closeMobileMenu}
+            >
+              {item.label}
+            </Link>
+          ))}
+
+          <button
+            className={styles.mobileLink}
+            onClick={() => setTheme(isDark ? "light" : "dark")}
           >
-            Sign In
+            Toggle Theme
+          </button>
+
+          <Link
+            href={uploadHref}
+            className={`btn btn-primary ${styles.mobileUpload}`}
+            onClick={closeMobileMenu}
+          >
+            Upload Notes
           </Link>
-        )}
+
+          {session?.user ? (
+            <>
+              <Link
+                href="/profile"
+                className={`btn btn-secondary ${styles.mobileAuthBtn}`}
+                onClick={closeMobileMenu}
+              >
+                My Profile
+              </Link>
+              <button
+                className={`btn btn-ghost ${styles.mobileAuthBtn}`}
+                onClick={() => {
+                  closeMobileMenu();
+                  signOut({ callbackUrl: "/" });
+                }}
+              >
+                Sign Out
+              </button>
+            </>
+          ) : (
+            <Link
+              href="/login"
+              className={`btn btn-secondary ${styles.mobileAuthBtn}`}
+              onClick={closeMobileMenu}
+            >
+              Sign In
+            </Link>
+          )}
+        </div>
       </div>
     </header>
   );

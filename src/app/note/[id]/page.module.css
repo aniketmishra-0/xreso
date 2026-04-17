@@ -464,6 +464,63 @@
   }
 }
 
+/* ── Mobile PDF Viewer ───────────────────── */
+.viewerMobilePdf {
+  width: 100%;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-md);
+  background: linear-gradient(145deg, var(--bg-elevated), var(--bg-surface));
+  text-align: center;
+  padding: var(--space-xl) var(--space-lg);
+}
+
+.mobilePdfIcon {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05));
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ef4444;
+  margin-bottom: var(--space-sm);
+}
+
+.mobilePdfTitle {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--text-primary);
+  max-width: 280px;
+  line-height: var(--leading-snug);
+}
+
+.mobilePdfHint {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  max-width: 260px;
+  line-height: var(--leading-relaxed);
+}
+
+.mobilePdfActions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: 100%;
+  max-width: 260px;
+  margin-top: var(--space-sm);
+}
+
+.mobilePdfActions :global(.btn) {
+  width: 100%;
+  justify-content: center;
+  gap: var(--space-sm);
+}
+
 @media (max-width: 768px) {
   .page {
     padding-top: calc(var(--nav-height) + var(--space-lg));
@@ -503,6 +560,26 @@
     flex: 1 1 calc(50% - var(--space-sm));
     justify-content: center;
   }
+
+  /* Make image viewer taller on mobile for better visibility */
+  .viewerImage {
+    aspect-ratio: 3 / 4;
+    touch-action: none;
+  }
+
+  .viewerPdf {
+    aspect-ratio: 3 / 4;
+    min-height: 60vh;
+  }
+
+  .viewerMobilePdf {
+    min-height: 50vh;
+  }
+
+  .viewerLink {
+    aspect-ratio: auto;
+    min-height: 280px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -519,4 +596,13 @@
     flex-wrap: wrap;
     font-size: var(--text-xs);
   }
+
+  .viewerImage {
+    aspect-ratio: 9 / 16;
+  }
+
+  .mobilePdfTitle {
+    font-size: var(--text-base);
+  }
 }
+

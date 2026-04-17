@@ -32,14 +32,27 @@ export default function Navbar() {
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [discoverItems, setDiscoverItems] = useState<MegaMenuItem[]>([]);
   const [advancedItems, setAdvancedItems] = useState<MegaMenuItem[]>([]);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [scrollDirection, setScrollDirection] = useState<"up" | "down">("up");
+  const [scrollProgress, setScrollProgress] = useState(0);
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
 
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = docHeight > 0 ? (currentScrollY / docHeight) * 100 : 0;
 
       setScrolled(currentScrollY > 20);
+      setScrollProgress(progress);
+
+      // Detect scroll direction
+      if (currentScrollY > lastScrollY) {
+        setScrollDirection("down");
+      } else if (currentScrollY < lastScrollY) {
+        setScrollDirection("up");
+      }
 
       // Hide header on downward scroll, show on upward scroll (all screen sizes)
       if (mobileMenuOpen) {
@@ -298,8 +311,11 @@ export default function Navbar() {
 
   return (
     <header
-      className={`${styles.header} ${scrolled ? styles.scrolled : ""} ${headerHidden ? styles.headerHidden : ""}`}
+      className={`${styles.header} ${scrolled ? styles.scrolled : ""} ${headerHidden ? styles.headerHidden : ""} ${scrollDirection === "down" ? styles.scrollingDown : styles.scrollingUp}`}
       id="main-navbar"
+      style={{ 
+        "--scroll-progress": `${scrollProgress}%` 
+      } as React.CSSProperties}
     >
       <nav className={styles.nav}>
         <Link href="/" className={styles.logo} id="nav-logo" onClick={handleHomeLogoClick}>
@@ -381,6 +397,39 @@ export default function Navbar() {
           <Link href="/about" className={styles.navLink} id="nav-about">
             About
           </Link>
+
+          {/* Search Bar - Expandable */}
+          <div className={`${styles.searchBar} ${searchOpen ? styles.searchBarOpen : ""}`}>
+            <button
+              className={styles.searchButton}
+              onClick={() => setSearchOpen(!searchOpen)}
+              aria-label="Search"
+              id="nav-search"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.35-4.35" />
+              </svg>
+            </button>
+            {searchOpen && (
+              <input
+                type="text"
+                placeholder="Search..."
+                className={styles.searchInput}
+                autoFocus
+                onBlur={() => setSearchOpen(false)}
+              />
+            )}
+          </div>
         </div>
 
         <div className={styles.navActions}>

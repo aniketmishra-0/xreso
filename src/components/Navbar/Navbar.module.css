@@ -706,3 +706,373 @@
     min-height: 44px;
   }
 }
+
+/* ============================================
+   ENHANCED FEATURES — Animations & Effects
+   ============================================ */
+
+/* 1. Animated scroll progress bar */
+.header::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: var(--scroll-progress, 0%);
+  height: 2px;
+  background: linear-gradient(90deg, var(--primary), var(--accent-orange));
+  transition: width 100ms linear;
+  opacity: 0;
+}
+
+.header.scrolled::after {
+  opacity: 1;
+}
+
+/* 2. Scale & Fade animation on scroll */
+.header.scrollingDown {
+  --wave-depth: 8px;
+}
+
+.header.scrollingUp {
+  --wave-depth: 12px;
+}
+
+/* 3. Enhanced glow effects */
+.header.scrolled {
+  box-shadow:
+    0 0 1px rgba(139, 92, 246, 0.2),
+    0 8px 32px rgba(139, 92, 246, 0.1),
+    0 0 20px rgba(139, 92, 246, 0.05),
+    inset 0 1px 0 rgba(139, 92, 246, 0.15);
+}
+
+/* 4. Improved wave shape dynamically */
+@supports (clip-path: polygon(0 0)) {
+  .header.scrollingUp {
+    clip-path: polygon(
+      0% 0%,
+      0% 80%,
+      0% 80%,
+      3% 84%,
+      6% 87%,
+      10% 89%,
+      15% 91%,
+      20% 92%,
+      25% 94%,
+      30% 93%,
+      35% 91%,
+      40% 89%,
+      45% 87%,
+      50% 85%,
+      55% 87%,
+      60% 89%,
+      65% 91%,
+      70% 93%,
+      75% 94%,
+      80% 92%,
+      85% 91%,
+      90% 89%,
+      94% 87%,
+      97% 84%,
+      100% 80%,
+      100% 80%,
+      100% 0%
+    );
+  }
+}
+
+/* 5. Staggered nav link hover animations */
+.navLink {
+  position: relative;
+  overflow: hidden;
+}
+
+.navLink::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.1), transparent);
+  transition: left 600ms ease;
+}
+
+.navLink:hover::before {
+  left: 100%;
+}
+
+.navLink:hover {
+  color: var(--primary-light);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.04));
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.15);
+  transform: translateY(-1px);
+}
+
+/* 6. Active link highlighting */
+.navLink[aria-current="page"],
+.mobileLink[aria-current="page"] {
+  color: var(--primary);
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 var(--primary);
+  animation: activeLink 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes activeLink {
+  0% {
+    transform: scaleY(0);
+  }
+  100% {
+    transform: scaleY(1);
+  }
+}
+
+/* 7. Search bar expand animation */
+.searchBar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: var(--space-xs);
+}
+
+.searchButton {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.searchButton:hover {
+  color: var(--primary-light);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.04));
+  transform: scale(1.05);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.15);
+}
+
+.searchInput {
+  width: 0;
+  height: 36px;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  outline: none;
+  transition: width 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.searchBarOpen .searchInput {
+  width: 180px;
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--primary);
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.04));
+  border-radius: var(--radius-sm);
+}
+
+/* 8. Badge animations */
+.megaItemCount {
+  animation: badgePulse 2s ease-in-out infinite;
+}
+
+@keyframes badgePulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+/* 9. Enhanced hamburger animation */
+.hamburger {
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hamburger.open {
+  animation: hamburgerSpin 400ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes hamburgerSpin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 10. Mobile menu staggered animation */
+.mobileLink {
+  animation: slideIn 400ms cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+
+.mobileLink:nth-child(1) { animation-delay: 0ms; }
+.mobileLink:nth-child(2) { animation-delay: 50ms; }
+.mobileLink:nth-child(3) { animation-delay: 100ms; }
+.mobileLink:nth-child(4) { animation-delay: 150ms; }
+.mobileLink:nth-child(5) { animation-delay: 200ms; }
+.mobileLink:nth-child(6) { animation-delay: 250ms; }
+.mobileLink:nth-child(7) { animation-delay: 300ms; }
+.mobileLink:nth-child(8) { animation-delay: 350ms; }
+.mobileLink:nth-child(9) { animation-delay: 400ms; }
+.mobileLink:nth-child(10) { animation-delay: 450ms; }
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 11. Upload button glow */
+.uploadBtn {
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-fast);
+}
+
+.uploadBtn::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.uploadBtn:hover::before {
+  opacity: 1;
+}
+
+.uploadBtn:hover {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+  transform: translateY(-2px);
+}
+
+/* 12. Enhanced user avatar hover */
+.userAvatar {
+  position: relative;
+}
+
+.userAvatar::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: linear-gradient(45deg, var(--primary), var(--accent-orange), var(--primary));
+  opacity: 0;
+  transition: opacity 300ms ease;
+  z-index: -1;
+}
+
+.userAvatar:hover::after {
+  opacity: 1;
+  animation: gradientShift 2s ease infinite;
+}
+
+@keyframes gradientShift {
+  0%, 100% {
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    filter: hue-rotate(30deg);
+  }
+}
+
+/* 13. Gradient background transition */
+.header {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--bg-primary) 65%, transparent) 0%,
+    color-mix(in srgb, var(--bg-primary) 60%, transparent) 100%
+  );
+}
+
+.header.scrolled {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--bg-primary) 78%, transparent) 0%,
+    color-mix(in srgb, var(--bg-primary) 72%, transparent) 100%
+  );
+}
+
+/* 14. Enhanced modal/mega menu animation */
+.megaMenuInner {
+  animation: menuSlideIn 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes menuSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 15. Tooltip-like effect on link hover */
+.navLink {
+  position: relative;
+}
+
+/* 16. Mobile responsiveness improvements */
+@media (max-width: 640px) {
+  .searchBar {
+    margin-left: 0;
+  }
+
+  .searchBarOpen .searchInput {
+    width: 140px;
+  }
+
+  .navLink {
+    padding: 6px 12px;
+    font-size: var(--text-xs);
+  }
+
+  .header {
+    padding: 0 var(--space-md);
+  }
+
+  .mobileLink {
+    padding: var(--space-md) var(--space-sm);
+    font-size: var(--text-base);
+  }
+
+  .mobileMenu {
+    padding: var(--space-lg) var(--space-md);
+  }
+}
+
+/* Enhanced blur on scroll for better readability */
+.header.scrolled {
+  backdrop-filter: blur(32px) saturate(180%);
+  -webkit-backdrop-filter: blur(32px) saturate(180%);
+}
+
+/* Smooth color transitions */
+.navLink,
+.navLink::before,
+.modeToggleBtn,
+.megaItem,
+.uploadBtn {
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}

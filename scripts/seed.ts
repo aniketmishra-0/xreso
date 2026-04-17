@@ -1,14 +1,11 @@
-import Database from "better-sqlite3";
+import { createClient } from "@libsql/client";
 import { hashSync } from "bcryptjs";
 import { randomBytes } from "crypto";
 import { config as loadEnv } from "dotenv";
 import { v4 as uuidv4 } from "uuid";
-import path from "path";
 
 loadEnv({ path: ".env.local" });
 loadEnv();
-
-const DB_PATH = path.join(process.cwd(), "xreso.db");
 
 function resolveSeedPassword(envName: "SEED_ADMIN_PASSWORD" | "SEED_USER_PASSWORD") {
   const configured = process.env[envName]?.trim();
@@ -23,14 +20,20 @@ function resolveSeedPassword(envName: "SEED_ADMIN_PASSWORD" | "SEED_USER_PASSWOR
 }
 
 async function seed() {
-  console.log("🌱 Seeding xreso database...\n");
+  console.log("🌱 Seeding xreso database (Turso)...\n");
 
-  const db = new Database(DB_PATH);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured. Set it in .env.local");
+  }
+
+  const client = createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
 
   // ── Create Tables ─────────────────────────
-  db.exec(`
+  await client.executeMultiple(`
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -67,6 +70,7 @@ async function seed() {
       file_name TEXT NOT NULL,
       file_type TEXT NOT NULL,
       file_size_bytes INTEGER NOT NULL DEFAULT 0,
+      drive_item_id TEXT,
       source_url TEXT,
       license_type TEXT NOT NULL DEFAULT 'CC-BY-4.0',
       status TEXT NOT NULL DEFAULT 'pending',
@@ -167,21 +171,7 @@ async function seed() {
     CREATE INDEX IF NOT EXISTS idx_advanced_track_topics_track_id ON advanced_track_topics(track_id);
     CREATE INDEX IF NOT EXISTS idx_advanced_track_resources_track_id ON advanced_track_resources(track_id);
     CREATE INDEX IF NOT EXISTS idx_advanced_track_resources_status ON advanced_track_resources(status);
-
-    CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(title, description, tags, content='');
   `);
-
-  // Keep seed compatible with pre-premium local DBs.
-  try {
-    db.exec("ALTER TABLE users ADD COLUMN premium_access INTEGER NOT NULL DEFAULT 0;");
-  } catch {
-    // Column already exists.
-  }
-  try {
-    db.exec("ALTER TABLE users ADD COLUMN premium_expires_at TEXT;");
-  } catch {
-    // Column already exists.
-  }
 
   console.log("✅ Tables created\n");
 
@@ -194,39 +184,20 @@ async function seed() {
 
   const premiumTrialEndsAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  const insertUser = db.prepare(
-    "INSERT OR IGNORE INTO users (id, name, email, password, role, bio, premium_access, premium_expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-  );
-  insertUser.run(
-    adminId,
-    "Admin",
-    "admin@xreso.dev",
-    hashSync(adminSeedPassword.value, 12),
-    "admin",
-    "Platform administrator",
-    1,
-    null
-  );
-  insertUser.run(
-    userId1,
-    "Priya Sharma",
-    "priya@example.com",
-    hashSync(userSeedPassword.value, 12),
-    "user",
-    "CS student and note enthusiast",
-    1,
-    premiumTrialEndsAt
-  );
-  insertUser.run(
-    userId2,
-    "Rahul Dev",
-    "rahul@example.com",
-    hashSync(userSeedPassword.value, 12),
-    "user",
-    "Full-stack developer",
-    0,
-    null
-  );
+  const userInsertSql = "INSERT OR IGNORE INTO users (id, name, email, password, role, bio, premium_access, premium_expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+
+  await client.execute({
+    sql: userInsertSql,
+    args: [adminId, "Admin", "admin@xreso.dev", hashSync(adminSeedPassword.value, 12), "admin", "Platform administrator", 1, null],
+  });
+  await client.execute({
+    sql: userInsertSql,
+    args: [userId1, "Priya Sharma", "priya@example.com", hashSync(userSeedPassword.value, 12), "user", "CS student and note enthusiast", 1, premiumTrialEndsAt],
+  });
+  await client.execute({
+    sql: userInsertSql,
+    args: [userId2, "Rahul Dev", "rahul@example.com", hashSync(userSeedPassword.value, 12), "user", "Full-stack developer", 0, null],
+  });
   console.log("✅ Seeded 3 users");
 
   if (adminSeedPassword.source === "generated") {
@@ -237,9 +208,6 @@ async function seed() {
   }
 
   // ── Categories ─────────────────────────────
-  const insertCat = db.prepare(
-    "INSERT OR IGNORE INTO categories (name, slug, description, icon, gradient) VALUES (?, ?, ?, ?, ?)"
-  );
   const cats = [
     ["Python", "python", "Python programming notes", "🐍", "linear-gradient(135deg, #3776AB, #FFD43B)"],
     ["JavaScript", "javascript", "JavaScript & TypeScript notes", "⚡", "linear-gradient(135deg, #F7DF1E, #323330)"],
@@ -251,11 +219,16 @@ async function seed() {
     ["DevOps", "devops", "DevOps and CI/CD", "🐳", "linear-gradient(135deg, #2496ED, #326CE5)"],
     ["Other", "other", "Miscellaneous notes", "📝", "linear-gradient(135deg, #667eea, #764ba2)"],
   ];
-  for (const c of cats) insertCat.run(...c);
+
+  for (const c of cats) {
+    await client.execute({
+      sql: "INSERT OR IGNORE INTO categories (name, slug, description, icon, gradient) VALUES (?, ?, ?, ?, ?)",
+      args: c,
+    });
+  }
   console.log("✅ Seeded 9 categories");
 
   // ── Tags ───────────────────────────────────
-  const insertTag = db.prepare("INSERT OR IGNORE INTO tags (name, slug) VALUES (?, ?)");
   const tagNames = [
     "beginner", "intermediate", "advanced", "loops", "functions", "oop",
     "arrays", "strings", "recursion", "sorting", "searching", "trees",
@@ -264,17 +237,26 @@ async function seed() {
     "kubernetes", "ci-cd", "linux", "pointers", "memory", "data-types",
     "variables", "algorithms", "patterns", "optimization",
   ];
-  for (const t of tagNames) insertTag.run(t, t);
+
+  for (const t of tagNames) {
+    await client.execute({
+      sql: "INSERT OR IGNORE INTO tags (name, slug) VALUES (?, ?)",
+      args: [t, t],
+    });
+  }
   console.log(`✅ Seeded ${tagNames.length} tags`);
 
   // ── Sample Notes ───────────────────────────
+  const catResult = await client.execute("SELECT id, slug FROM categories");
   const catMap: Record<string, number> = {};
-  for (const row of db.prepare("SELECT id, slug FROM categories").all() as { id: number; slug: string }[]) {
-    catMap[row.slug] = row.id;
+  for (const row of catResult.rows) {
+    catMap[String(row.slug)] = Number(row.id);
   }
+
+  const tagResult = await client.execute("SELECT id, slug FROM tags");
   const tagMap: Record<string, number> = {};
-  for (const row of db.prepare("SELECT id, slug FROM tags").all() as { id: number; slug: string }[]) {
-    tagMap[row.slug] = row.id;
+  for (const row of tagResult.rows) {
+    tagMap[String(row.slug)] = Number(row.id);
   }
 
   const sampleNotes = [
@@ -288,60 +270,60 @@ async function seed() {
     { title: "Docker Essentials for Developers", desc: "Dockerfile, docker-compose, volumes, networks — everything you need to containerize apps.", cat: "devops", author: userId2, tags: ["docker", "beginner"] },
   ];
 
-  const insertNote = db.prepare(`INSERT OR IGNORE INTO notes (id, title, description, category_id, author_id, author_credit, thumbnail_url, file_url, file_name, file_type, file_size_bytes, license_type, status, featured, view_count, bookmark_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-  const insertNoteTag = db.prepare("INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)");
-  const insertFts = db.prepare("INSERT INTO notes_fts(rowid, title, description, tags) VALUES (?, ?, ?, ?)");
-
   for (let i = 0; i < sampleNotes.length; i++) {
     const n = sampleNotes[i];
     const noteId = uuidv4();
     const credit = n.author === userId1 ? "Priya Sharma" : "Rahul Dev";
     const status = i === 7 ? "pending" : "approved";
 
-    insertNote.run(noteId, n.title, n.desc, catMap[n.cat], n.author, credit,
-      `/placeholder-thumb-${(i % 4) + 1}.png`, `/placeholder-note-${(i % 4) + 1}.png`,
-      `note-${i + 1}.png`, "image/png", Math.floor(Math.random() * 3000000) + 500000,
-      "CC-BY-4.0", status, i < 4 ? 1 : 0,
-      Math.floor(Math.random() * 500) + 50, Math.floor(Math.random() * 50) + 5);
+    await client.execute({
+      sql: `INSERT OR IGNORE INTO notes (id, title, description, category_id, author_id, author_credit, thumbnail_url, file_url, file_name, file_type, file_size_bytes, license_type, status, featured, view_count, bookmark_count)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      args: [
+        noteId, n.title, n.desc, catMap[n.cat], n.author, credit,
+        `/placeholder-thumb-${(i % 4) + 1}.png`, `/placeholder-note-${(i % 4) + 1}.png`,
+        `note-${i + 1}.png`, "image/png", Math.floor(Math.random() * 3000000) + 500000,
+        "CC-BY-4.0", status, i < 4 ? 1 : 0,
+        Math.floor(Math.random() * 500) + 50, Math.floor(Math.random() * 50) + 5,
+      ],
+    });
 
     for (const t of n.tags) {
-      if (tagMap[t]) insertNoteTag.run(noteId, tagMap[t]);
-    }
-
-    if (status === "approved") {
-      const rowid = (db.prepare("SELECT rowid FROM notes WHERE id = ?").get(noteId) as { rowid: number })?.rowid;
-      if (rowid) insertFts.run(rowid, n.title, n.desc, n.tags.join(" "));
+      if (tagMap[t]) {
+        await client.execute({
+          sql: "INSERT OR IGNORE INTO note_tags (note_id, tag_id) VALUES (?, ?)",
+          args: [noteId, tagMap[t]],
+        });
+      }
     }
   }
   console.log(`✅ Seeded ${sampleNotes.length} notes`);
 
   // Update category counts
-  db.exec(`UPDATE categories SET note_count = (SELECT COUNT(*) FROM notes WHERE notes.category_id = categories.id AND notes.status = 'approved')`);
+  await client.execute(
+    `UPDATE categories SET note_count = (SELECT COUNT(*) FROM notes WHERE notes.category_id = categories.id AND notes.status = 'approved')`
+  );
 
-  // ── Advanced Tracks Module (separate from notes) ─────
+  // ── Advanced Tracks Module ─────────────────
   const advancedTracks = [
     ["kubernetes", "Kubernetes", "Container orchestration, production scaling, and cluster operations.", 0],
     ["devops", "DevOps", "Automation, CI/CD, infrastructure, and delivery reliability.", 1],
     ["system-design", "System Design", "Scalable architecture patterns and system tradeoffs.", 2],
   ] as const;
 
-  const insertAdvancedTrack = db.prepare(
-    `INSERT OR IGNORE INTO advanced_tracks (slug, name, description, premium, status, sort_order)
-     VALUES (?, ?, ?, 1, 'active', ?)`
-  );
+  for (const track of advancedTracks) {
+    await client.execute({
+      sql: `INSERT OR IGNORE INTO advanced_tracks (slug, name, description, premium, status, sort_order)
+            VALUES (?, ?, ?, 1, 'active', ?)`,
+      args: [track[0], track[1], track[2], track[3]],
+    });
+  }
 
-  advancedTracks.forEach((track) => {
-    insertAdvancedTrack.run(track[0], track[1], track[2], track[3]);
-  });
-
+  const advancedTrackResult = await client.execute("SELECT id, slug FROM advanced_tracks");
   const advancedTrackMap: Record<string, number> = {};
-  const advancedTrackRows = db.prepare("SELECT id, slug FROM advanced_tracks").all() as {
-    id: number;
-    slug: string;
-  }[];
-  advancedTrackRows.forEach((row) => {
-    advancedTrackMap[row.slug] = row.id;
-  });
+  for (const row of advancedTrackResult.rows) {
+    advancedTrackMap[String(row.slug)] = Number(row.id);
+  }
 
   const advancedTopics = [
     ["kubernetes", "k8s-fundamentals", "Cluster Fundamentals", "Pods, deployments, and rollout strategy.", "Beginner", 0],
@@ -352,36 +334,22 @@ async function seed() {
     ["system-design", "resilience-observability", "Reliability and Observability", "SLIs, alerts, and resilience engineering.", "Advanced", 1],
   ] as const;
 
-  const insertAdvancedTopic = db.prepare(
-    `INSERT OR IGNORE INTO advanced_track_topics
-      (track_id, slug, name, description, level, sort_order)
-     VALUES (?, ?, ?, ?, ?, ?)`
-  );
-
-  advancedTopics.forEach((topic) => {
+  for (const topic of advancedTopics) {
     const trackId = advancedTrackMap[topic[0]];
-    if (!trackId) return;
-    insertAdvancedTopic.run(trackId, topic[1], topic[2], topic[3], topic[4], topic[5]);
-  });
+    if (!trackId) continue;
+    await client.execute({
+      sql: `INSERT OR IGNORE INTO advanced_track_topics
+              (track_id, slug, name, description, level, sort_order)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [trackId, topic[1], topic[2], topic[3], topic[4], topic[5]],
+    });
+  }
 
+  const topicResult = await client.execute("SELECT id, slug FROM advanced_track_topics");
   const topicMap: Record<string, number> = {};
-  const topicRows = db.prepare("SELECT id, slug FROM advanced_track_topics").all() as {
-    id: number;
-    slug: string;
-  }[];
-  topicRows.forEach((row) => {
-    topicMap[row.slug] = row.id;
-  });
-
-  const insertAdvancedResource = db.prepare(
-    `INSERT OR IGNORE INTO advanced_track_resources
-      (id, track_id, topic_id, author_id, title, summary, resource_type, content_url, thumbnail_url, premium_only, featured, status, view_count, save_count)
-     VALUES (?, ?, ?, ?, ?, ?, 'link', ?, ?, 1, ?, ?, ?, ?)`
-  );
-
-  const insertAdvancedResourceTag = db.prepare(
-    "INSERT OR IGNORE INTO advanced_track_resource_tags (resource_id, tag) VALUES (?, ?)"
-  );
+  for (const row of topicResult.rows) {
+    topicMap[String(row.slug)] = Number(row.id);
+  }
 
   const sampleAdvancedResources = [
     {
@@ -412,37 +380,35 @@ async function seed() {
     },
   ] as const;
 
-  sampleAdvancedResources.forEach((resource) => {
+  for (const resource of sampleAdvancedResources) {
     const trackId = advancedTrackMap[resource.trackSlug];
     const topicId = topicMap[resource.topicSlug];
-    if (!trackId) return;
+    if (!trackId) continue;
 
     const resourceId = uuidv4();
-    insertAdvancedResource.run(
-      resourceId,
-      trackId,
-      topicId || null,
-      adminId,
-      resource.title,
-      resource.summary,
-      resource.contentUrl,
-      resource.thumbnailUrl,
-      resource.featured,
-      resource.status,
-      resource.viewCount,
-      resource.saveCount
-    );
-
-    resource.tags.forEach((tag) => {
-      insertAdvancedResourceTag.run(resourceId, tag);
+    await client.execute({
+      sql: `INSERT OR IGNORE INTO advanced_track_resources
+              (id, track_id, topic_id, author_id, title, summary, resource_type, content_url, thumbnail_url, premium_only, featured, status, view_count, save_count)
+            VALUES (?, ?, ?, ?, ?, ?, 'link', ?, ?, 1, ?, ?, ?, ?)`,
+      args: [
+        resourceId, trackId, topicId || null, adminId,
+        resource.title, resource.summary, resource.contentUrl,
+        resource.thumbnailUrl, resource.featured, resource.status,
+        resource.viewCount, resource.saveCount,
+      ],
     });
-  });
+
+    for (const tag of resource.tags) {
+      await client.execute({
+        sql: "INSERT OR IGNORE INTO advanced_track_resource_tags (resource_id, tag) VALUES (?, ?)",
+        args: [resourceId, tag],
+      });
+    }
+  }
 
   console.log("✅ Seeded advanced tracks module");
-
-  db.close();
   console.log("\n🎉 Database seeded successfully!");
-  console.log(`📁 Database file: ${DB_PATH}`);
+  console.log("📡 Connected to Turso database");
 }
 
 seed().catch(console.error);

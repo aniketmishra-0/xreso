@@ -1,5 +1,5 @@
 import { config as loadEnv } from "dotenv";
-import Database from "better-sqlite3";
+import { createClient } from "@libsql/client";
 import ExcelJS from "exceljs";
 import fs from "fs";
 import path from "path";
@@ -12,7 +12,6 @@ const SOURCE_WORKBOOK_PATH = path.join(DATA_DIR, "Community_Links.xlsx");
 const ADVANCED_WORKBOOK_PATH = path.join(DATA_DIR, "Advanced_Tracks.xlsx");
 const ADMIN_WORKBOOK_PATH = path.join(DATA_DIR, "Admin_Audit.xlsx");
 const BACKUP_DIR = path.join(DATA_DIR, "backups");
-const DB_PATH = path.join(process.cwd(), "xreso.db");
 const TOKEN_CACHE_PATH = path.join(process.cwd(), ".onedrive-token.json");
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 const TENANT_ID = process.env.ONEDRIVE_TENANT_ID || "common";
@@ -479,13 +478,18 @@ async function main() {
     "F59E0B"
   );
 
-  const sqlite = new Database(DB_PATH, { readonly: true });
+  const databaseUrl = process.env.TURSO_DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("TURSO_DATABASE_URL is not configured. Set it in .env.local");
+  }
+  const tursoClient = createClient({
+    url: databaseUrl,
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+  const advancedIdsResult = await tursoClient.execute("SELECT id FROM advanced_track_resources");
   const advancedIds = new Set(
-    (sqlite.prepare("SELECT id FROM advanced_track_resources").all() as Array<{ id: string }>).map(
-      (row) => row.id
-    )
+    advancedIdsResult.rows.map((row) => String(row.id))
   );
-  sqlite.close();
 
   const advancedExistingIds = new Set<string>();
   advancedSheet.eachRow((row, rowNumber) => {

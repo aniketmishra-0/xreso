@@ -284,28 +284,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       const resolvedEmail = normalizedEmail || fallbackEmail;
       if (!resolvedEmail) return false;
 
-      // Check auth mode from cookie — "login" means user must already exist
-      let authMode = "register"; // default: allow creation
-      try {
-        const { cookies } = await import("next/headers");
-        const cookieStore = await cookies();
-        const modeCookie = cookieStore.get("xreso_auth_mode");
-        if (modeCookie?.value === "login" || modeCookie?.value === "register") {
-          authMode = modeCookie.value;
-        }
-      } catch {
-        // If cookies aren't accessible, default to register (allow)
-      }
-
-      // If mode is "login", check if user already exists
-      if (authMode === "login") {
-        const existingUser = await getDbUserByEmail(resolvedEmail);
-        if (!existingUser) {
-          // User doesn't have an account yet — block login
-          return "/login?error=NoAccount";
-        }
-      }
-
+      // OAuth always auto-creates user if they don't exist
       const syncedUser = await upsertOAuthUserInDb({
         email: resolvedEmail,
         name: user.name,

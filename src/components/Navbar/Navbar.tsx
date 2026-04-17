@@ -16,11 +16,16 @@ export default function Navbar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [headerHidden, setHeaderHidden] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
@@ -135,6 +140,7 @@ export default function Navbar() {
     : browseModeFromQuery || "programming";
 
   const isDark = theme === "dark";
+  const themeLabel = mounted ? (isDark ? "Light" : "Dark") : "Theme";
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const resolvedAvatar = profileAvatar || session?.user?.image || null;
 
@@ -226,7 +232,7 @@ export default function Navbar() {
             aria-label="Toggle theme"
             id="theme-toggle"
           >
-            {isDark ? "Light" : "Dark"}
+            {themeLabel}
           </button>
 
           <Link href={uploadHref} className={`btn btn-primary btn-sm ${styles.uploadBtn}`} id="nav-upload">
@@ -314,17 +320,6 @@ export default function Navbar() {
       </nav>
 
       <div className={`${styles.mobileMenu} ${mobileMenuOpen ? styles.mobileMenuOpen : ""}`}>
-        <div className={styles.mobilePanelHeader}>
-          <span className={styles.mobilePanelTitle}>Navigation</span>
-          <button
-            className={styles.mobileClose}
-            onClick={closeMobileMenu}
-            aria-label="Close menu"
-          >
-            x
-          </button>
-        </div>
-
         <div className={styles.mobileBody}>
           <div className={styles.modeToggle} role="group" aria-label="Browse mode toggle">
             <Link
@@ -358,7 +353,7 @@ export default function Navbar() {
             className={styles.mobileLink}
             onClick={() => setTheme(isDark ? "light" : "dark")}
           >
-            Toggle Theme
+            {themeLabel}
           </button>
 
           <Link

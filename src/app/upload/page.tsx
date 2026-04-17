@@ -48,7 +48,6 @@ const INITIAL_FORM_DATA = {
   category: "",
   advancedTrackSlug: "",
   advancedTopicSlug: "",
-  advancedResourceType: "link",
   tags: "",
   authorCredit: "",
   resourceUrl: "",
@@ -498,12 +497,6 @@ function UploadPageContent() {
     value: topic.slug,
     label: topic.name,
   }));
-  const advancedResourceTypeOptions: SelectOption[] = [
-    { value: "link", label: "Link" },
-    { value: "pdf", label: "PDF" },
-    { value: "doc", label: "Document" },
-    { value: "video", label: "Video" },
-  ];
   const licenseOptions: SelectOption[] = [
     { value: "CC-BY-4.0", label: "CC BY 4.0 — Others can share with credit" },
     { value: "CC-BY-SA-4.0", label: "CC BY-SA 4.0 — Share alike with credit" },
@@ -640,8 +633,7 @@ function UploadPageContent() {
 
     if (resourceTier !== "advanced" && (
       mobilePicker.name === "advancedTrackSlug" ||
-      mobilePicker.name === "advancedTopicSlug" ||
-      mobilePicker.name === "advancedResourceType"
+      mobilePicker.name === "advancedTopicSlug"
     )) {
       setMobilePicker(null);
       return;
@@ -793,7 +785,6 @@ function UploadPageContent() {
         advancedBody.append("summary", formData.description);
         advancedBody.append("trackSlug", formData.advancedTrackSlug);
         advancedBody.append("topicSlug", formData.advancedTopicSlug || "");
-        advancedBody.append("resourceType", formData.advancedResourceType);
         advancedBody.append("tags", formData.tags);
         advancedBody.append("licenseType", formData.licenseType);
         advancedBody.append("status", "pending");
@@ -1392,31 +1383,6 @@ function UploadPageContent() {
                     </select>
                   </div>
 
-                  <div className="input-group">
-                    <label htmlFor="advancedResourceType" className="input-label">Resource Type</label>
-                    {renderMobileSelect({
-                      name: "advancedResourceType",
-                      title: "Resource Type",
-                      placeholder: "Select a resource type",
-                      value: formData.advancedResourceType,
-                      options: advancedResourceTypeOptions,
-                      disabled: resourceTier !== "advanced",
-                    })}
-                    <select
-                      id="advancedResourceType"
-                      name="advancedResourceType"
-                      className={`input ${styles.desktopSelect}`}
-                      value={formData.advancedResourceType ?? "link"}
-                      onChange={handleInputChange}
-                      disabled={resourceTier !== "advanced"}
-                      {...fieldShieldProps}
-                    >
-                      <option value="link">Link</option>
-                      <option value="pdf">PDF</option>
-                      <option value="doc">Document</option>
-                      <option value="video">Video</option>
-                    </select>
-                  </div>
               </div>
 
               <div className="input-group">

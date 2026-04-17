@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { CATEGORY_CATALOG } from "@/lib/techIcons";
 import NoteCard from "@/components/NoteCard/NoteCard";
@@ -84,9 +84,19 @@ function BrowseContent() {
     return "All";
   });
   const [sortBy, setSortBy] = useState("newest");
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
+  const langDropdownRef = useRef<HTMLDivElement | null>(null);
+  const selectedLanguageSlug =
+    activeCategory === "All"
+      ? ""
+      : ALL_CATEGORIES.find((c) => c.name === activeCategory)?.slug || "";
+  const selectedLanguageLabel =
+    activeCategory === "All"
+      ? "All Languages"
+      : ALL_CATEGORIES.find((c) => c.slug === selectedLanguageSlug)?.name || "All Languages";
   const activeSortLabel = SORT_OPTIONS.find((option) => option.value === sortBy)?.label || "Newest First";
   const latestResultDate = notes[0] ? formatDate(notes[0].createdAt) : "No notes yet";
   const focusAreaLabel = featuredOnly
@@ -156,6 +166,18 @@ function BrowseContent() {
     return () => clearTimeout(timer);
   }, [fetchNotes]);
 
+  useEffect(() => {
+    const onDocumentClick = (event: MouseEvent) => {
+      if (!langDropdownRef.current) return;
+      if (!langDropdownRef.current.contains(event.target as Node)) {
+        setLangMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", onDocumentClick);
+    return () => document.removeEventListener("mousedown", onDocumentClick);
+  }, []);
+
   return (
     <div className={styles.page}>
       {/* Header */}
@@ -215,32 +237,45 @@ function BrowseContent() {
             </div>
 
             {/* Language dropdown for ALL categories */}
-            <div className={styles.langDropdownWrap}>
-              <select
+            <div className={styles.langDropdownWrap} ref={langDropdownRef}>
+              <button
+                type="button"
                 className={styles.langDropdown}
-                value={
-                  activeCategory === "All"
-                    ? ""
-                    : ALL_CATEGORIES.find(c => c.name === activeCategory)?.slug || ""
-                }
-                onChange={(e) => {
-                  const slug = e.target.value;
-                  if (!slug) {
-                    setActiveCategory("All");
-                  } else {
-                    const cat = ALL_CATEGORIES.find(c => c.slug === slug);
-                    setActiveCategory(cat?.name || "All");
-                  }
-                }}
+                onClick={() => setLangMenuOpen((current) => !current)}
+                aria-haspopup="listbox"
+                aria-expanded={langMenuOpen}
                 id="language-dropdown"
               >
-                <option value="">All Languages</option>
-                {ALL_CATEGORIES.map((cat) => (
-                  <option key={cat.slug} value={cat.slug}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
+                <span className={styles.langDropdownLabel}>{selectedLanguageLabel}</span>
+              </button>
+
+              {langMenuOpen && (
+                <div className={styles.langMenu} role="listbox" aria-label="Language filter options">
+                  <button
+                    type="button"
+                    className={`${styles.langMenuItem} ${!selectedLanguageSlug ? styles.langMenuItemActive : ""}`}
+                    onClick={() => {
+                      setActiveCategory("All");
+                      setLangMenuOpen(false);
+                    }}
+                  >
+                    All Languages
+                  </button>
+                  {ALL_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat.slug}
+                      type="button"
+                      className={`${styles.langMenuItem} ${selectedLanguageSlug === cat.slug ? styles.langMenuItemActive : ""}`}
+                      onClick={() => {
+                        setActiveCategory(cat.name);
+                        setLangMenuOpen(false);
+                      }}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 

@@ -15,7 +15,7 @@ import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
 
 const ADVANCED_UPLOAD_DIR = path.join(os.tmpdir(), "xreso_advanced_uploads");
 const LEGACY_ADVANCED_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "advanced");
-const ADVANCED_MAX_FILE_SIZE = 25 * 1024 * 1024;
+const ADVANCED_MAX_FILE_SIZE = 100 * 1024 * 1024;
 const ONE_DRIVE_UPLOAD_MAX_ATTEMPTS = 4;
 
 export const maxDuration = 300;
@@ -427,7 +427,7 @@ export async function POST(req: NextRequest) {
     if (uploadedFile) {
       if (uploadedFile.size > ADVANCED_MAX_FILE_SIZE) {
         return NextResponse.json(
-          { error: "File too large. Maximum size is 25MB for advanced uploads." },
+          { error: "File too large. Maximum size is 100MB for advanced uploads." },
           { status: 400 }
         );
       }

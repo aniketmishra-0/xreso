@@ -56,6 +56,8 @@ const INITIAL_FORM_DATA = {
 };
 
 const SPECIALIZED_RESOURCE_LABEL = "Cloud, System Design & APIs";
+const MAX_STANDARD_FILE_SIZE_MB = 100;
+const MAX_ADVANCED_FILE_SIZE_MB = 100;
 const RESOURCE_SECTION_OPTIONS = [
   {
     tier: "standard" as const,
@@ -114,6 +116,40 @@ function getSelectLabel(
   placeholder: string
 ) {
   return options.find((option) => option.value === value)?.label || placeholder;
+}
+
+function readStringField(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+async function parseJsonSafely(response: Response): Promise<Record<string, unknown> | null> {
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) return null;
+
+  try {
+    return (await response.json()) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+function inferAdvancedResourceTypeFromFile(file: File): "pdf" | "doc" | "video" | null {
+  const mimeType = file.type.toLowerCase();
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+
+  if (mimeType === "application/pdf" || extension === "pdf") return "pdf";
+  if (
+    mimeType === "application/msword" ||
+    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    extension === "doc" ||
+    extension === "docx"
+  ) {
+    return "doc";
+  }
+  if (mimeType.startsWith("video/") || ["mp4", "webm", "mov", "m4v"].includes(extension)) {
+    return "video";
+  }
+  return null;
 }
 
 function MobilePickerSheet({
@@ -707,11 +743,15 @@ function UploadPageContent() {
   };
 
   const applyFile = useCallback((f: File) => {
-    const MAX_ALLOWED_MB = 100;
-    if (f.size > MAX_ALLOWED_MB * 1024 * 1024) {
+    const maxAllowedMb =
+      resourceTier === "advanced"
+        ? MAX_ADVANCED_FILE_SIZE_MB
+        : MAX_STANDARD_FILE_SIZE_MB;
+
+    if (f.size > maxAllowedMb * 1024 * 1024) {
       setUploadResult({
         success: false,
-        message: `File is too large (${(f.size / 1024 / 1024).toFixed(1)}MB). Maximum allowed size is 100 MB.`,
+        message: `File is too large (${(f.size / 1024 / 1024).toFixed(1)}MB). Maximum allowed size is ${maxAllowedMb} MB.`,
       });
       return;
     }
@@ -721,7 +761,7 @@ function UploadPageContent() {
       if (currentUrl) URL.revokeObjectURL(currentUrl);
       return f.type.startsWith("image/") ? URL.createObjectURL(f) : "";
     });
-  }, []);
+  }, [resourceTier]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) applyFile(e.target.files[0]);
@@ -777,39 +817,140 @@ function UploadPageContent() {
           return;
         }
 
-        const advancedBody = new FormData();
-        if (uploadMode === "file" && file) {
-          advancedBody.append("file", file);
-        }
-        advancedBody.append("title", formData.title);
-        advancedBody.append("summary", formData.description);
-        advancedBody.append("trackSlug", formData.advancedTrackSlug);
-        advancedBody.append("topicSlug", formData.advancedTopicSlug || "");
-        advancedBody.append("tags", formData.tags);
-        advancedBody.append("licenseType", formData.licenseType);
-        advancedBody.append("status", "pending");
-        advancedBody.append("premiumOnly", "false");
-        advancedBody.append("featured", "false");
+        let advancedContentUrl = formData.resourceUrl;
+        let advancedResourceType: "link" | "pdf" | "doc" | "video" = "link";
 
-        if (uploadMode === "link") {
-          advancedBody.append("contentUrl", formData.resourceUrl);
+        if (uploadMode === "file" && file) {
+          const inferredResourceType = inferAdvancedResourceTypeFromFile(file);
+          if (!inferredResourceType) {
+            setUploadResult({
+              success: false,
+              message: "Invalid file type. Allowed: PDF, DOC, DOCX, MP4, WEBM.",
+            });
+            return;
+          }
+
+          const sessionRes = await fetch("/api/upload/create-session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fileName: file.name,
+              fileType: file.type,
+              fileSize: file.size,
+              category: formData.advancedTrackSlug || "advanced",
+            }),
+          });
+
+          if (!sessionRes.ok) {
+            const sessionData = await parseJsonSafely(sessionRes);
+            setUploadResult({
+              success: false,
+              message:
+                readStringField(sessionData?.error) ||
+                "Failed to start advanced upload session",
+            });
+            return;
+          }
+
+          const sessionData = await parseJsonSafely(sessionRes);
+          const uploadUrl = readStringField(sessionData?.uploadUrl);
+          if (!uploadUrl) {
+            setUploadResult({
+              success: false,
+              message: "Upload session could not be initialized. Please try again.",
+            });
+            return;
+          }
+
+          setUploadProgress(0);
+          const CHUNK_SIZE = 4 * 1024 * 1024;
+          const totalSize = file.size;
+          let offset = 0;
+          let driveItemId = "";
+
+          while (offset < totalSize) {
+            const end = Math.min(offset + CHUNK_SIZE, totalSize);
+            const chunk = file.slice(offset, end);
+            const chunkBuffer = await chunk.arrayBuffer();
+
+            const chunkRes = await fetch(uploadUrl, {
+              method: "PUT",
+              headers: {
+                "Content-Length": `${end - offset}`,
+                "Content-Range": `bytes ${offset}-${end - 1}/${totalSize}`,
+              },
+              body: chunkBuffer,
+            });
+
+            if (!chunkRes.ok && chunkRes.status !== 202) {
+              setUploadResult({
+                success: false,
+                message: "Upload failed during file transfer. Please try again.",
+              });
+              return;
+            }
+
+            const chunkData = await parseJsonSafely(chunkRes);
+            if (readStringField(chunkData?.id)) {
+              driveItemId = readStringField(chunkData?.id);
+            }
+
+            offset = end;
+            setUploadProgress(Math.round((offset / totalSize) * 100));
+          }
+
+          if (!driveItemId) {
+            setUploadResult({
+              success: false,
+              message: "Upload completed but no file ID returned. Please try again.",
+            });
+            return;
+          }
+
+          advancedContentUrl = `onedrive://${driveItemId}`;
+          advancedResourceType = inferredResourceType;
         }
 
         const res = await fetch("/api/admin/advanced-tracks", {
           method: "POST",
-          body: advancedBody,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: formData.title,
+            summary: formData.description,
+            contentUrl: advancedContentUrl,
+            licenseType: formData.licenseType,
+            trackSlug: formData.advancedTrackSlug,
+            topicSlug: formData.advancedTopicSlug || "",
+            resourceType: advancedResourceType,
+            premiumOnly: false,
+            featured: false,
+            status: "pending",
+            tags: formData.tags,
+          }),
         });
 
-        const data = await res.json();
+        const data = await parseJsonSafely(res);
+        if (!res.ok) {
+          const fallbackMessage =
+            res.status === 413
+              ? `Advanced upload payload is too large. Keep files under ${MAX_ADVANCED_FILE_SIZE_MB} MB.`
+              : `${SPECIALIZED_RESOURCE_LABEL} upload failed`;
+          setUploadResult({
+            success: false,
+            message:
+              readStringField(data?.message) ||
+              readStringField(data?.error) ||
+              fallbackMessage,
+          });
+          return;
+        }
+
         setUploadResult({
-          success: res.ok,
+          success: true,
           message:
-            data.message ||
-            data.error ||
-            (res.ok
-              ? `${SPECIALIZED_RESOURCE_LABEL} resource saved and queued for review.`
-              : `${SPECIALIZED_RESOURCE_LABEL} upload failed`),
-          noteId: data.resourceId,
+            readStringField(data?.message) ||
+            `${SPECIALIZED_RESOURCE_LABEL} resource saved and queued for review.`,
+          noteId: readStringField(data?.resourceId),
         });
         return;
       }

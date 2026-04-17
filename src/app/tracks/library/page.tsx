@@ -25,12 +25,6 @@ interface AdvancedTrack {
 
 type TrackFilter = "all" | string;
 
-const LEVEL_CLASS: Record<AdvancedTrackTopic["level"], string> = {
-  Beginner: styles.levelBeginner,
-  Intermediate: styles.levelIntermediate,
-  Advanced: styles.levelAdvanced,
-};
-
 function TracksPageContent() {
   const searchParams = useSearchParams();
 
@@ -129,11 +123,9 @@ function TracksPageContent() {
     <section className={styles.page} id="cloud-native-library-page">
       <div className={styles.container}>
         <header className={styles.header}>
-          <p className={styles.eyebrow}>Open Library</p>
           <h1 className={styles.title}>Advanced Tracks</h1>
           <p className={styles.subtitle}>
-            Open learning tracks for Kubernetes, DevOps, and system design, managed with
-            a dedicated queue apart from the standard notes library.
+            Discover advanced learning tracks for Kubernetes, DevOps, and system design
           </p>
 
           <div className={styles.searchWrap}>
@@ -173,11 +165,17 @@ function TracksPageContent() {
 
           <div className={styles.trackTabs} role="tablist" aria-label="Track filters">
             {trackFilters.map((filter) => (
-              <Link
+              <button
                 key={filter.value}
-                href={buildTrackHref(filter.value)}
-                replace
-                scroll={false}
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  if (filter.value === "all") {
+                    params.delete("track");
+                  } else {
+                    params.set("track", filter.value);
+                  }
+                  window.history.replaceState(null, "", `/tracks/library?${params.toString()}`);
+                }}
                 role="tab"
                 aria-selected={activeTrack === filter.value}
                 className={`${styles.trackTab} ${
@@ -185,7 +183,7 @@ function TracksPageContent() {
                 }`}
               >
                 {filter.label}
-              </Link>
+              </button>
             ))}
           </div>
         </header>
@@ -213,41 +211,27 @@ function TracksPageContent() {
         ) : (
           <div className={styles.trackGrid}>
             {visibleTracks.map((track) => (
-              <article key={track.slug} className={styles.trackCard}>
+              <Link
+                key={track.slug}
+                href={`/tracks/notes?track=${track.slug}`}
+                className={styles.trackCard}
+              >
                 <div className={styles.trackCardHeader}>
-                  <div>
-                    <h2 className={styles.trackName}>{track.name}</h2>
-                    <p className={styles.trackDescription}>{track.description}</p>
-                  </div>
+                  <h2 className={styles.trackName}>{track.name}</h2>
                   <span className={styles.topicCount}>{track.approvedCount} resources</span>
                 </div>
-
-                <ul className={styles.topicList}>
-                  {track.visibleTopics.map((topic) => (
-                    <li key={topic.slug} className={styles.topicItem}>
-                      <div className={styles.topicHeader}>
-                        <h3 className={styles.topicName}>{topic.name}</h3>
-                        <span className={`${styles.levelBadge} ${LEVEL_CLASS[topic.level]}`}>
-                          {topic.level}
-                        </span>
-                      </div>
-                      <p className={styles.topicBlurb}>{topic.description}</p>
-                      <Link
-                        href={`/tracks/notes?track=${track.slug}&topic=${topic.slug}`}
-                        className={styles.topicLink}
-                      >
-                        Open Track Resources
-                      </Link>
-                    </li>
+                <p className={styles.trackDescription}>{track.description}</p>
+                <div className={styles.trackTopics}>
+                  {track.visibleTopics.slice(0, 3).map((topic) => (
+                    <span key={topic.slug} className={styles.topicTag}>
+                      {topic.name}
+                    </span>
                   ))}
-                </ul>
-
-                <div className={styles.trackFooter}>
-                  <Link className="btn btn-secondary btn-sm" href={`/tracks/notes?track=${track.slug}`}>
-                    Open {track.name} Resources
-                  </Link>
+                  {track.visibleTopics.length > 3 && (
+                    <span className={styles.topicTag}>+{track.visibleTopics.length - 3} more</span>
+                  )}
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         )}

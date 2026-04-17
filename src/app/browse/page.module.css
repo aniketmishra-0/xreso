@@ -128,7 +128,14 @@
 .categoryTabs {
   display: flex;
   gap: var(--space-xs);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.categoryTabs::-webkit-scrollbar {
+  display: none;
 }
 
 /* Language dropdown — access ALL categories */
@@ -176,6 +183,48 @@
   padding: 8px;
 }
 
+/* Language dropdown menu */
+.langMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  min-width: 200px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 50;
+  padding: 4px;
+}
+
+.langMenuItem {
+  width: 100%;
+  padding: 8px 12px;
+  text-align: left;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.langMenuItem:hover {
+  background: var(--bg-surface);
+}
+
+.langMenuItemActive {
+  color: var(--primary);
+  background: var(--primary-subtle);
+}
+
 .categoryTab {
   padding: 8px 16px;
   font-size: var(--text-sm);
@@ -191,6 +240,11 @@
 .categoryTab:hover {
   color: var(--text-primary);
   background: var(--bg-surface);
+}
+
+/* Mobile category dropdown - hidden on desktop */
+.mobileCatDropdownWrap {
+  display: none;
 }
 
 .categoryTab.active {
@@ -427,25 +481,96 @@
     gap: var(--space-sm);
   }
 
+  /* Hide desktop tabs on mobile, show mobile dropdown */
+  .categoryTabs {
+    display: none;
+  }
+
+  .mobileCatDropdownWrap {
+    display: block;
+    position: relative;
+    width: 100%;
+  }
+
+  .mobileCatDropdown {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 32px 8px 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236B5F8A' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    text-align: left;
+  }
+
+  .mobileCatDropdown:hover {
+    border-color: var(--primary);
+  }
+
+  .mobileCatDropdown:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-glow);
+    outline: none;
+  }
+
+  .mobileCatMenu {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    min-width: 200px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    z-index: 50;
+    padding: 4px;
+  }
+
+  .mobileCatMenuItem {
+    width: 100%;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .mobileCatMenuItem:hover {
+    background: var(--bg-surface);
+  }
+
+  .mobileCatMenuItemActive {
+    color: var(--primary);
+    background: var(--primary-subtle);
+  }
+
   .langDropdownWrap {
     width: 100%;
   }
 
   .langDropdown {
     width: 100%;
-  }
-
-  .categoryTabs {
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    width: 100%;
-    padding-bottom: var(--space-sm);
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .categoryTabs::-webkit-scrollbar {
-    display: none;
   }
 
   .sortWrap {

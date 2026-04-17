@@ -85,6 +85,8 @@ function BrowseContent() {
   });
   const [sortBy, setSortBy] = useState("newest");
   const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [catMenuOpen, setCatMenuOpen] = useState(false);
+  const catDropdownRef = useRef<HTMLDivElement | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -168,9 +170,11 @@ function BrowseContent() {
 
   useEffect(() => {
     const onDocumentClick = (event: MouseEvent) => {
-      if (!langDropdownRef.current) return;
-      if (!langDropdownRef.current.contains(event.target as Node)) {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
         setLangMenuOpen(false);
+      }
+      if (catDropdownRef.current && !catDropdownRef.current.contains(event.target as Node)) {
+        setCatMenuOpen(false);
       }
     };
 
@@ -223,6 +227,7 @@ function BrowseContent() {
         {/* Filters */}
         <div className={styles.filters}>
           <div className={styles.filterLeft}>
+            {/* Desktop: Category tabs (horizontal scroll) */}
             <div className={styles.categoryTabs}>
               {QUICK_TABS.map((cat) => (
                 <button
@@ -234,6 +239,38 @@ function BrowseContent() {
                   {cat}
                 </button>
               ))}
+            </div>
+
+            {/* Mobile: Category dropdown */}
+            <div className={styles.mobileCatDropdownWrap} ref={catDropdownRef}>
+              <button
+                type="button"
+                className={styles.mobileCatDropdown}
+                onClick={() => setCatMenuOpen((current) => !current)}
+                aria-haspopup="listbox"
+                aria-expanded={catMenuOpen}
+                id="category-dropdown"
+              >
+                <span className={styles.mobileCatDropdownLabel}>{activeCategory}</span>
+              </button>
+
+              {catMenuOpen && (
+                <div className={styles.mobileCatMenu} role="listbox" aria-label="Category filter options">
+                  {QUICK_TABS.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      className={`${styles.mobileCatMenuItem} ${activeCategory === cat ? styles.mobileCatMenuItemActive : ""}`}
+                      onClick={() => {
+                        setActiveCategory(cat);
+                        setCatMenuOpen(false);
+                      }}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Language dropdown for ALL categories */}

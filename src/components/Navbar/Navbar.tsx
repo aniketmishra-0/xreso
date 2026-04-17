@@ -38,17 +38,10 @@ export default function Navbar() {
 
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      const isMobile = window.matchMedia("(max-width: 768px)").matches;
 
       setScrolled(currentScrollY > 20);
 
-      // Mobile behavior: hide header on downward scroll, show on upward scroll.
-      if (!isMobile) {
-        setHeaderHidden(false);
-        lastScrollY = currentScrollY;
-        return;
-      }
-
+      // Hide header on downward scroll, show on upward scroll (all screen sizes)
       if (mobileMenuOpen) {
         setHeaderHidden(false);
         lastScrollY = currentScrollY;

@@ -28,14 +28,16 @@ interface Note {
 /* Quick-access tabs — top 8 popular categories */
 const QUICK_TABS = [
   "All", "Python", "JavaScript", "SQL", "Java",
-  "Data Structures", "Web Dev", "C / C++", "DevOps",
+  "Data Structures", "Web Dev", "C / C++",
 ];
 
-/* Full list derived from CATEGORY_CATALOG for the dropdown */
-const ALL_CATEGORIES = CATEGORY_CATALOG.map(cat => ({
-  slug: cat.slug,
-  name: cat.name,
-}));
+/* Full list derived from CATEGORY_CATALOG for the dropdown (excluding DevOps as it's in Advanced) */
+const ALL_CATEGORIES = CATEGORY_CATALOG
+  .filter(cat => cat.slug !== "devops")
+  .map(cat => ({
+    slug: cat.slug,
+    name: cat.name,
+  }));
 
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest First" },

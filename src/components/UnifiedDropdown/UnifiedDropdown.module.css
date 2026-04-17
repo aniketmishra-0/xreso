@@ -165,7 +165,7 @@
 
 @media (max-width: 768px) {
   .desktopSelect {
-    display: none;
+    display: none !important;
   }
 
   .mobileSelect {

@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import UnifiedDropdown from "@/components/UnifiedDropdown/UnifiedDropdown";
 import styles from "./page.module.css";
 
 interface AdvancedTrackTopic {
@@ -292,18 +293,19 @@ function TrackNotesContent() {
               <label className={styles.sortLabel} htmlFor="advanced-sort-select">
                 Sort by
               </label>
-              <select
+              <UnifiedDropdown
+                className={styles.sortSelectWrap}
+                desktopClassName={styles.sortSelect}
                 id="advanced-sort-select"
-                className={styles.sortSelect}
+                title="Sort Advanced Notes"
+                placeholder="Sort by"
+                options={SORT_OPTIONS.map((option) => ({
+                  value: option.value,
+                  label: option.label,
+                }))}
                 value={sortBy}
-                onChange={(event) => setSortBy(event.target.value as SortValue)}
-              >
-                {SORT_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(nextSort) => setSortBy(nextSort as SortValue)}
+              />
             </div>
           </div>
         </header>

@@ -15,11 +15,16 @@
     background-color var(--transition-base),
     border-color var(--transition-base),
     box-shadow var(--transition-base),
-    backdrop-filter var(--transition-base);
+    backdrop-filter var(--transition-base),
+    transform var(--transition-base);
   border-bottom: 1px solid color-mix(in srgb, var(--border-primary) 65%, transparent);
   background: color-mix(in srgb, var(--bg-primary) 65%, transparent);
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
+}
+
+.headerHidden {
+  transform: translateY(calc(-100% - 6px));
 }
 
 /* Dark mode scroll — frosted dark glass */
@@ -637,6 +642,10 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+  .header {
+    transform: translateY(0);
+  }
+
   .nav {
     padding: 0 var(--space-md);
   }

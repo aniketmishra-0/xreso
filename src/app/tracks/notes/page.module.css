@@ -106,6 +106,10 @@
   gap: 8px;
 }
 
+.sortSelectWrap {
+  min-width: 170px;
+}
+
 .sortLabel {
   font-size: 12px;
   color: var(--text-tertiary);
@@ -449,6 +453,15 @@
 
   .controls {
     grid-template-columns: 1fr;
+  }
+
+  .sortWrap {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .sortSelectWrap {
+    flex: 1;
   }
 
   .resultsInfo {

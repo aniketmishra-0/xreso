@@ -25,6 +25,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [scrolled, setScrolled] = useState(false);
+  const [headerHidden, setHeaderHidden] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [megaMenuOpen, setMegaMenuOpen] = useState(false);
@@ -33,10 +34,41 @@ export default function Navbar() {
   const [advancedItems, setAdvancedItems] = useState<MegaMenuItem[]>([]);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
+    let lastScrollY = window.scrollY;
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      const isMobile = window.matchMedia("(max-width: 768px)").matches;
+
+      setScrolled(currentScrollY > 20);
+
+      // Mobile behavior: hide header on downward scroll, show on upward scroll.
+      if (!isMobile) {
+        setHeaderHidden(false);
+        lastScrollY = currentScrollY;
+        return;
+      }
+
+      if (mobileMenuOpen) {
+        setHeaderHidden(false);
+        lastScrollY = currentScrollY;
+        return;
+      }
+
+      if (currentScrollY <= 24) {
+        setHeaderHidden(false);
+      } else if (currentScrollY > lastScrollY + 8) {
+        setHeaderHidden(true);
+      } else if (currentScrollY < lastScrollY - 8) {
+        setHeaderHidden(false);
+      }
+
+      lastScrollY = currentScrollY;
+    };
+
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [mobileMenuOpen]);
 
   // Close user menu on outside click
   useEffect(() => {
@@ -273,7 +305,7 @@ export default function Navbar() {
 
   return (
     <header
-      className={`${styles.header} ${scrolled ? styles.scrolled : ""}`}
+      className={`${styles.header} ${scrolled ? styles.scrolled : ""} ${headerHidden ? styles.headerHidden : ""}`}
       id="main-navbar"
     >
       <nav className={styles.nav}>

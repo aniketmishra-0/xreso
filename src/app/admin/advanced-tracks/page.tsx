@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import UnifiedDropdown from "@/components/UnifiedDropdown/UnifiedDropdown";
 import styles from "./page.module.css";
 
 interface Track {
@@ -329,41 +330,33 @@ export default function AdvancedTracksAdminPage() {
           <form className={styles.formGrid} onSubmit={handleCreate}>
             <label className={styles.field}>
               <span>Track</span>
-              <select
+              <UnifiedDropdown
                 value={form.trackSlug}
-                onChange={(event) =>
+                title="Track"
+                placeholder="Select track"
+                options={tracks.map((track) => ({ value: track.slug, label: track.name }))}
+                onChange={(selectedTrackSlug) =>
                   setForm((prev) => ({
                     ...prev,
-                    trackSlug: event.target.value,
+                    trackSlug: selectedTrackSlug,
                     topicSlug: "",
                   }))
                 }
                 required
-              >
-                <option value="">Select track</option>
-                {tracks.map((track) => (
-                  <option key={track.slug} value={track.slug}>
-                    {track.name}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
 
             <label className={styles.field}>
               <span>Topic (optional)</span>
-              <select
+              <UnifiedDropdown
                 value={form.topicSlug}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, topicSlug: event.target.value }))
+                title="Topic"
+                placeholder="All topics"
+                options={scopedTopics.map((topic) => ({ value: topic.slug, label: topic.name }))}
+                onChange={(nextTopicSlug) =>
+                  setForm((prev) => ({ ...prev, topicSlug: nextTopicSlug }))
                 }
-              >
-                <option value="">All topics</option>
-                {scopedTopics.map((topic) => (
-                  <option key={topic.slug} value={topic.slug}>
-                    {topic.name}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
 
             <label className={styles.fieldWide}>
@@ -392,37 +385,43 @@ export default function AdvancedTracksAdminPage() {
 
             <label className={styles.field}>
               <span>Resource Type</span>
-              <select
+              <UnifiedDropdown
                 value={form.resourceType}
-                onChange={(event) =>
+                title="Resource Type"
+                placeholder="Select resource type"
+                options={[
+                  { value: "link", label: "Link" },
+                  { value: "pdf", label: "PDF" },
+                  { value: "doc", label: "Doc" },
+                  { value: "video", label: "Video" },
+                ]}
+                onChange={(nextResourceType) =>
                   setForm((prev) => ({
                     ...prev,
-                    resourceType: event.target.value as "link" | "pdf" | "doc" | "video",
+                    resourceType: nextResourceType as "link" | "pdf" | "doc" | "video",
                   }))
                 }
-              >
-                <option value="link">Link</option>
-                <option value="pdf">PDF</option>
-                <option value="doc">Doc</option>
-                <option value="video">Video</option>
-              </select>
+              />
             </label>
 
             <label className={styles.field}>
               <span>Initial Status</span>
-              <select
+              <UnifiedDropdown
                 value={form.status}
-                onChange={(event) =>
+                title="Initial Status"
+                placeholder="Select status"
+                options={[
+                  { value: "pending", label: "Pending" },
+                  { value: "approved", label: "Approved" },
+                  { value: "draft", label: "Draft" },
+                ]}
+                onChange={(nextStatus) =>
                   setForm((prev) => ({
                     ...prev,
-                    status: event.target.value as "draft" | "pending" | "approved",
+                    status: nextStatus as "draft" | "pending" | "approved",
                   }))
                 }
-              >
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-                <option value="draft">Draft</option>
-              </select>
+              />
             </label>
 
             <label className={styles.fieldWide}>

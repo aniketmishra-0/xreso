@@ -25,17 +25,26 @@ type RecommendedTopic = {
 };
 
 const RECOMMENDED_TOPICS: RecommendedTopic[] = [
-  { slug: "cloud-fundamentals", name: "Cloud Fundamentals", description: "Core cloud concepts, shared responsibility, and service models.", level: "Beginner", sortOrder: 0 },
-  { slug: "aws-fundamentals", name: "AWS Fundamentals", description: "Core AWS services, IAM basics, and architecture building blocks.", level: "Beginner", sortOrder: 1 },
-  { slug: "azure-fundamentals", name: "Azure Fundamentals", description: "Azure core services, subscriptions, identity, and governance essentials.", level: "Beginner", sortOrder: 2 },
-  { slug: "gcp-fundamentals", name: "Google Cloud Fundamentals", description: "GCP core products, IAM setup, and cloud-native deployment basics.", level: "Beginner", sortOrder: 3 },
-  { slug: "networking-security", name: "Networking & Security", description: "VPC/VNet design, DNS, TLS, IAM, secrets, and perimeter controls.", level: "Intermediate", sortOrder: 4 },
-  { slug: "containers-kubernetes", name: "Containers & Kubernetes", description: "Container workloads, orchestration patterns, and production operations.", level: "Intermediate", sortOrder: 5 },
-  { slug: "serverless-architecture", name: "Serverless Architecture", description: "Event-driven services, function workflows, and scaling patterns.", level: "Intermediate", sortOrder: 6 },
-  { slug: "observability-sre", name: "Observability & SRE", description: "Metrics, logs, tracing, SLIs/SLOs, and reliability operations.", level: "Advanced", sortOrder: 7 },
-  { slug: "cost-optimization-finops", name: "Cost Optimization & FinOps", description: "Cloud cost controls, budgeting, and workload right-sizing strategies.", level: "Advanced", sortOrder: 8 },
-  { slug: "disaster-recovery", name: "Disaster Recovery", description: "Backup, restore, multi-region resilience, and incident recovery planning.", level: "Advanced", sortOrder: 9 },
+  { slug: "aws", name: "AWS", description: "Amazon Web Services architecture and operations.", level: "Beginner", sortOrder: 0 },
+  { slug: "azure", name: "Azure", description: "Microsoft Azure services, identity, and governance.", level: "Beginner", sortOrder: 1 },
+  { slug: "gcp", name: "GCP", description: "Google Cloud Platform services and deployment patterns.", level: "Beginner", sortOrder: 2 },
+  { slug: "networking-security", name: "Networking & Security", description: "VPC/VNet design, DNS, TLS, IAM, secrets, and perimeter controls.", level: "Intermediate", sortOrder: 3 },
+  { slug: "containers-kubernetes", name: "Containers & Kubernetes", description: "Container workloads, orchestration patterns, and production operations.", level: "Intermediate", sortOrder: 4 },
+  { slug: "serverless-architecture", name: "Serverless Architecture", description: "Event-driven services, function workflows, and scaling patterns.", level: "Intermediate", sortOrder: 5 },
+  { slug: "observability-sre", name: "Observability & SRE", description: "Metrics, logs, tracing, SLIs/SLOs, and reliability operations.", level: "Advanced", sortOrder: 6 },
+  { slug: "cost-optimization-finops", name: "Cost Optimization & FinOps", description: "Cloud cost controls, budgeting, and workload right-sizing strategies.", level: "Advanced", sortOrder: 7 },
+  { slug: "disaster-recovery", name: "Disaster Recovery", description: "Backup, restore, multi-region resilience, and incident recovery planning.", level: "Advanced", sortOrder: 8 },
 ];
+
+function normalizeTopicName(name: string): string {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return "";
+  if (normalized === "aws fundamentals") return "AWS";
+  if (normalized === "azure fundamentals") return "Azure";
+  if (normalized === "google cloud fundamentals" || normalized === "gcp fundamentals") return "GCP";
+  if (normalized === "cloud fundamentals") return "";
+  return name.trim();
+}
 
 function looksLikeCloudTrack(track: TrackRow) {
   const slug = track.slug.toLowerCase();
@@ -112,15 +121,35 @@ export async function GET() {
       description: track.description,
       premium: false,
       approvedCount: track.approvedCount,
-      topics: topicRows
-        .filter((topic) => topic.track_id === track.id)
-        .map((topic) => ({
-          id: topic.id as number,
-          slug: topic.slug as string,
-          name: topic.name as string,
-          description: topic.description as string,
-          level: topic.level as string,
-        })),
+      topics: (() => {
+        const topicMap = new Map<string, {
+          id: number;
+          slug: string;
+          name: string;
+          description: string;
+          level: string;
+        }>();
+
+        for (const topic of topicRows) {
+          if (Number(topic.track_id) !== track.id) continue;
+
+          const displayName = normalizeTopicName(String(topic.name || ""));
+          if (!displayName) continue;
+
+          const dedupeKey = displayName.toLowerCase();
+          if (topicMap.has(dedupeKey)) continue;
+
+          topicMap.set(dedupeKey, {
+            id: Number(topic.id),
+            slug: String(topic.slug),
+            name: displayName,
+            description: String(topic.description || ""),
+            level: String(topic.level || "Beginner"),
+          });
+        }
+
+        return Array.from(topicMap.values());
+      })(),
     }));
 
     return NextResponse.json({ tracks });

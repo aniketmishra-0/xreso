@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type MouseEvent } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
 import Image from "next/image";
@@ -10,22 +10,26 @@ import styles from "./Navbar.module.css";
 
 type BrowseMode = "programming" | "advanced";
 
+function useMounted() {
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+}
+
 export default function Navbar() {
   const { data: session } = useSession();
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const [scrolled, setScrolled] = useState(false);
   const [headerHidden, setHeaderHidden] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     let lastScrollY = window.scrollY;

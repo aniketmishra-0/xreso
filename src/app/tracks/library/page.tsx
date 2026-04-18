@@ -62,26 +62,6 @@ function TracksPageContent() {
     void loadTracks();
   }, [loadTracks]);
 
-  const buildTrackHref = (nextTrack: TrackFilter) => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    if (nextTrack === "all") {
-      params.delete("track");
-    } else {
-      params.set("track", nextTrack);
-    }
-
-    const trimmedQuery = query.trim();
-    if (trimmedQuery) {
-      params.set("q", trimmedQuery);
-    } else {
-      params.delete("q");
-    }
-
-    const queryString = params.toString();
-    return queryString ? `/tracks/library?${queryString}` : "/tracks/library";
-  };
-
   const normalizedQuery = query.trim().toLowerCase();
 
   const visibleTracks = useMemo(() => {

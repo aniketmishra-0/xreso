@@ -77,8 +77,6 @@
 .navItemActive {
   background: rgba(139, 92, 246, 0.1);
   color: var(--primary-light);
-  border-color: rgba(139, 92, 246, 0.2);
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.05);
 }
 
 .navIcon {
@@ -101,7 +99,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 10px;
-  background: linear-gradient(135deg, rgba(251, 146, 60, 0.3), rgba(245, 158, 11, 0.4));
+  background: rgba(245, 158, 11, 0.15);
   color: #fbbf24;
   padding: 0 6px;
   flex-shrink: 0;
@@ -286,8 +284,8 @@
 }
 
 .toggleOn {
-  background: linear-gradient(135deg, rgba(74, 222, 128, 0.35), rgba(16, 185, 129, 0.4));
-  border-color: rgba(74, 222, 128, 0.5);
+  background: rgba(16, 185, 129, 0.4);
+  border-color: rgba(16, 185, 129, 0.6);
 }
 
 .toggleOn:hover {
@@ -308,8 +306,7 @@
 
 .toggleOn .toggleThumb {
   left: calc(100% - 20px);
-  background: #4ade80;
-  box-shadow: 0 1px 6px rgba(74, 222, 128, 0.4);
+  background: #10b981;
 }
 
 .curatedThresholdWrap {
@@ -346,7 +343,6 @@
 .thresholdInput:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-glow);
 }
 
 .thresholdInput::-webkit-inner-spin-button,
@@ -382,30 +378,13 @@
   padding: var(--space-lg);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-secondary);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-surface) 95%, transparent), color-mix(in srgb, var(--bg-elevated) 18%, var(--bg-surface)));
+  background: var(--bg-surface);
   overflow: hidden;
-}
-
-.statCard::before {
-  content: "";
-  position: absolute;
-  inset: auto -16px -26px auto;
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(139, 92, 246, 0.25), transparent 68%);
-  pointer-events: none;
 }
 
 .statWarn {
   border-color: rgba(251, 191, 36, 0.3);
-  background:
-    linear-gradient(180deg, rgba(251, 191, 36, 0.06), color-mix(in srgb, var(--bg-surface) 92%, transparent));
-}
-
-.statWarn::before {
-  background: radial-gradient(circle, rgba(249, 115, 22, 0.25), transparent 68%);
+  background: rgba(251, 191, 36, 0.05);
 }
 
 .statValue {
@@ -448,9 +427,7 @@
   padding: clamp(18px, 2vw, 26px);
   border-radius: calc(var(--radius-xl) + 2px);
   border: 1px solid rgba(14, 165, 233, 0.18);
-  background:
-    linear-gradient(180deg, rgba(14, 165, 233, 0.08), color-mix(in srgb, var(--bg-surface) 94%, transparent));
-  box-shadow: var(--shadow-sm);
+  background: rgba(14, 165, 233, 0.05);
 }
 
 .storageHeader {
@@ -786,11 +763,11 @@
 }
 
 .progressFillOk {
-  background: linear-gradient(90deg, rgba(74, 222, 128, 0.8), rgba(16, 185, 129, 0.9));
+  background: #10b981;
 }
 
 .progressFillWarn {
-  background: linear-gradient(90deg, rgba(249, 115, 22, 0.8), rgba(251, 191, 36, 0.9));
+  background: #f59e0b;
 }
 
 /* ── Share Templates Panel ───────────────── */
@@ -798,9 +775,7 @@
   margin-bottom: var(--space-2xl);
   border-radius: calc(var(--radius-xl) + 2px);
   border: 1px solid rgba(139, 92, 246, 0.18);
-  background:
-    linear-gradient(180deg, rgba(139, 92, 246, 0.06), color-mix(in srgb, var(--bg-surface) 96%, transparent));
-  box-shadow: var(--shadow-sm);
+  background: rgba(139, 92, 246, 0.05);
   overflow: hidden;
 }
 
@@ -977,9 +952,7 @@
   padding: clamp(18px, 2.2vw, 28px);
   border-radius: calc(var(--radius-xl) + 2px);
   border: 1px solid var(--border-secondary);
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--bg-surface) 95%, transparent), color-mix(in srgb, var(--bg-primary) 84%, var(--bg-surface)));
-  box-shadow: var(--shadow-sm);
+  background: var(--bg-surface);
 }
 
 .controlRow {

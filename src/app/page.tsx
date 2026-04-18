@@ -10,7 +10,7 @@ import { getTechIcon } from "@/lib/techIcons";
 import HeroDigitalLibraryDashboard from "@/components/HeroDigitalLibraryDashboard";
 import styles from "./page.module.css";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 const formatDate = (dateStr: string) => {
   try {
@@ -185,6 +185,7 @@ export default async function Home() {
                 href="/"
                 className={`${styles.toggleBtn} ${styles.toggleBtnActive}`}
                 aria-current="page"
+                prefetch={true}
               >
                 <Code2 size={14} />
                 Programming
@@ -192,6 +193,7 @@ export default async function Home() {
               <Link
                 href="/tracks"
                 className={styles.toggleBtn}
+                prefetch={true}
               >
                 <Zap size={14} />
                 Advanced

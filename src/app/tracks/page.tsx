@@ -21,6 +21,7 @@ const formatDate = (dateStr: string) => {
     return dateStr;
   }
 };
+export const revalidate = 30;
 
 const formatResourceCount = (count: number) =>
   `${count} resource${count === 1 ? "" : "s"}`;
@@ -190,6 +191,7 @@ export default async function TracksHomePage() {
               <Link
                 href="/"
                 className={styles.toggleBtn}
+                prefetch={true}
               >
                 <Code2 size={14} />
                 Programming
@@ -198,6 +200,7 @@ export default async function TracksHomePage() {
                 href="/tracks"
                 className={`${styles.toggleBtn} ${styles.toggleBtnActive}`}
                 aria-current="page"
+                prefetch={true}
               >
                 <Zap size={14} />
                 Advanced

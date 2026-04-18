@@ -113,6 +113,9 @@ export default function AdminPage() {
   const [curatedThreshold, setCuratedThreshold] = useState("500");
   const [thresholdSaving, setThresholdSaving] = useState(false);
 
+  type AdminTab = "overview" | "submissions" | "config";
+  const [activeTab, setActiveTab] = useState<AdminTab>("overview");
+
   const userRole = (session?.user as { role?: string })?.role;
 
   const loadAdminData = useCallback(async (isRefresh = false) => {
@@ -403,77 +406,59 @@ export default function AdminPage() {
   return (
     <div className={styles.page}>
       <div className={styles.container}>
-        <div className={styles.header}>
-          <div>
-            <h1 className={styles.title}>Admin Command Center</h1>
-            <p className={styles.subtitle}>
-              Review submissions, curate featured notes, and monitor library health.
-            </p>
-          </div>
-          <div className={styles.headerActions}>
-            <div className={styles.autoApproveToggle}>
-              <div className={styles.autoApproveInfo}>
-                <span className={styles.autoApproveLabel}>Auto-Approve</span>
-                <span className={styles.autoApproveHint}>
-                  {autoApproveEnabled ? "All uploads are auto-approved" : "Uploads need manual review"}
-                </span>
-              </div>
+        <div className={styles.adminLayout}>
+          {/* ── SIDEBAR ── */}
+          <aside className={styles.adminSidebar}>
+            <div className={styles.sidebarHeader}>
+              <h1 className={styles.sidebarTitle}>Admin Center</h1>
+              <p className={styles.sidebarSubtitle}>Library command console</p>
+            </div>
+            
+            <nav className={styles.sidebarNav}>
               <button
-                className={`${styles.toggleSwitch} ${autoApproveEnabled ? styles.toggleOn : ""}`}
-                onClick={() => void handleAutoApproveToggle()}
-                disabled={autoApproveToggling}
-                aria-pressed={autoApproveEnabled}
-                aria-label="Toggle auto-approval"
+                className={activeTab === "overview" ? styles.navItemActive : styles.navItem}
+                onClick={() => setActiveTab("overview")}
               >
-                <span className={styles.toggleThumb} />
+                <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
+                Overview
               </button>
-            </div>
-            <div className={styles.curatedThresholdWrap}>
-              <div className={styles.autoApproveInfo}>
-                <span className={styles.autoApproveLabel}>Curated Views</span>
-                <span className={styles.autoApproveHint}>Min views to show in Curated Notes</span>
-              </div>
-              <div className={styles.thresholdInputGroup}>
-                <input
-                  type="number"
-                  min="1"
-                  className={styles.thresholdInput}
-                  value={curatedThreshold}
-                  onChange={(e) => setCuratedThreshold(e.target.value)}
-                  placeholder="500"
-                />
-                <button
-                  className={`btn btn-sm ${styles.thresholdSaveBtn}`}
-                  disabled={thresholdSaving}
-                  onClick={async () => {
-                    setThresholdSaving(true);
-                    try {
-                      const res = await fetch("/api/admin/settings", {
-                        method: "PUT",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ key: "curated_views_threshold", value: curatedThreshold }),
-                      });
-                      if (!res.ok) throw new Error();
-                    } catch {
-                      setError("Failed to save threshold.");
-                    } finally {
-                      setThresholdSaving(false);
-                    }
-                  }}
-                >
-                  {thresholdSaving ? "..." : "Save"}
-                </button>
-              </div>
-            </div>
-            <button
-              className={`btn btn-secondary btn-sm ${styles.refreshBtn}`}
-              onClick={() => void loadAdminData(true)}
-              disabled={loading || refreshing}
-            >
-              {refreshing ? "Refreshing..." : "Refresh Data"}
-            </button>
-          </div>
-        </div>
+              <button
+                className={activeTab === "submissions" ? styles.navItemActive : styles.navItem}
+                onClick={() => setActiveTab("submissions")}
+              >
+                <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Submissions
+              </button>
+              <button
+                className={activeTab === "config" ? styles.navItemActive : styles.navItem}
+                onClick={() => setActiveTab("config")}
+              >
+                <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Configuration
+              </button>
+            </nav>
+          </aside>
+
+          {/* ── MAIN CONTENT ── */}
+          <main className={styles.adminMain}>
+            
+            {activeTab === "overview" && (
+              <div className={styles.tabContent}>
+                <div className={styles.adminTabHeader}>
+                  <div>
+                    <h2 className={styles.adminTabTitle}>Platform Overview</h2>
+                    <p className={styles.adminTabSubtitle}>High-level metrics and system performance.</p>
+                  </div>
+                  <div className={styles.tabActions}>
+                    <button
+                      className={`btn btn-secondary btn-sm ${styles.refreshBtn}`}
+                      onClick={() => void loadAdminData(true)}
+                      disabled={loading || refreshing}
+                    >
+                      {refreshing ? "Refreshing..." : "Refresh Data"}
+                    </button>
+                  </div>
+                </div>
 
         {stats && (
           <>
@@ -557,168 +542,263 @@ export default function AdminPage() {
                   {nextPendingTitle ? `Next in queue: ${nextPendingTitle}` : "No pending notes right now."}
                 </p>
               </article>
-            </div>
-
-            <section className={styles.storagePanel}>
-              <div className={styles.storageHeader}>
-                <div>
-                  <span className={styles.storageEyebrow}>Storage Routing</span>
-                  <h2 className={styles.storageTitle}>{storageModeLabel}</h2>
-                </div>
-                <span className={styles.storageModeBadge}>
-                  {storage?.mode === "onedrive" ? "Live: OneDrive" : "Live: Local"}
-                </span>
               </div>
-
-              <p className={styles.storageNote}>
-                {storage?.note || "Workbook routing status will appear here after the admin check succeeds."}
-              </p>
-
-              {storage && (
-                <div className={styles.storageSignalRow}>
-                  <span className={styles.storageSignalText}>{storageLiveStatus}</span>
-                  <span
-                    className={`${styles.storageQueueBadge} ${
-                      pendingWorkbookCount > 0 ? styles.storageQueueWarn : ""
-                    }`}
-                  >
-                    Pending queue: {pendingWorkbookCount}
-                  </span>
+            )}
+            
+            {activeTab === "submissions" && (
+              <div className={styles.tabContent}>
+                <div className={styles.adminTabHeader}>
+                  <div>
+                    <h2 className={styles.adminTabTitle}>Content Submissions</h2>
+                    <p className={styles.adminTabSubtitle}>Manage community notes and reports.</p>
+                  </div>
+                  <div className={styles.tabActions}>
+                    <button
+                      className={`btn btn-secondary btn-sm ${styles.refreshBtn}`}
+                      onClick={() => void loadAdminData(true)}
+                      disabled={loading || refreshing}
+                    >
+                      {refreshing ? "Refreshing..." : "Refresh"}
+                    </button>
+                  </div>
                 </div>
-              )}
 
-              {storageError && <div className={styles.storageError}>{storageError}</div>}
+            )}
 
-              {storage && (
-                <>
-                  <div className={styles.storageRoutingList}>
-                    {storage.workbooks.map((workbook) => (
-                      <div key={`${workbook.key}-route`} className={styles.storageRoutingRow}>
-                        <div className={styles.storageRoutingFlow}>
-                          <span>{getStorageFlowLabel(workbook.key)}</span>
-                          <strong>{workbook.label}</strong>
+            {activeTab === "config" && (
+              <div className={styles.tabContent}>
+                <div className={styles.adminTabHeader}>
+                  <div>
+                    <h2 className={styles.adminTabTitle}>System Configuration</h2>
+                    <p className={styles.adminTabSubtitle}>Manage automation, storage, and platform settings.</p>
+                  </div>
+                </div>
+
+                {/* ── Automation Panel ── */}
+                <section className={styles.configSection}>
+                  <div className={styles.templatesPanelHeader} style={{ cursor: "default", paddingBottom: 0 }}>
+                    <div>
+                      <span className={styles.templatesEyebrow}>Automation</span>
+                      <h2 className={styles.templatesTitle}>Content Pipelines</h2>
+                    </div>
+                  </div>
+                  <div className={styles.templatesBody} style={{ paddingTop: "16px" }}>
+                    <div className={styles.headerActions} style={{ flexWrap: "wrap" }}>
+                      <div className={styles.autoApproveToggle}>
+                        <div className={styles.autoApproveInfo}>
+                          <span className={styles.autoApproveLabel}>Auto-Approve</span>
+                          <span className={styles.autoApproveHint}>
+                            {autoApproveEnabled ? "All uploads are auto-approved" : "Uploads need manual review"}
+                          </span>
                         </div>
-                        <code className={styles.storageRoutingTarget}>
-                          {storage.mode === "onedrive" ? workbook.oneDrivePath : workbook.localPath}
-                        </code>
+                        <button
+                          className={`${styles.toggleSwitch} ${autoApproveEnabled ? styles.toggleOn : ""}`}
+                          onClick={() => void handleAutoApproveToggle()}
+                          disabled={autoApproveToggling}
+                          aria-pressed={autoApproveEnabled}
+                        >
+                          <span className={styles.toggleThumb} />
+                        </button>
                       </div>
-                    ))}
+                      <div className={styles.curatedThresholdWrap}>
+                        <div className={styles.autoApproveInfo}>
+                          <span className={styles.autoApproveLabel}>Curated Views</span>
+                          <span className={styles.autoApproveHint}>Min views to show in Curated Notes</span>
+                        </div>
+                        <div className={styles.thresholdInputGroup}>
+                          <input
+                            type="number"
+                            min="1"
+                            className={styles.thresholdInput}
+                            value={curatedThreshold}
+                            onChange={(e) => setCuratedThreshold(e.target.value)}
+                            placeholder="500"
+                          />
+                          <button
+                            className={`btn btn-sm ${styles.thresholdSaveBtn}`}
+                            disabled={thresholdSaving}
+                            onClick={async () => {
+                              setThresholdSaving(true);
+                              try {
+                                const res = await fetch("/api/admin/settings", {
+                                  method: "PUT",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ key: "curated_views_threshold", value: curatedThreshold }),
+                                });
+                                if (!res.ok) throw new Error();
+                              } catch {
+                                setError("Failed to save threshold.");
+                              } finally {
+                                setThresholdSaving(false);
+                              }
+                            }}
+                          >
+                            {thresholdSaving ? "..." : "Save"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section className={styles.storagePanel}>
+                  <div className={styles.storageHeader}>
+                    <div>
+                      <span className={styles.storageEyebrow}>Storage Routing</span>
+                      <h2 className={styles.storageTitle}>{storageModeLabel}</h2>
+                    </div>
+                    <span className={styles.storageModeBadge}>
+                      {storage?.mode === "onedrive" ? "Live: OneDrive" : "Live: Local"}
+                    </span>
                   </div>
 
-                  <div className={styles.storageGrid}>
-                    {storage.workbooks.map((workbook) => {
-                      const liveSnapshot =
-                        storage.mode === "onedrive"
-                          ? workbook.remoteSnapshot
-                          : workbook.localSnapshot;
+                  <p className={styles.storageNote}>
+                    {storage?.note || "Workbook routing status will appear here after the admin check succeeds."}
+                  </p>
 
-                      return (
-                        <article key={workbook.key} className={styles.storageCard}>
-                          <div className={styles.storageCardHeader}>
-                            <div>
-                              <h3 className={styles.storageCardTitle}>{workbook.label}</h3>
-                              <p className={styles.storageCardPath}>
-                                {storage.mode === "onedrive"
-                                  ? workbook.oneDrivePath
-                                  : workbook.localPath}
-                              </p>
+                  {storage && (
+                    <div className={styles.storageSignalRow}>
+                      <span className={styles.storageSignalText}>{storageLiveStatus}</span>
+                      <span
+                        className={`${styles.storageQueueBadge} ${
+                          pendingWorkbookCount > 0 ? styles.storageQueueWarn : ""
+                        }`}
+                      >
+                        Pending queue: {pendingWorkbookCount}
+                      </span>
+                    </div>
+                  )}
+
+                  {storageError && <div className={styles.storageError}>{storageError}</div>}
+
+                  {storage && (
+                    <>
+                      <div className={styles.storageRoutingList}>
+                        {storage.workbooks.map((workbook) => (
+                          <div key={`${workbook.key}-route`} className={styles.storageRoutingRow}>
+                            <div className={styles.storageRoutingFlow}>
+                              <span>{getStorageFlowLabel(workbook.key)}</span>
+                              <strong>{workbook.label}</strong>
                             </div>
-                            <span className={styles.storagePrimarySheet}>
-                              {workbook.primarySheet}
-                            </span>
+                            <code className={styles.storageRoutingTarget}>
+                              {storage.mode === "onedrive" ? workbook.oneDrivePath : workbook.localPath}
+                            </code>
                           </div>
+                        ))}
+                      </div>
 
-                          <div className={styles.storageBadgeRow}>
-                            {workbook.expectedSheets.map((sheet) => {
-                              const present = Boolean(
-                                liveSnapshot?.sheets.some((entry) => entry.name === sheet)
-                              );
+                      <div className={styles.storageGrid}>
+                        {storage.workbooks.map((workbook) => {
+                          const liveSnapshot =
+                            storage.mode === "onedrive"
+                              ? workbook.remoteSnapshot
+                              : workbook.localSnapshot;
 
-                              return (
-                                <span
-                                  key={`${workbook.key}-${sheet}`}
-                                  className={`${styles.storageSheetBadge} ${
-                                    present ? styles.storageSheetOk : styles.storageSheetMissing
-                                  }`}
-                                >
-                                  {sheet}
+                          return (
+                            <article key={workbook.key} className={styles.storageCard}>
+                              <div className={styles.storageCardHeader}>
+                                <div>
+                                  <h3 className={styles.storageCardTitle}>{workbook.label}</h3>
+                                  <p className={styles.storageCardPath}>
+                                    {storage.mode === "onedrive"
+                                      ? workbook.oneDrivePath
+                                      : workbook.localPath}
+                                  </p>
+                                </div>
+                                <span className={styles.storagePrimarySheet}>
+                                  {workbook.primarySheet}
                                 </span>
-                              );
-                            })}
-                          </div>
-
-                          <div className={styles.storageMetaGrid}>
-                            <div className={styles.storageMetaItem}>
-                              <span className={styles.storageMetaLabel}>
-                                {storage.mode === "onedrive" ? "Live workbook" : "Local workbook"}
-                              </span>
-                              <strong className={styles.storageMetaValue}>
-                                {liveSnapshot?.exists ? formatBytes(liveSnapshot.sizeBytes) : "Not found"}
-                              </strong>
-                              <span className={styles.storageMetaHint}>
-                                {liveSnapshot?.exists
-                                  ? `${liveSnapshot.sheets.length} sheet${liveSnapshot.sheets.length === 1 ? "" : "s"}`
-                                  : storage.mode === "onedrive"
-                                    ? "No live OneDrive snapshot yet"
-                                    : "Workbook has not been created yet"}
-                              </span>
-                            </div>
-
-                            <div className={styles.storageMetaItem}>
-                              <span className={styles.storageMetaLabel}>Local mirror</span>
-                              <strong className={styles.storageMetaValue}>
-                                {workbook.localSnapshot.exists
-                                  ? formatBytes(workbook.localSnapshot.sizeBytes)
-                                  : "None"}
-                              </strong>
-                              <span className={styles.storageMetaHint}>
-                                {workbook.localSnapshot.exists
-                                  ? `${workbook.localSnapshot.sheets.length} local sheet${workbook.localSnapshot.sheets.length === 1 ? "" : "s"}`
-                                  : "No local mirror file"}
-                              </span>
-                            </div>
-
-                            <div className={styles.storageMetaItem}>
-                              <span className={styles.storageMetaLabel}>Pending fallback</span>
-                              <strong className={styles.storageMetaValue}>
-                                {workbook.pendingSnapshot.exists
-                                  ? formatBytes(workbook.pendingSnapshot.sizeBytes)
-                                  : "Clear"}
-                              </strong>
-                              <span className={styles.storageMetaHint}>
-                                {workbook.pendingSnapshot.exists
-                                  ? "Workbook write is queued locally"
-                                  : "No pending sync file"}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className={styles.storageSheetsList}>
-                            {(liveSnapshot?.sheets || []).map((sheet) => (
-                              <div
-                                key={`${workbook.key}-${sheet.name}`}
-                                className={styles.storageSheetRow}
-                              >
-                                <span>{sheet.name}</span>
-                                <span>{sheet.rows} rows</span>
                               </div>
-                            ))}
 
-                            {(!liveSnapshot || liveSnapshot.sheets.length === 0) && (
-                              <div className={styles.storageSheetEmpty}>
-                                No sheet snapshot available yet.
+                              <div className={styles.storageBadgeRow}>
+                                {workbook.expectedSheets.map((sheet) => {
+                                  const present = Boolean(
+                                    liveSnapshot?.sheets.some((entry) => entry.name === sheet)
+                                  );
+
+                                  return (
+                                    <span
+                                      key={`${workbook.key}-${sheet}`}
+                                      className={`${styles.storageSheetBadge} ${
+                                        present ? styles.storageSheetOk : styles.storageSheetMissing
+                                      }`}
+                                    >
+                                      {sheet}
+                                    </span>
+                                  );
+                                })}
                               </div>
-                            )}
-                          </div>
-                        </article>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </section>
-          </>
-        )}
+
+                              <div className={styles.storageMetaGrid}>
+                                <div className={styles.storageMetaItem}>
+                                  <span className={styles.storageMetaLabel}>
+                                    {storage.mode === "onedrive" ? "Live workbook" : "Local workbook"}
+                                  </span>
+                                  <strong className={styles.storageMetaValue}>
+                                    {liveSnapshot?.exists ? formatBytes(liveSnapshot.sizeBytes) : "Not found"}
+                                  </strong>
+                                  <span className={styles.storageMetaHint}>
+                                    {liveSnapshot?.exists
+                                      ? `${liveSnapshot.sheets.length} sheet${liveSnapshot.sheets.length === 1 ? "" : "s"}`
+                                      : storage.mode === "onedrive"
+                                        ? "No live OneDrive snapshot yet"
+                                        : "Workbook has not been created yet"}
+                                  </span>
+                                </div>
+
+                                <div className={styles.storageMetaItem}>
+                                  <span className={styles.storageMetaLabel}>Local mirror</span>
+                                  <strong className={styles.storageMetaValue}>
+                                    {workbook.localSnapshot.exists
+                                      ? formatBytes(workbook.localSnapshot.sizeBytes)
+                                      : "None"}
+                                  </strong>
+                                  <span className={styles.storageMetaHint}>
+                                    {workbook.localSnapshot.exists
+                                      ? `${workbook.localSnapshot.sheets.length} local sheet${workbook.localSnapshot.sheets.length === 1 ? "" : "s"}`
+                                      : "No local mirror file"}
+                                  </span>
+                                </div>
+
+                                <div className={styles.storageMetaItem}>
+                                  <span className={styles.storageMetaLabel}>Pending fallback</span>
+                                  <strong className={styles.storageMetaValue}>
+                                    {workbook.pendingSnapshot.exists
+                                      ? formatBytes(workbook.pendingSnapshot.sizeBytes)
+                                      : "Clear"}
+                                  </strong>
+                                  <span className={styles.storageMetaHint}>
+                                    {workbook.pendingSnapshot.exists
+                                      ? "Workbook write is queued locally"
+                                      : "No pending sync file"}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className={styles.storageSheetsList}>
+                                {(liveSnapshot?.sheets || []).map((sheet) => (
+                                  <div
+                                    key={`${workbook.key}-${sheet.name}`}
+                                    className={styles.storageSheetRow}
+                                  >
+                                    <span>{sheet.name}</span>
+                                    <span>{sheet.rows} rows</span>
+                                  </div>
+                                ))}
+
+                                {(!liveSnapshot || liveSnapshot.sheets.length === 0) && (
+                                  <div className={styles.storageSheetEmpty}>
+                                    No sheet snapshot available yet.
+                                  </div>
+                                )}
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                </section>
 
         {/* ── Share Templates Editor ─── */}
         <section className={styles.templatesPanel}>
@@ -953,6 +1033,9 @@ export default function AdminPage() {
               )}
             </div>
           )}
+              </div>
+            )}
+          </main>
         </div>
       </div>
     </div>

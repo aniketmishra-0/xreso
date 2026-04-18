@@ -5,9 +5,123 @@
 }
 
 .container {
-  max-width: 1240px;
+  max-width: 1300px;
   margin: 0 auto;
   padding: 0 var(--space-lg);
+}
+
+/* ── SIDEBAR LAYOUT ── */
+.adminLayout {
+  display: flex;
+  gap: var(--space-2xl);
+  margin-top: var(--space-lg);
+}
+
+.adminSidebar {
+  width: 250px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebarHeader {
+  margin-bottom: var(--space-xl);
+  padding: 0 8px;
+}
+
+.sidebarTitle {
+  font-size: var(--text-xl);
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.sidebarSubtitle {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.sidebarNav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.navItem, .navItemActive {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.navItem {
+  color: var(--text-secondary);
+  background: transparent;
+}
+
+.navItem:hover {
+  background: color-mix(in srgb, var(--bg-surface) 60%, transparent);
+  color: var(--text-primary);
+}
+
+.navItemActive {
+  background: rgba(139, 92, 246, 0.1);
+  color: var(--primary-light);
+  border-color: rgba(139, 92, 246, 0.2);
+  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.05);
+}
+
+.navIcon {
+  width: 18px;
+  height: 18px;
+  opacity: 0.8;
+}
+
+.adminMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.adminTabHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-2xl);
+  padding-bottom: var(--space-lg);
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.adminTabTitle {
+  font-size: var(--text-2xl);
+  font-weight: 850;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.adminTabSubtitle {
+  font-size: var(--text-sm);
+  color: var(--text-tertiary);
+  margin-top: 6px;
+}
+
+.tabActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.configSection {
+  margin-bottom: var(--space-3xl);
 }
 
 .header {

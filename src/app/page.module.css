@@ -418,10 +418,16 @@
   box-shadow: var(--shadow-sm);
 }
 
-.categorySummary,
-.featuredSummary {
+.categorySummary {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin-bottom: var(--space-lg);
+}
+
+.featuredSummary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-sm);
   margin-bottom: var(--space-lg);
 }
@@ -1267,8 +1273,6 @@
     min-height: 148px;
   }
 
-  .categorySummary,
-  .featuredSummary,
   .categoryGrid {
     grid-template-columns: 1fr;
   }
@@ -1324,7 +1328,18 @@
   }
 
   .summaryCard {
-    padding: 12px 14px;
+    padding: 8px;
+    align-items: center;
+    text-align: center;
+  }
+
+  .summaryLabel {
+    font-size: 10px;
+    white-space: normal;
+  }
+
+  .summaryValue {
+    font-size: var(--text-lg);
   }
 
   .sectionShell {
@@ -1332,7 +1347,7 @@
   }
 
   .featuredSummary {
-    gap: 10px;
+    gap: 8px;
   }
 
   .categoryCard {

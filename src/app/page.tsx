@@ -285,10 +285,7 @@ export default async function Home() {
                     <span className={styles.summaryLabel}>Trending now</span>
                     <span className={styles.summaryValue}>{trendingNotes.length}</span>
                   </div>
-                  <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Min. views</span>
-                    <span className={styles.summaryValue}>{viewsThreshold.toLocaleString()}+</span>
-                  </div>
+
                   <div className={styles.summaryCard}>
                     <span className={styles.summaryLabel}>Top note</span>
                     <span className={styles.summaryValue}>

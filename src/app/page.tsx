@@ -287,7 +287,7 @@ export default async function Home() {
               <p className={styles.eyebrow}>Trending</p>
               <h2 className={styles.sectionTitle}>Curated Notes</h2>
               <p className={styles.sectionSubtitle}>
-                Notes with {viewsThreshold.toLocaleString()}+ views — automatically surfaced from the community.
+                Top trending notes — automatically surfaced from the community.
               </p>
             </div>
             <Link href="/browse?sort=popular" className="btn btn-secondary btn-sm">

@@ -1132,6 +1132,10 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .categorySummary .summaryCard:last-child {
+    grid-column: span 2;
+  }
+
   .featuredTrack > article {
     flex: 0 0 300px;
   }

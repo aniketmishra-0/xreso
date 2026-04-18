@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import UnifiedDropdown from "@/components/UnifiedDropdown/UnifiedDropdown";
+import NoteCard from "@/components/NoteCard/NoteCard";
 import styles from "./page.module.css";
 
 interface AdvancedTrackTopic {
@@ -436,62 +437,23 @@ function TrackNotesContent() {
             </button>
           </div>
         ) : (
-          <div className={styles.resourceGrid}>
+          <div className={styles.resourceGrid} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "24px" }}>
             {resources.map((resource) => (
-              <article key={resource.id} className={styles.resourceCard}>
-                <div className={styles.resourceMetaTop}>
-                  <span className={styles.trackBadge}>{resource.trackName}</span>
-                  {resource.topicName ? (
-                    <span className={styles.topicBadge}>{resource.topicName}</span>
-                  ) : null}
-                  {resource.premiumOnly ? (
-                    <span className={styles.premiumBadge}>Open</span>
-                  ) : null}
-                </div>
-
-                <h3 className={styles.resourceTitle}>{resource.title}</h3>
-                <p className={styles.resourceSummary}>{resource.summary}</p>
-
-                <div className={styles.resourceMetaRow}>
-                  <span>{formatDate(resource.createdAt)}</span>
-                  <span>{resource.viewCount} views</span>
-                  <span>{resource.saveCount} saves</span>
-                </div>
-
-                {resource.tags.length > 0 ? (
-                  <div className={styles.resourceTags}>
-                    {resource.tags.slice(0, 4).map((tag) => (
-                      <span key={`${resource.id}-${tag}`} className={styles.resourceTag}>
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-
-                <div className={styles.resourceFooter}>
-                  <span className={styles.authorName}>{resource.authorName || "Unknown author"}</span>
-                  {resource.accessLocked ? (
-                    viewer.isAuthenticated ? (
-                      <span className={styles.lockedPill}>Review Locked</span>
-                    ) : (
-                      <Link href={unlockHref} className="btn btn-secondary btn-sm">
-                        Sign In
-                      </Link>
-                    )
-                  ) : resource.contentUrl ? (
-                    <a
-                      href={resource.contentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-secondary btn-sm"
-                    >
-                      Open Resource
-                    </a>
-                  ) : (
-                    <span className={styles.lockedPill}>Unavailable</span>
-                  )}
-                </div>
-              </article>
+              <NoteCard
+                key={resource.id}
+                id={resource.id}
+                title={resource.title}
+                description={resource.summary}
+                category={resource.trackName}
+                categorySlug={resource.trackSlug}
+                author={resource.authorName || "Unknown author"}
+                authorId={resource.authorId}
+                thumbnailUrl={resource.thumbnailUrl || ""}
+                viewCount={resource.viewCount}
+                bookmarkCount={resource.saveCount}
+                tags={[...resource.tags, resource.topicName].filter(Boolean) as string[]}
+                createdAt={formatDate(resource.createdAt)}
+              />
             ))}
           </div>
         )}

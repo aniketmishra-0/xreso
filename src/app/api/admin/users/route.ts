@@ -20,20 +20,18 @@ export async function GET() {
 
     const client = getClient();
 
-    // Ensure columns exist (creates them if they don't)
+    // Safely add role column if it doesn't exist (using empty default to satisfy SQLite)
     try {
       await client.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'");
     } catch { /* already exists */ }
-    try {
-      await client.execute("ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
-    } catch { /* already exists */ }
 
+    // Fetch users without strictly requesting non-standard NextAuth columns
     const result = await client.execute(`
-      SELECT u.id, u.name, u.email, COALESCE(u.role, 'user') as role, u.image, COALESCE(u.created_at, CURRENT_TIMESTAMP) as created_at,
+      SELECT 
+        u.*,
         (SELECT COUNT(*) FROM notes WHERE author_id = u.id) as note_count,
         (SELECT COALESCE(SUM(view_count),0) FROM notes WHERE author_id = u.id) as total_views
       FROM users u
-      ORDER BY u.created_at DESC
     `);
 
     const users = result.rows.map((row) => {
@@ -41,7 +39,17 @@ export async function GET() {
       for (const [k, v] of Object.entries(row)) {
         r[k] = typeof v === "bigint" ? Number(v) : v;
       }
+      // Provide fallbacks for missing NextAuth columns
+      r.role = typeof r.role === 'string' && r.role ? r.role : "user";
+      r.created_at = r.created_at || r.emailVerified || new Date().toISOString(); 
       return r;
+    });
+
+    // Sort in memory to avoid SQL missing column errors
+    users.sort((a, b) => {
+      const da = new Date(a.created_at as string).getTime();
+      const db = new Date(b.created_at as string).getTime();
+      return db - da; // Descending
     });
 
     return NextResponse.json({ users });

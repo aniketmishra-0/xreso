@@ -93,7 +93,6 @@ export default async function Home() {
     { value: formatCompactMetric(heroStats.notesIndexed), label: "Notes Indexed" },
     { value: formatCompactMetric(heroStats.activeLearners), label: "Active Learners" },
     { value: formatCompactMetric(heroStats.contributors), label: "Contributors" },
-    { value: "99.9%", label: "Uptime" },
   ];
 
   const [primaryCategory] = categories;

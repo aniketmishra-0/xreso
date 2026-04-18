@@ -86,7 +86,6 @@ export default async function TracksHomePage() {
 
   const stats = [
     { value: formatCompactMetric(heroStats.trackCount), label: "Tracks" },
-    { value: formatCompactMetric(heroStats.resourceCount), label: "Resources" },
     { value: formatCompactMetric(heroStats.topicCount), label: "Topics" },
     { value: formatCompactMetric(heroStats.contributorCount), label: "Contributors" },
   ];

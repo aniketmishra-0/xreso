@@ -19,8 +19,17 @@ export async function GET() {
     if (role !== "admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const client = getClient();
+
+    // Ensure columns exist (creates them if they don't)
+    try {
+      await client.execute("ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'");
+    } catch { /* already exists */ }
+    try {
+      await client.execute("ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+    } catch { /* already exists */ }
+
     const result = await client.execute(`
-      SELECT u.id, u.name, u.email, u.role, u.image, u.created_at,
+      SELECT u.id, u.name, u.email, COALESCE(u.role, 'user') as role, u.image, COALESCE(u.created_at, CURRENT_TIMESTAMP) as created_at,
         (SELECT COUNT(*) FROM notes WHERE author_id = u.id) as note_count,
         (SELECT COALESCE(SUM(view_count),0) FROM notes WHERE author_id = u.id) as total_views
       FROM users u

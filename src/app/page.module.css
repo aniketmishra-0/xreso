@@ -407,15 +407,15 @@
   display: inline-flex;
   align-items: center;
   background: color-mix(in srgb, var(--bg-surface) 60%, rgba(255, 255, 255, 0.2));
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 100px;
   padding: 4px;
-  backdrop-filter: blur(40px) saturate(200%);
-  -webkit-backdrop-filter: blur(40px) saturate(200%);
+  backdrop-filter: blur(48px) saturate(200%);
+  -webkit-backdrop-filter: blur(48px) saturate(200%);
   box-shadow:
-    0 16px 32px -8px rgba(0, 0, 0, 0.15),
-    inset 0 2px 4px rgba(255, 255, 255, 0.6),
-    inset 0 -2px 4px rgba(0, 0, 0, 0.05);
+    0 12px 32px -8px rgba(0, 0, 0, 0.12),
+    inset 0 3px 6px rgba(255, 255, 255, 0.9),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.05);
 }
 
 .toggleBtn {
@@ -440,13 +440,22 @@
 }
 
 .toggleBtnActive {
-  background: var(--bg-elevated);
+  background: radial-gradient(150% 120% at 50% 10%, 
+    color-mix(in srgb, var(--bg-surface) 100%, white) 0%, 
+    color-mix(in srgb, var(--bg-surface) 80%, rgba(255,255,255,0.4)) 50%, 
+    color-mix(in srgb, var(--bg-surface) 95%, rgba(0,0,0,0.05)) 100%
+  );
   color: var(--text-primary);
   font-weight: 700;
   box-shadow: 
-    0 4px 12px -2px rgba(0, 0, 0, 0.12),
-    0 0 0 1px color-mix(in srgb, var(--border-primary) 50%, transparent);
-  text-shadow: none; /* Removed the liquid text shadow */
+    0 6px 16px -4px rgba(0, 0, 0, 0.12),
+    inset 0 3px 4px -1px rgba(255, 255, 255, 1),
+    inset 0 12px 14px -4px rgba(255, 255, 255, 0.6),
+    inset 0 -8px 12px -4px rgba(0, 0, 0, 0.08),
+    inset 8px 0 12px -4px rgba(0, 0, 0, 0.03),
+    inset -8px 0 12px -4px rgba(0, 0, 0, 0.03),
+    0 0 0 1px color-mix(in srgb, var(--border-primary) 40%, transparent);
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
   pointer-events: none;
   z-index: 2;
 }

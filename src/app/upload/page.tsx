@@ -1090,12 +1090,15 @@ function UploadPageContent() {
       : `${typeof window !== "undefined" ? window.location.origin : ""}/browse`;
 
     const shareTitle = formData.title || "a resource";
+    const categoryLabel = formData.category
+      ? formData.category.charAt(0).toUpperCase() + formData.category.slice(1).replace(/-/g, " ")
+      : "Programming";
 
     const shareTemplates = {
-      x: `🚀 Just shared "${shareTitle}" on @xreso — a free, open-source platform for programming notes & resources!\n\nCheck it out 👇\n${noteUrl}\n\n#xreso #programming #opensource #coding`,
-      linkedin: `I just contributed "${shareTitle}" to xreso — a free, open-source platform where developers share programming notes, cheat sheets, and learning resources.\n\nxreso is built for the community, by the community. Every resource is free and openly accessible.\n\nCheck it out: ${noteUrl}\n\n#OpenSource #Programming #Learning #xreso`,
-      whatsapp: `Hey! I just shared "${shareTitle}" on xreso 🚀\n\nIt's a free & open-source platform for programming notes and resources. Check it out:\n${noteUrl}`,
-      telegram: `🚀 Just shared "${shareTitle}" on xreso!\n\nFree, open-source platform for programming notes & resources.\n\n${noteUrl}`,
+      x: `I just uploaded "${shareTitle}" on xreso 📚\n\nxreso is a free, open-source library where devs share notes, cheat sheets & learning resources — completely free.\n\n💡 No paywall. No sign-up wall. Just knowledge.\n\n${noteUrl}\n\n#xreso #${categoryLabel.replace(/\s+/g, "")} #LearnInPublic #100DaysOfCode`,
+      linkedin: `🎓 Knowledge shared = Knowledge multiplied\n\nI just contributed "${shareTitle}" on xreso — a fully free, open-source platform built for developers who believe learning resources should be accessible to everyone.\n\nWhat is xreso?\n→ A community-driven library of programming notes, cheat sheets, and study resources\n→ 100% free — no premium tiers, no paywalls\n→ Open source — anyone can contribute\n→ Covering ${categoryLabel} and 20+ other topics\n\nIf you've ever wished for a single place to find quality ${categoryLabel} notes, this is it.\n\nCheck it out: ${noteUrl}\n\n#OpenSource #Programming #${categoryLabel.replace(/\s+/g, "")} #DevCommunity #Learning #xreso`,
+      whatsapp: `Hey! 👋\n\nI just shared my ${categoryLabel} notes on this really cool platform called *xreso*\n\n📚 "${shareTitle}"\n\nIt's completely free and open source — anyone can access notes on 20+ programming topics without signing up.\n\nCheck it out: ${noteUrl}`,
+      telegram: `📚 Just uploaded "${shareTitle}" on xreso\n\n→ Free & open-source programming notes library\n→ No paywall, no sign-up required\n→ ${categoryLabel} + 20 other topics\n\n${noteUrl}`,
     };
 
     const handleShare = (platform: string) => {

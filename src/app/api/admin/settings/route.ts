@@ -52,6 +52,10 @@ export async function GET() {
     return NextResponse.json({
       settings: {
         auto_approve_enabled: settings.auto_approve_enabled === "true",
+        share_template_x: settings.share_template_x || "",
+        share_template_linkedin: settings.share_template_linkedin || "",
+        share_template_whatsapp: settings.share_template_whatsapp || "",
+        share_template_telegram: settings.share_template_telegram || "",
       },
     });
   } catch (error) {
@@ -76,7 +80,13 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const { key, value } = body as { key: string; value: string };
 
-    const allowedKeys = ["auto_approve_enabled"];
+    const allowedKeys = [
+      "auto_approve_enabled",
+      "share_template_x",
+      "share_template_linkedin",
+      "share_template_whatsapp",
+      "share_template_telegram",
+    ];
     if (!allowedKeys.includes(key)) {
       return NextResponse.json({ error: "Invalid setting key" }, { status: 400 });
     }

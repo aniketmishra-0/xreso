@@ -477,6 +477,17 @@ function UploadPageContent() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; noteId?: string } | null>(null);
+  const [customShareTemplates, setCustomShareTemplates] = useState<Record<string, string>>({});
+
+  // Fetch custom share templates from admin settings
+  useEffect(() => {
+    fetch("/api/share-templates", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: { templates?: Record<string, string> }) => {
+        if (data.templates) setCustomShareTemplates(data.templates);
+      })
+      .catch(() => {});
+  }, []);
 
   const selectedAdvancedTrack = advancedTracks.find(
     (track) => track.slug === formData.advancedTrackSlug
@@ -1094,11 +1105,27 @@ function UploadPageContent() {
       ? formData.category.charAt(0).toUpperCase() + formData.category.slice(1).replace(/-/g, " ")
       : "Programming";
 
-    const shareTemplates = {
+    // Apply custom template if available, otherwise use default
+    const applyTemplate = (template: string, fallback: string) => {
+      if (!template) return fallback;
+      return template
+        .replace(/\{title\}/g, shareTitle)
+        .replace(/\{url\}/g, noteUrl)
+        .replace(/\{category\}/g, categoryLabel);
+    };
+
+    const defaultTemplates = {
       x: `I just uploaded "${shareTitle}" on xreso 📚\n\nxreso is a free, open-source library where devs share notes, cheat sheets & learning resources — completely free.\n\n💡 No paywall. No sign-up wall. Just knowledge.\n\n${noteUrl}\n\n#xreso #${categoryLabel.replace(/\s+/g, "")} #LearnInPublic #100DaysOfCode`,
       linkedin: `🎓 Knowledge shared = Knowledge multiplied\n\nI just contributed "${shareTitle}" on xreso — a fully free, open-source platform built for developers who believe learning resources should be accessible to everyone.\n\nWhat is xreso?\n→ A community-driven library of programming notes, cheat sheets, and study resources\n→ 100% free — no premium tiers, no paywalls\n→ Open source — anyone can contribute\n→ Covering ${categoryLabel} and 20+ other topics\n\nIf you've ever wished for a single place to find quality ${categoryLabel} notes, this is it.\n\nCheck it out: ${noteUrl}\n\n#OpenSource #Programming #${categoryLabel.replace(/\s+/g, "")} #DevCommunity #Learning #xreso`,
       whatsapp: `Hey! 👋\n\nI just shared my ${categoryLabel} notes on this really cool platform called *xreso*\n\n📚 "${shareTitle}"\n\nIt's completely free and open source — anyone can access notes on 20+ programming topics without signing up.\n\nCheck it out: ${noteUrl}`,
       telegram: `📚 Just uploaded "${shareTitle}" on xreso\n\n→ Free & open-source programming notes library\n→ No paywall, no sign-up required\n→ ${categoryLabel} + 20 other topics\n\n${noteUrl}`,
+    };
+
+    const shareTemplates = {
+      x: applyTemplate(customShareTemplates.x || "", defaultTemplates.x),
+      linkedin: applyTemplate(customShareTemplates.linkedin || "", defaultTemplates.linkedin),
+      whatsapp: applyTemplate(customShareTemplates.whatsapp || "", defaultTemplates.whatsapp),
+      telegram: applyTemplate(customShareTemplates.telegram || "", defaultTemplates.telegram),
     };
 
     const handleShare = (platform: string) => {

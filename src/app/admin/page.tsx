@@ -101,6 +101,15 @@ export default function AdminPage() {
   const [storageError, setStorageError] = useState("");
   const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
   const [autoApproveToggling, setAutoApproveToggling] = useState(false);
+  const [shareTemplates, setShareTemplates] = useState({
+    x: "",
+    linkedin: "",
+    whatsapp: "",
+    telegram: "",
+  });
+  const [templatesSaving, setTemplatesSaving] = useState(false);
+  const [templatesSaved, setTemplatesSaved] = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
 
   const userRole = (session?.user as { role?: string })?.role;
 
@@ -148,13 +157,25 @@ export default function AdminPage() {
     }
   }, []);
 
-  // Load auto-approve setting
+  // Load auto-approve setting + share templates
   useEffect(() => {
     if (userRole !== "admin") return;
     fetch("/api/admin/settings", { cache: "no-store" })
       .then((res) => res.json())
-      .then((data: { settings?: { auto_approve_enabled?: boolean } }) => {
+      .then((data: { settings?: {
+        auto_approve_enabled?: boolean;
+        share_template_x?: string;
+        share_template_linkedin?: string;
+        share_template_whatsapp?: string;
+        share_template_telegram?: string;
+      } }) => {
         setAutoApproveEnabled(data.settings?.auto_approve_enabled ?? false);
+        setShareTemplates({
+          x: data.settings?.share_template_x || "",
+          linkedin: data.settings?.share_template_linkedin || "",
+          whatsapp: data.settings?.share_template_whatsapp || "",
+          telegram: data.settings?.share_template_telegram || "",
+        });
       })
       .catch(() => {});
   }, [userRole]);
@@ -177,6 +198,54 @@ export default function AdminPage() {
       setError("Failed to toggle auto-approval.");
     } finally {
       setAutoApproveToggling(false);
+    }
+  };
+
+  const handleTemplateSave = async (platform: string) => {
+    setTemplatesSaving(true);
+    setTemplatesSaved(false);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: `share_template_${platform}`,
+          value: shareTemplates[platform as keyof typeof shareTemplates],
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save template");
+      setTemplatesSaved(true);
+      setTimeout(() => setTemplatesSaved(false), 2500);
+    } catch {
+      setError(`Failed to save ${platform} template.`);
+    } finally {
+      setTemplatesSaving(false);
+    }
+  };
+
+  const handleSaveAllTemplates = async () => {
+    setTemplatesSaving(true);
+    setTemplatesSaved(false);
+    setError("");
+    try {
+      const platforms = ["x", "linkedin", "whatsapp", "telegram"] as const;
+      for (const platform of platforms) {
+        const value = shareTemplates[platform];
+        if (!value) continue;
+        const res = await fetch("/api/admin/settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key: `share_template_${platform}`, value }),
+        });
+        if (!res.ok) throw new Error(`Failed to save ${platform} template`);
+      }
+      setTemplatesSaved(true);
+      setTimeout(() => setTemplatesSaved(false), 3000);
+    } catch {
+      setError("Failed to save templates.");
+    } finally {
+      setTemplatesSaving(false);
     }
   };
 
@@ -609,6 +678,80 @@ export default function AdminPage() {
             </section>
           </>
         )}
+
+        {/* ── Share Templates Editor ─── */}
+        <section className={styles.templatesPanel}>
+          <button
+            className={styles.templatesPanelHeader}
+            onClick={() => setTemplatesOpen(!templatesOpen)}
+            aria-expanded={templatesOpen}
+          >
+            <div>
+              <span className={styles.templatesEyebrow}>Social Sharing</span>
+              <h2 className={styles.templatesTitle}>Share Templates</h2>
+            </div>
+            <div className={styles.templatesPanelHeaderRight}>
+              {templatesSaved && <span className={styles.templatesSavedBadge}>✓ Saved</span>}
+              <span className={`${styles.templatesChevron} ${templatesOpen ? styles.templatesChevronOpen : ""}`}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
+            </div>
+          </button>
+
+          {templatesOpen && (
+            <div className={styles.templatesBody}>
+              <p className={styles.templatesHint}>
+                Customize the share message for each platform. Use <code>{'{title}'}</code> for note title, <code>{'{url}'}</code> for note link, and <code>{'{category}'}</code> for the topic name. Leave empty to use defaults.
+              </p>
+
+              {([
+                { key: "x", label: "𝕏 (Twitter)", icon: "𝕏", placeholder: `I just uploaded "{title}" on xreso 📚\n\nxreso is a free, open-source library where devs share notes & resources — completely free.\n\n💡 No paywall. No sign-up wall. Just knowledge.\n\n{url}\n\n#xreso #{category} #LearnInPublic` },
+                { key: "linkedin", label: "LinkedIn", icon: "in", placeholder: `🎓 Knowledge shared = Knowledge multiplied\n\nI just contributed "{title}" on xreso — a fully free, open-source platform built for developers.\n\nWhat is xreso?\n→ Community-driven library of programming notes\n→ 100% free — no paywalls\n→ Open source\n→ Covering {category} and 20+ topics\n\nCheck it out: {url}\n\n#OpenSource #Programming #{category}` },
+                { key: "whatsapp", label: "WhatsApp", icon: "💬", placeholder: `Hey! 👋\n\nI just shared my {category} notes on *xreso*\n\n📚 "{title}"\n\nIt's completely free and open source.\n\nCheck it out: {url}` },
+                { key: "telegram", label: "Telegram", icon: "✈️", placeholder: `📚 Just uploaded "{title}" on xreso\n\n→ Free & open-source programming notes library\n→ No paywall, no sign-up required\n→ {category} + 20 other topics\n\n{url}` },
+              ] as const).map((platform) => (
+                <div key={platform.key} className={styles.templateField}>
+                  <div className={styles.templateFieldHeader}>
+                    <span className={styles.templatePlatformIcon}>{platform.icon}</span>
+                    <label className={styles.templateFieldLabel}>{platform.label}</label>
+                    <button
+                      className={`btn btn-sm ${styles.templateSaveBtn}`}
+                      onClick={() => void handleTemplateSave(platform.key)}
+                      disabled={templatesSaving}
+                    >
+                      Save
+                    </button>
+                  </div>
+                  <textarea
+                    className={styles.templateTextarea}
+                    rows={5}
+                    placeholder={platform.placeholder}
+                    value={shareTemplates[platform.key as keyof typeof shareTemplates]}
+                    onChange={(e) => setShareTemplates((prev) => ({ ...prev, [platform.key]: e.target.value }))}
+                  />
+                </div>
+              ))}
+
+              <div className={styles.templatesBulkActions}>
+                <button
+                  className={`btn btn-primary btn-sm ${styles.templateSaveAllBtn}`}
+                  onClick={() => void handleSaveAllTemplates()}
+                  disabled={templatesSaving}
+                >
+                  {templatesSaving ? "Saving..." : "Save All Templates"}
+                </button>
+                <button
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setShareTemplates({ x: "", linkedin: "", whatsapp: "", telegram: "" })}
+                >
+                  Reset to Defaults
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
 
         <div className={styles.panel}>
           <div className={styles.controlRow}>

@@ -412,16 +412,13 @@
 .floatingToggle {
   display: inline-flex;
   align-items: center;
-  background: color-mix(in srgb, var(--bg-surface) 60%, rgba(255, 255, 255, 0.2));
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: color-mix(in srgb, var(--bg-surface) 70%, rgba(255, 255, 255, 0.3));
+  border: 1px solid color-mix(in srgb, var(--border-secondary) 50%, transparent);
   border-radius: 100px;
   padding: 4px;
-  backdrop-filter: blur(48px) saturate(200%);
-  -webkit-backdrop-filter: blur(48px) saturate(200%);
-  box-shadow:
-    0 12px 32px -8px rgba(0, 0, 0, 0.12),
-    inset 0 3px 6px rgba(255, 255, 255, 0.9),
-    inset 0 -3px 6px rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.08);
 }
 
 .toggleBtn {
@@ -436,32 +433,22 @@
   letter-spacing: 0.01em;
   color: var(--text-secondary);
   text-decoration: none;
-  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition: all 0.2s ease-out;
   z-index: 1;
 }
 
 .toggleBtn:hover {
   color: var(--text-primary);
-  background: color-mix(in srgb, var(--text-primary) 6%, transparent);
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 
 .toggleBtnActive {
-  background: radial-gradient(150% 120% at 50% 10%, 
-    color-mix(in srgb, var(--bg-surface) 100%, white) 0%, 
-    color-mix(in srgb, var(--bg-surface) 80%, rgba(255,255,255,0.4)) 50%, 
-    color-mix(in srgb, var(--bg-surface) 95%, rgba(0,0,0,0.05)) 100%
-  );
+  background: var(--bg-elevated);
   color: var(--text-primary);
   font-weight: 700;
   box-shadow: 
-    0 6px 16px -4px rgba(0, 0, 0, 0.12),
-    inset 0 3px 4px -1px rgba(255, 255, 255, 1),
-    inset 0 12px 14px -4px rgba(255, 255, 255, 0.6),
-    inset 0 -8px 12px -4px rgba(0, 0, 0, 0.08),
-    inset 8px 0 12px -4px rgba(0, 0, 0, 0.03),
-    inset -8px 0 12px -4px rgba(0, 0, 0, 0.03),
-    0 0 0 1px color-mix(in srgb, var(--border-primary) 40%, transparent);
-  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5);
+    0 2px 8px -2px rgba(0, 0, 0, 0.12),
+    0 0 0 1px color-mix(in srgb, var(--border-primary) 80%, transparent);
   pointer-events: none;
   z-index: 2;
 }

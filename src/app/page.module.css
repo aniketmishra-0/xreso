@@ -387,7 +387,8 @@
   z-index: 100;
   pointer-events: auto;
   animation: floatingSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-  animation-delay: 0.2s; /* Wait briefly before appearing */
+  animation-delay: 0.2s;
+  /* Wait briefly before appearing */
 }
 
 @keyframes floatingSlideUp {
@@ -395,6 +396,7 @@
     opacity: 0;
     transform: translate(-50%, 30px) scale(0.95);
   }
+
   100% {
     opacity: 1;
     transform: translate(-50%, 0) scale(1);
@@ -410,8 +412,8 @@
   padding: 4px;
   backdrop-filter: blur(40px) saturate(200%);
   -webkit-backdrop-filter: blur(40px) saturate(200%);
-  box-shadow: 
-    0 16px 32px -8px rgba(0, 0, 0, 0.15), 
+  box-shadow:
+    0 16px 32px -8px rgba(0, 0, 0, 0.15),
     inset 0 2px 4px rgba(255, 255, 255, 0.6),
     inset 0 -2px 4px rgba(0, 0, 0, 0.05);
 }
@@ -438,18 +440,13 @@
 }
 
 .toggleBtnActive {
-  background: radial-gradient(140% 120% at 50% 20%, #ffdfba 0%, #ea580c 50%, #8a2000 100%);
-  color: #ffffff;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
   font-weight: 700;
   box-shadow: 
-    0 8px 16px -4px rgba(234, 88, 12, 0.4), 
-    inset 0 3px 4px -1px rgba(255, 255, 255, 0.9), 
-    inset 0 10px 14px -4px rgba(255, 255, 255, 0.4), 
-    inset 0 -8px 16px -4px rgba(130, 20, 0, 0.9), 
-    inset 10px 0 12px -4px rgba(180, 40, 0, 0.8), 
-    inset -10px 0 12px -4px rgba(180, 40, 0, 0.8), 
-    0 0 0 1px rgba(255, 255, 255, 0.3);
-  text-shadow: 0 1px 3px rgba(100, 20, 0, 0.5);
+    0 4px 12px -2px rgba(0, 0, 0, 0.12),
+    0 0 0 1px color-mix(in srgb, var(--border-primary) 50%, transparent);
+  text-shadow: none; /* Removed the liquid text shadow */
   pointer-events: none;
   z-index: 2;
 }

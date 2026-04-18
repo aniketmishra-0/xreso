@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import "./globals.css";
 import Navbar from "@/components/Navbar/Navbar";
@@ -7,6 +7,13 @@ import AuthProvider from "@/components/AuthProvider";
 import ThemeProviderWrapper from "@/components/ThemeProvider";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://xreso.dev";
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F8F6FF" },
+    { media: "(prefers-color-scheme: dark)", color: "#0F0A1A" },
+  ],
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(APP_URL),
@@ -98,7 +105,6 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <meta name="theme-color" content="#0F0A1A" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}

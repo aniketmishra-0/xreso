@@ -400,20 +400,19 @@ export default function AdminPage() {
           </div>
         </div>
       </div>
-    );
   }
 
   return (
     <div className={styles.page}>
       <div className={styles.container}>
         <div className={styles.adminLayout}>
+
           {/* ── SIDEBAR ── */}
           <aside className={styles.adminSidebar}>
             <div className={styles.sidebarHeader}>
               <h1 className={styles.sidebarTitle}>Admin Center</h1>
               <p className={styles.sidebarSubtitle}>Library command console</p>
             </div>
-            
             <nav className={styles.sidebarNav}>
               <button
                 className={activeTab === "overview" ? styles.navItemActive : styles.navItem}
@@ -441,9 +440,10 @@ export default function AdminPage() {
 
           {/* ── MAIN CONTENT ── */}
           <main className={styles.adminMain}>
-            
+
+            {/* ═══ OVERVIEW TAB ═══ */}
             {activeTab === "overview" && (
-              <div className={styles.tabContent}>
+              <div>
                 <div className={styles.adminTabHeader}>
                   <div>
                     <h2 className={styles.adminTabTitle}>Platform Overview</h2>
@@ -460,93 +460,88 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-        {stats && (
-          <>
-            <div className={styles.statsGrid}>
-              <div className={styles.statCard}>
-                <span className={styles.statValue}>{formatCompact(stats.totalNotes)}</span>
-                <span className={styles.statLabel}>Total Notes</span>
-                <span className={styles.statHint}>All submissions + published notes</span>
-              </div>
+                {stats && (
+                  <>
+                    <div className={styles.statsGrid}>
+                      <div className={styles.statCard}>
+                        <span className={styles.statValue}>{formatCompact(stats.totalNotes)}</span>
+                        <span className={styles.statLabel}>Total Notes</span>
+                        <span className={styles.statHint}>All submissions + published notes</span>
+                      </div>
+                      <div className={`${styles.statCard} ${styles.statWarn}`}>
+                        <span className={styles.statValue}>{formatCompact(stats.pendingNotes)}</span>
+                        <span className={styles.statLabel}>Pending Review</span>
+                        <span className={styles.statHint}>Needs moderator action</span>
+                      </div>
+                      <div className={styles.statCard}>
+                        <span className={styles.statValue}>{formatCompact(stats.approvedNotes)}</span>
+                        <span className={styles.statLabel}>Published</span>
+                        <span className={styles.statHint}>Visible in the public catalog</span>
+                      </div>
+                      <div className={styles.statCard}>
+                        <span className={styles.statValue}>{formatCompact(stats.totalUsers)}</span>
+                        <span className={styles.statLabel}>Users</span>
+                        <span className={styles.statHint}>Registered contributors + learners</span>
+                      </div>
+                      <div className={styles.statCard}>
+                        <span className={styles.statValue}>{formatCompact(stats.totalViews)}</span>
+                        <span className={styles.statLabel}>Total Views</span>
+                        <span className={styles.statHint}>Lifetime engagement</span>
+                      </div>
+                      <div className={styles.statCard}>
+                        <span className={styles.statValue}>{formatCompact(stats.totalBookmarks)}</span>
+                        <span className={styles.statLabel}>Bookmarks</span>
+                        <span className={styles.statHint}>Saved by the community</span>
+                      </div>
+                      <div className={styles.statCard}>
+                        <span className={styles.statValue}>{formatCompact(stats.recentViews)}</span>
+                        <span className={styles.statLabel}>Views (7d)</span>
+                        <span className={styles.statHint}>Recent traffic pulse</span>
+                      </div>
+                      <div className={`${styles.statCard} ${stats.pendingReports > 0 ? styles.statWarn : ""}`}>
+                        <span className={styles.statValue}>{formatCompact(stats.pendingReports)}</span>
+                        <span className={styles.statLabel}>Pending Reports</span>
+                        <span className={styles.statHint}>Community flagged content</span>
+                      </div>
+                    </div>
 
-              <div className={`${styles.statCard} ${styles.statWarn}`}>
-                <span className={styles.statValue}>{formatCompact(stats.pendingNotes)}</span>
-                <span className={styles.statLabel}>Pending Review</span>
-                <span className={styles.statHint}>Needs moderator action</span>
-              </div>
-
-              <div className={styles.statCard}>
-                <span className={styles.statValue}>{formatCompact(stats.approvedNotes)}</span>
-                <span className={styles.statLabel}>Published</span>
-                <span className={styles.statHint}>Visible in the public catalog</span>
-              </div>
-
-              <div className={styles.statCard}>
-                <span className={styles.statValue}>{formatCompact(stats.totalUsers)}</span>
-                <span className={styles.statLabel}>Users</span>
-                <span className={styles.statHint}>Registered contributors + learners</span>
-              </div>
-
-              <div className={styles.statCard}>
-                <span className={styles.statValue}>{formatCompact(stats.totalViews)}</span>
-                <span className={styles.statLabel}>Total Views</span>
-                <span className={styles.statHint}>Lifetime engagement</span>
-              </div>
-
-              <div className={styles.statCard}>
-                <span className={styles.statValue}>{formatCompact(stats.totalBookmarks)}</span>
-                <span className={styles.statLabel}>Bookmarks</span>
-                <span className={styles.statHint}>Saved by the community</span>
-              </div>
-
-              <div className={styles.statCard}>
-                <span className={styles.statValue}>{formatCompact(stats.recentViews)}</span>
-                <span className={styles.statLabel}>Views (7d)</span>
-                <span className={styles.statHint}>Recent traffic pulse</span>
-              </div>
-
-              <div className={`${styles.statCard} ${stats.pendingReports > 0 ? styles.statWarn : ""}`}>
-                <span className={styles.statValue}>{formatCompact(stats.pendingReports)}</span>
-                <span className={styles.statLabel}>Pending Reports</span>
-                <span className={styles.statHint}>Community flagged content</span>
-              </div>
-            </div>
-
-            <div className={styles.insightRow}>
-              <article className={styles.insightCard}>
-                <span className={styles.insightLabel}>Approval Rate</span>
-                <strong className={styles.insightValue}>{approvalRate}%</strong>
-                <div className={styles.progressTrack}>
-                  <span
-                    className={`${styles.progressFill} ${styles.progressFillOk}`}
-                    style={{ width: `${approvalRate}%` }}
-                  />
-                </div>
-              </article>
-
-              <article className={styles.insightCard}>
-                <span className={styles.insightLabel}>Pending Load</span>
-                <strong className={styles.insightValue}>{pendingRate}%</strong>
-                <div className={styles.progressTrack}>
-                  <span
-                    className={`${styles.progressFill} ${styles.progressFillWarn}`}
-                    style={{ width: `${pendingRate}%` }}
-                  />
-                </div>
-              </article>
-
-              <article className={styles.insightCard}>
-                <span className={styles.insightLabel}>Queue Snapshot</span>
-                <strong className={styles.insightValue}>{statusCount.pending} waiting</strong>
-                <p className={styles.insightText}>
-                  {nextPendingTitle ? `Next in queue: ${nextPendingTitle}` : "No pending notes right now."}
-                </p>
-              </article>
+                    <div className={styles.insightRow}>
+                      <article className={styles.insightCard}>
+                        <span className={styles.insightLabel}>Approval Rate</span>
+                        <strong className={styles.insightValue}>{approvalRate}%</strong>
+                        <div className={styles.progressTrack}>
+                          <span
+                            className={`${styles.progressFill} ${styles.progressFillOk}`}
+                            style={{ width: `${approvalRate}%` }}
+                          />
+                        </div>
+                      </article>
+                      <article className={styles.insightCard}>
+                        <span className={styles.insightLabel}>Pending Load</span>
+                        <strong className={styles.insightValue}>{pendingRate}%</strong>
+                        <div className={styles.progressTrack}>
+                          <span
+                            className={`${styles.progressFill} ${styles.progressFillWarn}`}
+                            style={{ width: `${pendingRate}%` }}
+                          />
+                        </div>
+                      </article>
+                      <article className={styles.insightCard}>
+                        <span className={styles.insightLabel}>Queue Snapshot</span>
+                        <strong className={styles.insightValue}>{statusCount.pending} waiting</strong>
+                        <p className={styles.insightText}>
+                          {nextPendingTitle ? `Next in queue: ${nextPendingTitle}` : "No pending notes right now."}
+                        </p>
+                      </article>
+                    </div>
+                  </>
+                )}
               </div>
             )}
-            
+
+            {/* ═══ SUBMISSIONS TAB ═══ */}
             {activeTab === "submissions" && (
-              <div className={styles.tabContent}>
+              <div>
                 <div className={styles.adminTabHeader}>
                   <div>
                     <h2 className={styles.adminTabTitle}>Content Submissions</h2>
@@ -563,10 +558,128 @@ export default function AdminPage() {
                   </div>
                 </div>
 
+                <div className={styles.panel}>
+                  <div className={styles.controlRow}>
+                    <label className={styles.searchWrap}>
+                      <svg className={styles.searchIcon} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                      <input
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        className={styles.searchInput}
+                        placeholder="Search by title, author, email, or category"
+                        aria-label="Search moderation queue"
+                      />
+                    </label>
+                    <div className={styles.controlActions}>
+                      <Link href="/admin/advanced-tracks" className="btn btn-secondary btn-sm">
+                        Open Tracks Admin
+                      </Link>
+                      <Link href="/browse?featured=true" className="btn btn-ghost btn-sm">
+                        View Featured Feed
+                      </Link>
+                    </div>
+                  </div>
+
+                  <div className={styles.filterTabs}>
+                    {FILTERS.map((value) => (
+                      <button
+                        key={value}
+                        className={`${styles.filterTab} ${filter === value ? styles.filterActive : ""}`}
+                        onClick={() => setFilter(value)}
+                      >
+                        <span>{getStatusLabel(value)}</span>
+                        <span className={styles.filterCount}>{statusCount[value]}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {error && <div className={styles.error}>{error}</div>}
+
+                  {loading ? (
+                    <div className={styles.loading}>Loading moderation queue...</div>
+                  ) : (
+                    <div className={styles.table}>
+                      {filteredNotes.map((note) => {
+                        const statusClass =
+                          note.status === "approved"
+                            ? styles.statusApproved
+                            : note.status === "pending"
+                              ? styles.statusPending
+                              : styles.statusRejected;
+
+                        return (
+                          <article key={note.id} className={styles.row}>
+                            <div className={styles.rowMain}>
+                              <div
+                                className={styles.rowThumb}
+                                style={{ backgroundImage: `url(${getNoteThumbnail(note)})` }}
+                              />
+                              <div className={styles.rowInfo}>
+                                <h3 className={styles.rowTitle}>{note.title}</h3>
+                                <div className={styles.rowMeta}>
+                                  <span className={styles.metaPill}>{note.category_name}</span>
+                                  <span>{new Date(note.created_at).toLocaleDateString()}</span>
+                                  <span>{note.view_count} views</span>
+                                  <span>{note.bookmark_count} saves</span>
+                                </div>
+                                <div className={styles.rowAuthor}>
+                                  <span className={styles.rowAuthorAvatar}>
+                                    {(note.author_name || "U").charAt(0).toUpperCase()}
+                                  </span>
+                                  <div className={styles.rowAuthorText}>
+                                    <span className={styles.rowAuthorName}>{note.author_name || "Unknown author"}</span>
+                                    <span className={styles.rowAuthorEmail}>{note.author_email || "No email available"}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div className={styles.rowSide}>
+                              <div className={styles.rowBadges}>
+                                <span className={`${styles.statusBadge} ${statusClass}`}>
+                                  {getStatusLabel(note.status)}
+                                </span>
+                                {Boolean(note.featured) && (
+                                  <span className={styles.featuredBadge}>Featured</span>
+                                )}
+                              </div>
+                              <div className={styles.rowActions}>
+                                {note.status === "pending" && (
+                                  <>
+                                    <button className={`btn btn-sm ${styles.approveBtn}`} onClick={() => void handleAction(note.id, "approve")} disabled={isNoteLocked(note.id)}>
+                                      {isActionBusy(note.id, "approve") ? "Approving..." : "Approve"}
+                                    </button>
+                                    <button className={`btn btn-sm ${styles.rejectBtn}`} onClick={() => void handleAction(note.id, "reject")} disabled={isNoteLocked(note.id)}>
+                                      {isActionBusy(note.id, "reject") ? "Rejecting..." : "Reject"}
+                                    </button>
+                                  </>
+                                )}
+                                <button className={`btn btn-sm ${styles.featureBtn}`} onClick={() => void handleAction(note.id, "feature", !note.featured)} disabled={isNoteLocked(note.id)}>
+                                  {isActionBusy(note.id, "feature") ? "Updating..." : note.featured ? "Unfeature" : "Feature"}
+                                </button>
+                                <Link href={`/note/${note.id}`} className="btn btn-sm btn-ghost">Open</Link>
+                                <button className={`btn btn-sm ${styles.deleteBtn}`} onClick={() => void handleDelete(note.id, note.title)} disabled={isNoteLocked(note.id)}>
+                                  {isActionBusy(note.id, "delete") ? "Deleting..." : "Delete"}
+                                </button>
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                      {filteredNotes.length === 0 && (
+                        <div className={styles.empty}>No notes match your current filter and search.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
             )}
 
+            {/* ═══ CONFIG TAB ═══ */}
             {activeTab === "config" && (
-              <div className={styles.tabContent}>
+              <div>
                 <div className={styles.adminTabHeader}>
                   <div>
                     <h2 className={styles.adminTabTitle}>System Configuration</h2>
@@ -574,7 +687,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* ── Automation Panel ── */}
+                {/* Automation */}
                 <section className={styles.configSection}>
                   <div className={styles.templatesPanelHeader} style={{ cursor: "default", paddingBottom: 0 }}>
                     <div>
@@ -606,14 +719,7 @@ export default function AdminPage() {
                           <span className={styles.autoApproveHint}>Min views to show in Curated Notes</span>
                         </div>
                         <div className={styles.thresholdInputGroup}>
-                          <input
-                            type="number"
-                            min="1"
-                            className={styles.thresholdInput}
-                            value={curatedThreshold}
-                            onChange={(e) => setCuratedThreshold(e.target.value)}
-                            placeholder="500"
-                          />
+                          <input type="number" min="1" className={styles.thresholdInput} value={curatedThreshold} onChange={(e) => setCuratedThreshold(e.target.value)} placeholder="500" />
                           <button
                             className={`btn btn-sm ${styles.thresholdSaveBtn}`}
                             disabled={thresholdSaving}
@@ -641,6 +747,7 @@ export default function AdminPage() {
                   </div>
                 </section>
 
+                {/* Storage */}
                 <section className={styles.storagePanel}>
                   <div className={styles.storageHeader}>
                     <div>
@@ -651,26 +758,18 @@ export default function AdminPage() {
                       {storage?.mode === "onedrive" ? "Live: OneDrive" : "Live: Local"}
                     </span>
                   </div>
-
                   <p className={styles.storageNote}>
                     {storage?.note || "Workbook routing status will appear here after the admin check succeeds."}
                   </p>
-
                   {storage && (
                     <div className={styles.storageSignalRow}>
                       <span className={styles.storageSignalText}>{storageLiveStatus}</span>
-                      <span
-                        className={`${styles.storageQueueBadge} ${
-                          pendingWorkbookCount > 0 ? styles.storageQueueWarn : ""
-                        }`}
-                      >
+                      <span className={`${styles.storageQueueBadge} ${pendingWorkbookCount > 0 ? styles.storageQueueWarn : ""}`}>
                         Pending queue: {pendingWorkbookCount}
                       </span>
                     </div>
                   )}
-
                   {storageError && <div className={styles.storageError}>{storageError}</div>}
-
                   {storage && (
                     <>
                       <div className={styles.storageRoutingList}>
@@ -686,110 +785,58 @@ export default function AdminPage() {
                           </div>
                         ))}
                       </div>
-
                       <div className={styles.storageGrid}>
                         {storage.workbooks.map((workbook) => {
-                          const liveSnapshot =
-                            storage.mode === "onedrive"
-                              ? workbook.remoteSnapshot
-                              : workbook.localSnapshot;
-
+                          const liveSnapshot = storage.mode === "onedrive" ? workbook.remoteSnapshot : workbook.localSnapshot;
                           return (
                             <article key={workbook.key} className={styles.storageCard}>
                               <div className={styles.storageCardHeader}>
                                 <div>
                                   <h3 className={styles.storageCardTitle}>{workbook.label}</h3>
-                                  <p className={styles.storageCardPath}>
-                                    {storage.mode === "onedrive"
-                                      ? workbook.oneDrivePath
-                                      : workbook.localPath}
-                                  </p>
+                                  <p className={styles.storageCardPath}>{storage.mode === "onedrive" ? workbook.oneDrivePath : workbook.localPath}</p>
                                 </div>
-                                <span className={styles.storagePrimarySheet}>
-                                  {workbook.primarySheet}
-                                </span>
+                                <span className={styles.storagePrimarySheet}>{workbook.primarySheet}</span>
                               </div>
-
                               <div className={styles.storageBadgeRow}>
                                 {workbook.expectedSheets.map((sheet) => {
-                                  const present = Boolean(
-                                    liveSnapshot?.sheets.some((entry) => entry.name === sheet)
-                                  );
-
+                                  const present = Boolean(liveSnapshot?.sheets.some((entry) => entry.name === sheet));
                                   return (
-                                    <span
-                                      key={`${workbook.key}-${sheet}`}
-                                      className={`${styles.storageSheetBadge} ${
-                                        present ? styles.storageSheetOk : styles.storageSheetMissing
-                                      }`}
-                                    >
+                                    <span key={`${workbook.key}-${sheet}`} className={`${styles.storageSheetBadge} ${present ? styles.storageSheetOk : styles.storageSheetMissing}`}>
                                       {sheet}
                                     </span>
                                   );
                                 })}
                               </div>
-
                               <div className={styles.storageMetaGrid}>
                                 <div className={styles.storageMetaItem}>
-                                  <span className={styles.storageMetaLabel}>
-                                    {storage.mode === "onedrive" ? "Live workbook" : "Local workbook"}
-                                  </span>
-                                  <strong className={styles.storageMetaValue}>
-                                    {liveSnapshot?.exists ? formatBytes(liveSnapshot.sizeBytes) : "Not found"}
-                                  </strong>
+                                  <span className={styles.storageMetaLabel}>{storage.mode === "onedrive" ? "Live workbook" : "Local workbook"}</span>
+                                  <strong className={styles.storageMetaValue}>{liveSnapshot?.exists ? formatBytes(liveSnapshot.sizeBytes) : "Not found"}</strong>
                                   <span className={styles.storageMetaHint}>
-                                    {liveSnapshot?.exists
-                                      ? `${liveSnapshot.sheets.length} sheet${liveSnapshot.sheets.length === 1 ? "" : "s"}`
-                                      : storage.mode === "onedrive"
-                                        ? "No live OneDrive snapshot yet"
-                                        : "Workbook has not been created yet"}
+                                    {liveSnapshot?.exists ? `${liveSnapshot.sheets.length} sheet${liveSnapshot.sheets.length === 1 ? "" : "s"}` : storage.mode === "onedrive" ? "No live OneDrive snapshot yet" : "Workbook has not been created yet"}
                                   </span>
                                 </div>
-
                                 <div className={styles.storageMetaItem}>
                                   <span className={styles.storageMetaLabel}>Local mirror</span>
-                                  <strong className={styles.storageMetaValue}>
-                                    {workbook.localSnapshot.exists
-                                      ? formatBytes(workbook.localSnapshot.sizeBytes)
-                                      : "None"}
-                                  </strong>
+                                  <strong className={styles.storageMetaValue}>{workbook.localSnapshot.exists ? formatBytes(workbook.localSnapshot.sizeBytes) : "None"}</strong>
                                   <span className={styles.storageMetaHint}>
-                                    {workbook.localSnapshot.exists
-                                      ? `${workbook.localSnapshot.sheets.length} local sheet${workbook.localSnapshot.sheets.length === 1 ? "" : "s"}`
-                                      : "No local mirror file"}
+                                    {workbook.localSnapshot.exists ? `${workbook.localSnapshot.sheets.length} local sheet${workbook.localSnapshot.sheets.length === 1 ? "" : "s"}` : "No local mirror file"}
                                   </span>
                                 </div>
-
                                 <div className={styles.storageMetaItem}>
                                   <span className={styles.storageMetaLabel}>Pending fallback</span>
-                                  <strong className={styles.storageMetaValue}>
-                                    {workbook.pendingSnapshot.exists
-                                      ? formatBytes(workbook.pendingSnapshot.sizeBytes)
-                                      : "Clear"}
-                                  </strong>
-                                  <span className={styles.storageMetaHint}>
-                                    {workbook.pendingSnapshot.exists
-                                      ? "Workbook write is queued locally"
-                                      : "No pending sync file"}
-                                  </span>
+                                  <strong className={styles.storageMetaValue}>{workbook.pendingSnapshot.exists ? formatBytes(workbook.pendingSnapshot.sizeBytes) : "Clear"}</strong>
+                                  <span className={styles.storageMetaHint}>{workbook.pendingSnapshot.exists ? "Workbook write is queued locally" : "No pending sync file"}</span>
                                 </div>
                               </div>
-
                               <div className={styles.storageSheetsList}>
                                 {(liveSnapshot?.sheets || []).map((sheet) => (
-                                  <div
-                                    key={`${workbook.key}-${sheet.name}`}
-                                    className={styles.storageSheetRow}
-                                  >
+                                  <div key={`${workbook.key}-${sheet.name}`} className={styles.storageSheetRow}>
                                     <span>{sheet.name}</span>
                                     <span>{sheet.rows} rows</span>
                                   </div>
                                 ))}
-
                                 {(!liveSnapshot || liveSnapshot.sheets.length === 0) && (
-                                  <div className={styles.storageSheetEmpty}>
-                                    No sheet snapshot available yet.
-                                  </div>
+                                  <div className={styles.storageSheetEmpty}>No sheet snapshot available yet.</div>
                                 )}
                               </div>
                             </article>
@@ -800,244 +847,66 @@ export default function AdminPage() {
                   )}
                 </section>
 
-        {/* ── Share Templates Editor ─── */}
-        <section className={styles.templatesPanel}>
-          <button
-            className={styles.templatesPanelHeader}
-            onClick={() => setTemplatesOpen(!templatesOpen)}
-            aria-expanded={templatesOpen}
-          >
-            <div>
-              <span className={styles.templatesEyebrow}>Social Sharing</span>
-              <h2 className={styles.templatesTitle}>Share Templates</h2>
-            </div>
-            <div className={styles.templatesPanelHeaderRight}>
-              {templatesSaved && <span className={styles.templatesSavedBadge}>✓ Saved</span>}
-              <span className={`${styles.templatesChevron} ${templatesOpen ? styles.templatesChevronOpen : ""}`}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </span>
-            </div>
-          </button>
-
-          {templatesOpen && (
-            <div className={styles.templatesBody}>
-              <p className={styles.templatesHint}>
-                Customize the share message for each platform. Use <code>{'{title}'}</code> for note title, <code>{'{url}'}</code> for note link, and <code>{'{category}'}</code> for the topic name. Leave empty to use defaults.
-              </p>
-
-              {([
-                { key: "x", label: "𝕏 (Twitter)", icon: "𝕏", placeholder: `I just uploaded "{title}" on xreso 📚\n\nxreso is a free, open-source library where devs share notes & resources — completely free.\n\n💡 No paywall. No sign-up wall. Just knowledge.\n\n{url}\n\n#xreso #{category} #LearnInPublic` },
-                { key: "linkedin", label: "LinkedIn", icon: "in", placeholder: `🎓 Knowledge shared = Knowledge multiplied\n\nI just contributed "{title}" on xreso — a fully free, open-source platform built for developers.\n\nWhat is xreso?\n→ Community-driven library of programming notes\n→ 100% free — no paywalls\n→ Open source\n→ Covering {category} and 20+ topics\n\nCheck it out: {url}\n\n#OpenSource #Programming #{category}` },
-                { key: "whatsapp", label: "WhatsApp", icon: "💬", placeholder: `Hey! 👋\n\nI just shared my {category} notes on *xreso*\n\n📚 "{title}"\n\nIt's completely free and open source.\n\nCheck it out: {url}` },
-                { key: "telegram", label: "Telegram", icon: "✈️", placeholder: `📚 Just uploaded "{title}" on xreso\n\n→ Free & open-source programming notes library\n→ No paywall, no sign-up required\n→ {category} + 20 other topics\n\n{url}` },
-              ] as const).map((platform) => (
-                <div key={platform.key} className={styles.templateField}>
-                  <div className={styles.templateFieldHeader}>
-                    <span className={styles.templatePlatformIcon}>{platform.icon}</span>
-                    <label className={styles.templateFieldLabel}>{platform.label}</label>
-                    <button
-                      className={`btn btn-sm ${styles.templateSaveBtn}`}
-                      onClick={() => void handleTemplateSave(platform.key)}
-                      disabled={templatesSaving}
-                    >
-                      Save
-                    </button>
-                  </div>
-                  <textarea
-                    className={styles.templateTextarea}
-                    rows={5}
-                    placeholder={platform.placeholder}
-                    value={shareTemplates[platform.key as keyof typeof shareTemplates]}
-                    onChange={(e) => setShareTemplates((prev) => ({ ...prev, [platform.key]: e.target.value }))}
-                  />
-                </div>
-              ))}
-
-              <div className={styles.templatesBulkActions}>
-                <button
-                  className={`btn btn-primary btn-sm ${styles.templateSaveAllBtn}`}
-                  onClick={() => void handleSaveAllTemplates()}
-                  disabled={templatesSaving}
-                >
-                  {templatesSaving ? "Saving..." : "Save All Templates"}
-                </button>
-                <button
-                  className="btn btn-ghost btn-sm"
-                  onClick={() => setShareTemplates({ x: "", linkedin: "", whatsapp: "", telegram: "" })}
-                >
-                  Reset to Defaults
-                </button>
-              </div>
-            </div>
-          )}
-        </section>
-
-        <div className={styles.panel}>
-          <div className={styles.controlRow}>
-            <label className={styles.searchWrap}>
-              <svg
-                className={styles.searchIcon}
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                className={styles.searchInput}
-                placeholder="Search by title, author, email, or category"
-                aria-label="Search moderation queue"
-              />
-            </label>
-
-            <div className={styles.controlActions}>
-              <Link href="/admin/advanced-tracks" className="btn btn-secondary btn-sm">
-                Open Tracks Admin
-              </Link>
-              <Link href="/browse?featured=true" className="btn btn-ghost btn-sm">
-                View Featured Feed
-              </Link>
-            </div>
-          </div>
-
-          <div className={styles.filterTabs}>
-            {FILTERS.map((value) => (
-              <button
-                key={value}
-                className={`${styles.filterTab} ${filter === value ? styles.filterActive : ""}`}
-                onClick={() => setFilter(value)}
-              >
-                <span>{getStatusLabel(value)}</span>
-                <span className={styles.filterCount}>{statusCount[value]}</span>
-              </button>
-            ))}
-          </div>
-
-          {error && <div className={styles.error}>{error}</div>}
-
-          {loading ? (
-            <div className={styles.loading}>Loading moderation queue...</div>
-          ) : (
-            <div className={styles.table}>
-              {filteredNotes.map((note) => {
-                const statusClass =
-                  note.status === "approved"
-                    ? styles.statusApproved
-                    : note.status === "pending"
-                      ? styles.statusPending
-                      : styles.statusRejected;
-
-                return (
-                  <article key={note.id} className={styles.row}>
-                    <div className={styles.rowMain}>
-                      <div
-                        className={styles.rowThumb}
-                        style={{ backgroundImage: `url(${getNoteThumbnail(note)})` }}
-                      />
-
-                      <div className={styles.rowInfo}>
-                        <h3 className={styles.rowTitle}>{note.title}</h3>
-
-                        <div className={styles.rowMeta}>
-                          <span className={styles.metaPill}>{note.category_name}</span>
-                          <span>{new Date(note.created_at).toLocaleDateString()}</span>
-                          <span>{note.view_count} views</span>
-                          <span>{note.bookmark_count} saves</span>
-                        </div>
-
-                        <div className={styles.rowAuthor}>
-                          <span className={styles.rowAuthorAvatar}>
-                            {(note.author_name || "U").charAt(0).toUpperCase()}
-                          </span>
-                          <div className={styles.rowAuthorText}>
-                            <span className={styles.rowAuthorName}>{note.author_name || "Unknown author"}</span>
-                            <span className={styles.rowAuthorEmail}>{note.author_email || "No email available"}</span>
+                {/* Share Templates */}
+                <section className={styles.templatesPanel}>
+                  <button className={styles.templatesPanelHeader} onClick={() => setTemplatesOpen(!templatesOpen)} aria-expanded={templatesOpen}>
+                    <div>
+                      <span className={styles.templatesEyebrow}>Social Sharing</span>
+                      <h2 className={styles.templatesTitle}>Share Templates</h2>
+                    </div>
+                    <div className={styles.templatesPanelHeaderRight}>
+                      {templatesSaved && <span className={styles.templatesSavedBadge}>✓ Saved</span>}
+                      <span className={`${styles.templatesChevron} ${templatesOpen ? styles.templatesChevronOpen : ""}`}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </span>
+                    </div>
+                  </button>
+                  {templatesOpen && (
+                    <div className={styles.templatesBody}>
+                      <p className={styles.templatesHint}>
+                        Customize the share message for each platform. Use <code>{'{title}'}</code> for note title, <code>{'{url}'}</code> for note link, and <code>{'{category}'}</code> for the topic name. Leave empty to use defaults.
+                      </p>
+                      {([
+                        { key: "x", label: "𝕏 (Twitter)", icon: "𝕏", placeholder: `I just uploaded "{title}" on xreso 📚\n\nxreso is a free, open-source library where devs share notes & resources — completely free.\n\n💡 No paywall. No sign-up wall. Just knowledge.\n\n{url}\n\n#xreso #{category} #LearnInPublic` },
+                        { key: "linkedin", label: "LinkedIn", icon: "in", placeholder: `🎓 Knowledge shared = Knowledge multiplied\n\nI just contributed "{title}" on xreso — a fully free, open-source platform built for developers.\n\nWhat is xreso?\n→ Community-driven library of programming notes\n→ 100% free — no paywalls\n→ Open source\n→ Covering {category} and 20+ topics\n\nCheck it out: {url}\n\n#OpenSource #Programming #{category}` },
+                        { key: "whatsapp", label: "WhatsApp", icon: "💬", placeholder: `Hey! 👋\n\nI just shared my {category} notes on *xreso*\n\n📚 "{title}"\n\nIt's completely free and open source.\n\nCheck it out: {url}` },
+                        { key: "telegram", label: "Telegram", icon: "✈️", placeholder: `📚 Just uploaded "{title}" on xreso\n\n→ Free & open-source programming notes library\n→ No paywall, no sign-up required\n→ {category} + 20 other topics\n\n{url}` },
+                      ] as const).map((platform) => (
+                        <div key={platform.key} className={styles.templateField}>
+                          <div className={styles.templateFieldHeader}>
+                            <span className={styles.templatePlatformIcon}>{platform.icon}</span>
+                            <label className={styles.templateFieldLabel}>{platform.label}</label>
+                            <button className={`btn btn-sm ${styles.templateSaveBtn}`} onClick={() => void handleTemplateSave(platform.key)} disabled={templatesSaving}>Save</button>
                           </div>
+                          <textarea
+                            className={styles.templateTextarea}
+                            rows={5}
+                            placeholder={platform.placeholder}
+                            value={shareTemplates[platform.key as keyof typeof shareTemplates]}
+                            onChange={(e) => setShareTemplates((prev) => ({ ...prev, [platform.key]: e.target.value }))}
+                          />
                         </div>
-                      </div>
-                    </div>
-
-                    <div className={styles.rowSide}>
-                      <div className={styles.rowBadges}>
-                        <span className={`${styles.statusBadge} ${statusClass}`}>
-                          {getStatusLabel(note.status)}
-                        </span>
-                        {Boolean(note.featured) && (
-                          <span className={styles.featuredBadge}>Featured</span>
-                        )}
-                      </div>
-
-                      <div className={styles.rowActions}>
-                        {note.status === "pending" && (
-                          <>
-                            <button
-                              className={`btn btn-sm ${styles.approveBtn}`}
-                              onClick={() => void handleAction(note.id, "approve")}
-                              disabled={isNoteLocked(note.id)}
-                            >
-                              {isActionBusy(note.id, "approve") ? "Approving..." : "Approve"}
-                            </button>
-
-                            <button
-                              className={`btn btn-sm ${styles.rejectBtn}`}
-                              onClick={() => void handleAction(note.id, "reject")}
-                              disabled={isNoteLocked(note.id)}
-                            >
-                              {isActionBusy(note.id, "reject") ? "Rejecting..." : "Reject"}
-                            </button>
-                          </>
-                        )}
-
-                        <button
-                          className={`btn btn-sm ${styles.featureBtn}`}
-                          onClick={() => void handleAction(note.id, "feature", !note.featured)}
-                          disabled={isNoteLocked(note.id)}
-                        >
-                          {isActionBusy(note.id, "feature")
-                            ? "Updating..."
-                            : note.featured
-                              ? "Unfeature"
-                              : "Feature"}
+                      ))}
+                      <div className={styles.templatesBulkActions}>
+                        <button className={`btn btn-primary btn-sm ${styles.templateSaveAllBtn}`} onClick={() => void handleSaveAllTemplates()} disabled={templatesSaving}>
+                          {templatesSaving ? "Saving..." : "Save All Templates"}
                         </button>
-
-                        <Link href={`/note/${note.id}`} className="btn btn-sm btn-ghost">
-                          Open
-                        </Link>
-
-                            <button
-                              className={`btn btn-sm ${styles.deleteBtn}`}
-                              onClick={() => void handleDelete(note.id, note.title)}
-                              disabled={isNoteLocked(note.id)}
-                            >
-                              {isActionBusy(note.id, "delete") ? "Deleting..." : "Delete"}
-                            </button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => setShareTemplates({ x: "", linkedin: "", whatsapp: "", telegram: "" })}>
+                          Reset to Defaults
+                        </button>
                       </div>
                     </div>
-                  </article>
-                );
-              })}
-
-              {filteredNotes.length === 0 && (
-                <div className={styles.empty}>No notes match your current filter and search.</div>
-              )}
-            </div>
-          )}
+                  )}
+                </section>
               </div>
             )}
+
           </main>
         </div>
       </div>
     </div>
   );
 }
+

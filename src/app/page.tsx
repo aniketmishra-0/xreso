@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Code2, Zap } from "lucide-react";
 import {
   getTrendingNotes,
   getCategories,
@@ -185,12 +186,14 @@ export default async function Home() {
                 className={`${styles.toggleBtn} ${styles.toggleBtnActive}`}
                 aria-current="page"
               >
+                <Code2 size={14} />
                 Programming
               </Link>
               <Link
                 href="/tracks"
                 className={styles.toggleBtn}
               >
+                <Zap size={14} />
                 Advanced
               </Link>
             </div>

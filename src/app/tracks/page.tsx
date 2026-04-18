@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Code2, Zap } from "lucide-react";
 import {
   getAdvancedHeroStats,
   getAdvancedTrackHighlights,
@@ -191,6 +192,7 @@ export default async function TracksHomePage() {
                 href="/"
                 className={styles.toggleBtn}
               >
+                <Code2 size={14} />
                 Programming
               </Link>
               <Link
@@ -198,6 +200,7 @@ export default async function TracksHomePage() {
                 className={`${styles.toggleBtn} ${styles.toggleBtnActive}`}
                 aria-current="page"
               >
+                <Zap size={14} />
                 Advanced
               </Link>
             </div>

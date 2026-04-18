@@ -830,6 +830,116 @@
   justify-content: center;
 }
 
+/* ── Share Section ───────────────────────── */
+.shareSection {
+  margin-bottom: var(--space-xl);
+  padding: var(--space-lg);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-secondary);
+  background: color-mix(in srgb, var(--bg-elevated) 80%, transparent);
+}
+
+.shareLabel {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-md);
+}
+
+.shareButtons {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.shareBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.shareBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.shareBtn:active {
+  transform: translateY(0);
+}
+
+.shareBtnX {
+  background: rgba(15, 20, 25, 0.9);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.shareBtnX:hover {
+  background: #000;
+}
+
+.shareBtnLinkedin {
+  background: rgba(10, 102, 194, 0.15);
+  color: #0a66c2;
+  border-color: rgba(10, 102, 194, 0.25);
+}
+
+.shareBtnLinkedin:hover {
+  background: rgba(10, 102, 194, 0.25);
+}
+
+.shareBtnWhatsapp {
+  background: rgba(37, 211, 102, 0.12);
+  color: #25d366;
+  border-color: rgba(37, 211, 102, 0.25);
+}
+
+.shareBtnWhatsapp:hover {
+  background: rgba(37, 211, 102, 0.22);
+}
+
+.shareBtnTelegram {
+  background: rgba(0, 136, 204, 0.12);
+  color: #0088cc;
+  border-color: rgba(0, 136, 204, 0.25);
+}
+
+.shareBtnTelegram:hover {
+  background: rgba(0, 136, 204, 0.22);
+}
+
+.copyLinkBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: var(--space-sm);
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.copyLinkBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+}
+
 /* ── Error Banner ─────────────────────────── */
 .errorBanner {
   padding: 12px 16px;

@@ -171,10 +171,23 @@ export default function NoteDetailPage() {
       window.location.href = "/login";
       return;
     }
-    const reason = prompt("Why are you reporting this note?");
+    const reason = window.prompt("Why are you reporting this note? (Spam, Inappropriate, Broken link)");
     if (!reason) return;
-    // In production this would call /api/reports
-    alert("Thank you for your report. We'll review it shortly.");
+    try {
+      const res = await fetch(`/api/notes/${params.id}/report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        window.alert(data.error || "Failed to submit report");
+      } else {
+        window.alert(data.message || "Thank you for your report. An admin will review it.");
+      }
+    } catch {
+      window.alert("Failed to submit report. Please try again.");
+    }
   };
 
   const handleZoom = () => {

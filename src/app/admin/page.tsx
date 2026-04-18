@@ -50,6 +50,15 @@ interface StorageWorkbook {
   remoteSnapshot: WorkbookSnapshot | null;
 }
 
+interface AdminReport {
+  note_id: string;
+  report_count: number;
+  last_reported_at: string;
+  title: string;
+  note_status: string;
+  author_name: string;
+}
+
 interface StorageStatus {
   mode: "local" | "onedrive";
   note: string;
@@ -168,7 +177,10 @@ export default function AdminPage() {
   const [advSaving, setAdvSaving] = useState(false);
   const [advMessage, setAdvMessage] = useState("");
 
-  type AdminTab = "overview" | "submissions" | "advanced" | "config";
+  // Reports state
+  const [reports, setReports] = useState<AdminReport[]>([]);
+
+  type AdminTab = "overview" | "submissions" | "advanced" | "reports" | "users" | "taxonomy" | "audit" | "config";
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
 
   const userRole = (session?.user as { role?: string })?.role;
@@ -333,9 +345,21 @@ export default function AdminPage() {
     } catch { /* swallow */ }
   }, []);
 
+  const loadReports = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/reports", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setReports(data.reports || []);
+    } catch { /* swallow */ }
+  }, []);
+
   useEffect(() => {
-    if (userRole === "admin") void loadAdvData();
-  }, [userRole, loadAdvData]);
+    if (userRole === "admin") {
+      void loadAdvData();
+      void loadReports();
+    }
+  }, [userRole, loadAdvData, loadReports]);
 
   const advScopedTopics = useMemo(() => {
     if (!advForm.trackSlug) return [];
@@ -393,6 +417,18 @@ export default function AdminPage() {
     } catch (e) { setError(e instanceof Error ? e.message : "Delete failed."); }
   };
 
+  const handleDismissReport = async (noteId: string) => {
+    setError("");
+    try {
+      const res = await fetch("/api/admin/reports", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ noteId })
+      });
+      if (!res.ok) throw new Error("Failed to dismiss report");
+      await loadReports();
+    } catch (e) { setError(e instanceof Error ? e.message : "Failed to dismiss report"); }
+  };
 
   const handleAction = async (
     noteId: string,
@@ -569,6 +605,35 @@ export default function AdminPage() {
                 <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
                 <span className={styles.navLabel}>Advanced Tracks</span>
                 {advSummary.pending > 0 && <span className={styles.navBadge}>{advSummary.pending}</span>}
+              </button>
+              <button
+                className={activeTab === "reports" ? styles.navItemActive : styles.navItem}
+                onClick={() => setActiveTab("reports")}
+              >
+                <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+                <span className={styles.navLabel}>Reports</span>
+                {reports.length > 0 && <span className={styles.navBadge}>{reports.length}</span>}
+              </button>
+              <button
+                className={activeTab === "users" ? styles.navItemActive : styles.navItem}
+                onClick={() => setActiveTab("users")}
+              >
+                <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span className={styles.navLabel}>Users</span>
+              </button>
+              <button
+                className={activeTab === "taxonomy" ? styles.navItemActive : styles.navItem}
+                onClick={() => setActiveTab("taxonomy")}
+              >
+                <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                <span className={styles.navLabel}>Categories</span>
+              </button>
+              <button
+                className={activeTab === "audit" ? styles.navItemActive : styles.navItem}
+                onClick={() => setActiveTab("audit")}
+              >
+                <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                <span className={styles.navLabel}>Audit Logs</span>
               </button>
               <button
                 className={activeTab === "config" ? styles.navItemActive : styles.navItem}
@@ -1206,6 +1271,82 @@ export default function AdminPage() {
                       })}
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+            {/* ═══ REPORTS TAB ═══ */}
+            {activeTab === "reports" && (
+              <div>
+                <div className={styles.adminTabHeader}>
+                  <div>
+                    <h2 className={styles.adminTabTitle}>Reports & Moderation</h2>
+                    <p className={styles.adminTabSubtitle}>Manage community-flagged content. Notes reported by 3 different users are auto-rejected.</p>
+                  </div>
+                  <div className={styles.tabActions}>
+                    <button className={`btn btn-secondary btn-sm ${styles.refreshBtn}`} onClick={() => void loadReports()} disabled={loading}>
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                {error && <div className={styles.error}>{error}</div>}
+
+                <div className={styles.panel}>
+                  {reports.length === 0 ? (
+                    <div className={styles.empty}>Hooray! No pending reports.</div>
+                  ) : (
+                    <div className={styles.table}>
+                      {reports.map((report) => (
+                        <article key={report.note_id} className={styles.row}>
+                          <div className={styles.rowMain}>
+                            <div className={styles.rowInfo}>
+                              <h3 className={styles.rowTitle}>{report.title}</h3>
+                              <div className={styles.rowMeta}>
+                                <span className={styles.metaPill}>Report Count: {report.report_count}</span>
+                                <span>Note Status: {report.note_status}</span>
+                                <span>Author: {report.author_name}</span>
+                                <span>Reported: {new Date(report.last_reported_at).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className={styles.rowSide}>
+                            <div className={styles.rowActions}>
+                              <Link href={`/note/${report.note_id}`} className="btn btn-sm btn-ghost">Open Note</Link>
+                              <button className={`btn btn-sm btn-secondary`} onClick={() => void handleDismissReport(report.note_id)}>Dismiss & Resolve</button>
+                              <button className={`btn btn-sm ${styles.deleteBtn}`} onClick={() => void handleDelete(report.note_id, report.title)}>Delete Note</button>
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ═══ COMING SOON TABS ═══ */}
+            {(activeTab === "users" || activeTab === "taxonomy" || activeTab === "audit") && (
+              <div>
+                <div className={styles.adminTabHeader}>
+                  <div>
+                    <h2 className={styles.adminTabTitle}>
+                      {activeTab === "users" && "User & Role Management"}
+                      {activeTab === "taxonomy" && "Categories & Taxonomy"}
+                      {activeTab === "audit" && "Audit Logs & Security"}
+                    </h2>
+                    <p className={styles.adminTabSubtitle}>This module is currently being provisioned.</p>
+                  </div>
+                </div>
+                <div className={styles.panel} style={{ textAlign: "center", padding: "64px 24px" }}>
+                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-tertiary)", margin: "0 auto 16px" }}>
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                  </svg>
+                  <h3 style={{ fontSize: "var(--text-xl)", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "8px" }}>Coming Soon</h3>
+                  <p style={{ color: "var(--text-tertiary)", maxWidth: "400px", margin: "0 auto" }}>
+                    The backend for {activeTab} is being connected. This power feature will be available in the next deployment.
+                  </p>
                 </div>
               </div>
             )}

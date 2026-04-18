@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import UnifiedDropdown from "@/components/UnifiedDropdown/UnifiedDropdown";
 import styles from "./page.module.css";
 
 interface AdminNote {
@@ -54,6 +55,52 @@ interface StorageStatus {
   note: string;
   workbooks: StorageWorkbook[];
 }
+
+interface AdvTrack {
+  id: number;
+  slug: string;
+  name: string;
+  description: string;
+}
+
+interface AdvTopic {
+  id: number;
+  track_id: number;
+  slug: string;
+  name: string;
+  level: "Beginner" | "Intermediate" | "Advanced";
+}
+
+interface AdvResource {
+  id: string;
+  title: string;
+  summary: string;
+  resource_type: "link" | "pdf" | "doc" | "video";
+  content_url: string;
+  premium_only: number;
+  featured: number;
+  status: "draft" | "pending" | "approved" | "rejected" | "archived";
+  created_at: string;
+  track_slug: string;
+  track_name: string;
+  topic_slug: string | null;
+  topic_name: string | null;
+  author_name: string;
+  tag_names: string | null;
+}
+
+const ADV_INITIAL_FORM = {
+  title: "",
+  summary: "",
+  trackSlug: "",
+  topicSlug: "",
+  resourceType: "link" as "link" | "pdf" | "doc" | "video",
+  contentUrl: "",
+  thumbnailUrl: "",
+  tags: "",
+  status: "approved" as "draft" | "pending" | "approved",
+  featured: false,
+};
 
 const FILTERS = ["all", "pending", "approved", "rejected"] as const;
 type FilterValue = (typeof FILTERS)[number];
@@ -113,7 +160,15 @@ export default function AdminPage() {
   const [curatedThreshold, setCuratedThreshold] = useState("500");
   const [thresholdSaving, setThresholdSaving] = useState(false);
 
-  type AdminTab = "overview" | "submissions" | "config";
+  // Advanced tracks state
+  const [advTracks, setAdvTracks] = useState<AdvTrack[]>([]);
+  const [advTopics, setAdvTopics] = useState<AdvTopic[]>([]);
+  const [advResources, setAdvResources] = useState<AdvResource[]>([]);
+  const [advForm, setAdvForm] = useState(ADV_INITIAL_FORM);
+  const [advSaving, setAdvSaving] = useState(false);
+  const [advMessage, setAdvMessage] = useState("");
+
+  type AdminTab = "overview" | "submissions" | "advanced" | "config";
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
 
   const userRole = (session?.user as { role?: string })?.role;
@@ -261,6 +316,83 @@ export default function AdminPage() {
       void loadAdminData(false);
     }
   }, [userRole, loadAdminData]);
+
+  // Load advanced tracks data
+  const loadAdvData = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/advanced-tracks", { cache: "no-store" });
+      if (!res.ok) return;
+      const payload = (await res.json()) as { tracks: AdvTrack[]; topics: AdvTopic[]; resources: AdvResource[] };
+      setAdvTracks(payload.tracks || []);
+      setAdvTopics(payload.topics || []);
+      setAdvResources(payload.resources || []);
+      setAdvForm((prev) => {
+        if (prev.trackSlug || !payload.tracks?.length) return prev;
+        return { ...prev, trackSlug: payload.tracks[0].slug };
+      });
+    } catch { /* swallow */ }
+  }, []);
+
+  useEffect(() => {
+    if (userRole === "admin") void loadAdvData();
+  }, [userRole, loadAdvData]);
+
+  const advScopedTopics = useMemo(() => {
+    if (!advForm.trackSlug) return [];
+    const t = advTracks.find((tr) => tr.slug === advForm.trackSlug);
+    if (!t) return [];
+    return advTopics.filter((tp) => tp.track_id === t.id);
+  }, [advForm.trackSlug, advTopics, advTracks]);
+
+  const advSummary = useMemo(() => ({
+    total: advResources.length,
+    pending: advResources.filter((r) => r.status === "pending").length,
+    approved: advResources.filter((r) => r.status === "approved").length,
+    featured: advResources.filter((r) => Boolean(r.featured)).length,
+  }), [advResources]);
+
+  const handleAdvCreate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setAdvSaving(true);
+    setError("");
+    setAdvMessage("");
+    try {
+      const res = await fetch("/api/admin/advanced-tracks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...advForm, premiumOnly: false, tags: advForm.tags, topicSlug: advForm.topicSlug || undefined }),
+      });
+      const payload = (await res.json()) as { error?: string };
+      if (!res.ok) throw new Error(payload.error || "Create failed");
+      setAdvMessage("Resource created successfully.");
+      setAdvForm((prev) => ({ ...ADV_INITIAL_FORM, trackSlug: prev.trackSlug }));
+      await loadAdvData();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create resource.");
+    } finally {
+      setAdvSaving(false);
+    }
+  };
+
+  const handleAdvAction = async (resourceId: string, action: "approve" | "reject" | "archive" | "feature" | "unfeature") => {
+    setError("");
+    try {
+      const res = await fetch("/api/admin/advanced-tracks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resourceId, action }) });
+      if (!res.ok) { const p = (await res.json()) as { error?: string }; throw new Error(p.error || "Action failed"); }
+      await loadAdvData();
+    } catch (e) { setError(e instanceof Error ? e.message : "Action failed."); }
+  };
+
+  const handleAdvDelete = async (resourceId: string) => {
+    if (!window.confirm("Delete this resource permanently?")) return;
+    setError("");
+    try {
+      const res = await fetch("/api/admin/advanced-tracks", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resourceId }) });
+      if (!res.ok) { const p = (await res.json()) as { error?: string }; throw new Error(p.error || "Delete failed"); }
+      await loadAdvData();
+    } catch (e) { setError(e instanceof Error ? e.message : "Delete failed."); }
+  };
+
 
   const handleAction = async (
     noteId: string,
@@ -420,21 +552,30 @@ export default function AdminPage() {
                 onClick={() => setActiveTab("overview")}
               >
                 <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-                Overview
+                <span className={styles.navLabel}>Overview</span>
               </button>
               <button
                 className={activeTab === "submissions" ? styles.navItemActive : styles.navItem}
                 onClick={() => setActiveTab("submissions")}
               >
                 <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                Submissions
+                <span className={styles.navLabel}>Programming</span>
+                {statusCount.pending > 0 && <span className={styles.navBadge}>{statusCount.pending}</span>}
+              </button>
+              <button
+                className={activeTab === "advanced" ? styles.navItemActive : styles.navItem}
+                onClick={() => setActiveTab("advanced")}
+              >
+                <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+                <span className={styles.navLabel}>Advanced Tracks</span>
+                {advSummary.pending > 0 && <span className={styles.navBadge}>{advSummary.pending}</span>}
               </button>
               <button
                 className={activeTab === "config" ? styles.navItemActive : styles.navItem}
                 onClick={() => setActiveTab("config")}
               >
                 <svg className={styles.navIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-                Configuration
+                <span className={styles.navLabel}>Configuration</span>
               </button>
             </nav>
           </aside>
@@ -901,6 +1042,171 @@ export default function AdminPage() {
                     </div>
                   )}
                 </section>
+              </div>
+            )}
+            {/* ═══ ADVANCED TRACKS TAB ═══ */}
+            {activeTab === "advanced" && (
+              <div>
+                <div className={styles.adminTabHeader}>
+                  <div>
+                    <h2 className={styles.adminTabTitle}>Advanced Tracks</h2>
+                    <p className={styles.adminTabSubtitle}>Manage cloud-native resources. Pending auto-approves after 3 days.</p>
+                  </div>
+                  <div className={styles.tabActions}>
+                    <button className={`btn btn-secondary btn-sm ${styles.refreshBtn}`} onClick={() => void loadAdvData()} disabled={loading}>
+                      Refresh
+                    </button>
+                  </div>
+                </div>
+
+                {error && <div className={styles.error}>{error}</div>}
+                {advMessage && <div className={styles.advSuccess}>{advMessage}</div>}
+
+                <div className={styles.statsGrid} style={{ marginBottom: "var(--space-2xl)" }}>
+                  <div className={styles.statCard}>
+                    <span className={styles.statValue}>{advSummary.total}</span>
+                    <span className={styles.statLabel}>Resources</span>
+                  </div>
+                  <div className={`${styles.statCard} ${advSummary.pending > 0 ? styles.statWarn : ""}`}>
+                    <span className={styles.statValue}>{advSummary.pending}</span>
+                    <span className={styles.statLabel}>Pending</span>
+                  </div>
+                  <div className={styles.statCard}>
+                    <span className={styles.statValue}>{advSummary.approved}</span>
+                    <span className={styles.statLabel}>Approved</span>
+                  </div>
+                  <div className={styles.statCard}>
+                    <span className={styles.statValue}>{advSummary.featured}</span>
+                    <span className={styles.statLabel}>Featured</span>
+                  </div>
+                </div>
+
+                {/* Create Form */}
+                <section className={styles.templatesPanel}>
+                  <button className={styles.templatesPanelHeader} onClick={() => {}} style={{ cursor: "default" }}>
+                    <div>
+                      <span className={styles.templatesEyebrow}>Create</span>
+                      <h2 className={styles.templatesTitle}>New Resource</h2>
+                    </div>
+                  </button>
+                  <div className={styles.templatesBody}>
+                    <form className={styles.advForm} onSubmit={handleAdvCreate}>
+                      <div className={styles.advFormRow}>
+                        <label className={styles.advField}>
+                          <span>Track</span>
+                          <UnifiedDropdown
+                            value={advForm.trackSlug}
+                            title="Track"
+                            placeholder="Select track"
+                            options={advTracks.map((t) => ({ value: t.slug, label: t.name }))}
+                            onChange={(v) => setAdvForm((p) => ({ ...p, trackSlug: v, topicSlug: "" }))}
+                            required
+                          />
+                        </label>
+                        <label className={styles.advField}>
+                          <span>Topic (optional)</span>
+                          <UnifiedDropdown
+                            value={advForm.topicSlug}
+                            title="Topic"
+                            placeholder="All topics"
+                            options={advScopedTopics.map((t) => ({ value: t.slug, label: t.name }))}
+                            onChange={(v) => setAdvForm((p) => ({ ...p, topicSlug: v }))}
+                          />
+                        </label>
+                      </div>
+                      <label className={styles.advFieldWide}>
+                        <span>Title</span>
+                        <input type="text" value={advForm.title} onChange={(e) => setAdvForm((p) => ({ ...p, title: e.target.value }))} required />
+                      </label>
+                      <label className={styles.advFieldWide}>
+                        <span>Summary</span>
+                        <textarea rows={3} value={advForm.summary} onChange={(e) => setAdvForm((p) => ({ ...p, summary: e.target.value }))} required />
+                      </label>
+                      <div className={styles.advFormRow}>
+                        <label className={styles.advField}>
+                          <span>Resource Type</span>
+                          <UnifiedDropdown
+                            value={advForm.resourceType}
+                            title="Type"
+                            placeholder="Select type"
+                            options={[{ value: "link", label: "Link" }, { value: "pdf", label: "PDF" }, { value: "doc", label: "Doc" }, { value: "video", label: "Video" }]}
+                            onChange={(v) => setAdvForm((p) => ({ ...p, resourceType: v as "link" | "pdf" | "doc" | "video" }))}
+                          />
+                        </label>
+                        <label className={styles.advField}>
+                          <span>Initial Status</span>
+                          <UnifiedDropdown
+                            value={advForm.status}
+                            title="Status"
+                            placeholder="Select status"
+                            options={[{ value: "approved", label: "Approved" }, { value: "pending", label: "Pending" }, { value: "draft", label: "Draft" }]}
+                            onChange={(v) => setAdvForm((p) => ({ ...p, status: v as "draft" | "pending" | "approved" }))}
+                          />
+                        </label>
+                      </div>
+                      <label className={styles.advFieldWide}>
+                        <span>Content URL</span>
+                        <input type="url" value={advForm.contentUrl} onChange={(e) => setAdvForm((p) => ({ ...p, contentUrl: e.target.value }))} placeholder="https://..." required />
+                      </label>
+                      <label className={styles.advFieldWide}>
+                        <span>Tags (comma separated)</span>
+                        <input type="text" value={advForm.tags} onChange={(e) => setAdvForm((p) => ({ ...p, tags: e.target.value }))} placeholder="kubernetes, sre, observability" />
+                      </label>
+                      <div className={styles.advFormActions}>
+                        <button className="btn btn-primary" type="submit" disabled={advSaving}>
+                          {advSaving ? "Creating..." : "Create Resource"}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </section>
+
+                {/* Resource Queue */}
+                <div className={styles.panel} style={{ marginTop: "var(--space-2xl)" }}>
+                  <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginBottom: "var(--space-lg)", color: "var(--text-primary)" }}>Resource Queue</h3>
+                  {advResources.length === 0 ? (
+                    <div className={styles.empty}>No advanced resources yet.</div>
+                  ) : (
+                    <div className={styles.table}>
+                      {advResources.map((resource) => {
+                        const href = resource.content_url.startsWith("onedrive://") ? `/api/advanced-tracks/resource/${resource.id}` : resource.content_url;
+                        return (
+                          <article key={resource.id} className={styles.row}>
+                            <div className={styles.rowMain}>
+                              <div className={styles.rowInfo}>
+                                <h3 className={styles.rowTitle}>{resource.title}</h3>
+                                <div className={styles.rowMeta}>
+                                  <span className={styles.metaPill}>{resource.track_name}</span>
+                                  {resource.topic_name && <span>{resource.topic_name}</span>}
+                                  <span>{resource.resource_type}</span>
+                                  <span>{resource.author_name || "Unknown"}</span>
+                                  <span>{new Date(resource.created_at).toLocaleDateString()}</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className={styles.rowSide}>
+                              <div className={styles.rowBadges}>
+                                <span className={`${styles.statusBadge} ${resource.status === "approved" ? styles.statusApproved : resource.status === "pending" ? styles.statusPending : styles.statusRejected}`}>
+                                  {getStatusLabel(resource.status)}
+                                </span>
+                                {Boolean(resource.featured) && <span className={styles.featuredBadge}>Featured</span>}
+                              </div>
+                              <div className={styles.rowActions}>
+                                <a href={href} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">Open</a>
+                                <button className={`btn btn-sm ${styles.approveBtn}`} onClick={() => void handleAdvAction(resource.id, "approve")}>Approve</button>
+                                <button className={`btn btn-sm ${styles.rejectBtn}`} onClick={() => void handleAdvAction(resource.id, "reject")}>Reject</button>
+                                <button className={`btn btn-sm ${styles.featureBtn}`} onClick={() => void handleAdvAction(resource.id, resource.featured ? "unfeature" : "feature")}>
+                                  {resource.featured ? "Unfeature" : "Feature"}
+                                </button>
+                                <button className={`btn btn-sm ${styles.deleteBtn}`} onClick={() => void handleAdvDelete(resource.id)}>Delete</button>
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 

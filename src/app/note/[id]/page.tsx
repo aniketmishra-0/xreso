@@ -146,7 +146,7 @@ export default function NoteDetailPage() {
   useEffect(() => {
     const handleFullscreenChange = () => {
       // Sync state if native API successfully triggers it, but if we're already manually tracking it, keep it in sync.
-      const nativeIsFull = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      const nativeIsFull = !!(document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement);
       if (nativeIsFull) setIsFullscreen(true);
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
@@ -231,7 +231,7 @@ export default function NoteDetailPage() {
           el.requestFullscreen();
         }
       }
-    } catch(e) {
+    } catch {
       // Ignore errors for devices (like iOS) that lack native div fullscreen support
     }
   };

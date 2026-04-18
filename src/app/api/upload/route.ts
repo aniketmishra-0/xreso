@@ -413,8 +413,11 @@ export async function POST(req: NextRequest) {
     }
 
     const noteId = uuidv4();
-    const ext = file.name.split(".").pop()?.toLowerCase() || "png";
-    const fileName = `${noteId}.${ext}`;
+    // Security: Use path.extname to prevent path traversal attacks
+    const ext = path.extname(file.name).slice(1).toLowerCase() || "png";
+    // Validate extension is alphanumeric only (prevent injection)
+    const safeExt = /^[a-z0-9]+$/.test(ext) ? ext : "bin";
+    const fileName = `${noteId}.${safeExt}`;
     const fileBuffer = Buffer.from(await file.arrayBuffer());
 
     ensureDir(UPLOAD_DIR);
@@ -503,17 +506,30 @@ export async function POST(req: NextRequest) {
       message: uploadMessage,
     });
   } catch (error) {
+    // Security: Log detailed error server-side only, return generic message to client
     console.error("POST /api/upload error:", error);
-    if (uploadedLocalFilePath && fs.existsSync(uploadedLocalFilePath)) {
-      try { fs.unlinkSync(uploadedLocalFilePath); } catch {}
+    
+    // Secure cleanup of temp files
+    if (uploadedLocalFilePath) {
+      try {
+        if (fs.existsSync(uploadedLocalFilePath)) {
+          fs.unlinkSync(uploadedLocalFilePath);
+        }
+      } catch (cleanupError) {
+        console.error("Failed to cleanup temp file:", cleanupError);
+      }
     }
+    
+    // Don't expose internal error details to client
     if (isStorageConfigError(error)) {
       return NextResponse.json(
         { error: "Upload service is not configured. Please contact support." },
         { status: 503 }
       );
     }
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    
+    // Generic error message for security
+    return NextResponse.json({ error: "Upload failed. Please try again." }, { status: 500 });
   }
 }
 

@@ -143,12 +143,12 @@ export default function Navbar() {
 
   const modeAwareSecondary =
     browseMode === "advanced"
-      ? { href: "/tracks#tracks-section", label: "Categories" }
+      ? { href: "/tracks/categories", label: "Categories" }
       : { href: "/categories", label: "Categories" };
 
   const modeAwareBrowse =
     browseMode === "advanced"
-      ? { href: "/browse", label: "Browse" }
+      ? { href: "/tracks/library", label: "Browse" }
       : { href: "/browse", label: "Browse" };
 
   const uploadHref =

@@ -120,6 +120,61 @@
   box-shadow: 0 1px 6px rgba(74, 222, 128, 0.4);
 }
 
+.curatedThresholdWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 10px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-secondary);
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+}
+
+.thresholdInputGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.thresholdInput {
+  width: 80px;
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  text-align: center;
+  transition: border-color var(--transition-fast);
+}
+
+.thresholdInput:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+
+.thresholdInput::-webkit-inner-spin-button,
+.thresholdInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.thresholdSaveBtn {
+  background: rgba(139, 92, 246, 0.12);
+  color: var(--primary-light);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.thresholdSaveBtn:hover {
+  background: rgba(139, 92, 246, 0.22);
+}
+
 .statsGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

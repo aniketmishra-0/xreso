@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  getFeaturedNotes,
+  getTrendingNotes,
   getCategories,
   getLibraryHeroStats,
 } from "@/lib/db/queries";
@@ -80,11 +80,14 @@ function NoteCategoryPill({
 
 /* ─── Page ─────────────────────────────────────────────────────────── */
 export default async function Home() {
-  const [featuredNotes, categories, heroStats] = await Promise.all([
-    getFeaturedNotes(6),
+  const [trendingData, categories, heroStats] = await Promise.all([
+    getTrendingNotes(6),
     getCategories(9),
     getLibraryHeroStats(),
   ]);
+
+  const trendingNotes = trendingData.notes;
+  const viewsThreshold = trendingData.threshold;
 
   const stats = [
     { value: formatCompactMetric(heroStats.notesIndexed), label: "Notes Indexed" },
@@ -96,7 +99,7 @@ export default async function Home() {
   const [primaryCategory] = categories;
   const totalCategoryNotes = categories.reduce((sum, category) => sum + category.noteCount, 0);
   const activeDomains = categories.filter((category) => category.noteCount > 0).length;
-  const latestFeaturedNote = featuredNotes[0];
+  const latestTrendingNote = trendingNotes[0];
 
   return (
     <div className={styles.page}>
@@ -259,45 +262,45 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* ══ FEATURED NOTES ════════════════════════════════════════════ */}
+      {/* ══ TRENDING NOTES ═════════════════════════════════════════════ */}
       <section className={styles.section} id="featured-section">
         <div className={styles.container}>
           <div className={styles.sectionHeader}>
             <div>
-              <p className={styles.eyebrow}>Featured</p>
+              <p className={styles.eyebrow}>Trending</p>
               <h2 className={styles.sectionTitle}>Curated Notes</h2>
               <p className={styles.sectionSubtitle}>
-                High-signal picks from the community.
+                Notes with {viewsThreshold.toLocaleString()}+ views — automatically surfaced from the community.
               </p>
             </div>
-            <Link href="/browse?featured=true" className="btn btn-secondary btn-sm">
+            <Link href="/browse?sort=popular" className="btn btn-secondary btn-sm">
               View all
             </Link>
           </div>
 
           <div className={styles.sectionShell}>
-            {featuredNotes.length > 0 ? (
+            {trendingNotes.length > 0 ? (
               <>
                 <div className={styles.featuredSummary}>
                   <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Featured now</span>
-                    <span className={styles.summaryValue}>{featuredNotes.length}</span>
+                    <span className={styles.summaryLabel}>Trending now</span>
+                    <span className={styles.summaryValue}>{trendingNotes.length}</span>
                   </div>
                   <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Latest addition</span>
+                    <span className={styles.summaryLabel}>Min. views</span>
+                    <span className={styles.summaryValue}>{viewsThreshold.toLocaleString()}+</span>
+                  </div>
+                  <div className={styles.summaryCard}>
+                    <span className={styles.summaryLabel}>Top note</span>
                     <span className={styles.summaryValue}>
-                      {latestFeaturedNote ? formatDate(latestFeaturedNote.createdAt) : "No notes yet"}
+                      {latestTrendingNote ? `${latestTrendingNote.viewCount.toLocaleString()} views` : "N/A"}
                     </span>
-                  </div>
-                  <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Handpicked for</span>
-                    <span className={styles.summaryValue}>Quality and clarity</span>
                   </div>
                 </div>
 
                 <div className={styles.featuredScroller}>
                   <div className={styles.featuredTrack}>
-                  {featuredNotes.map((note) => {
+                  {trendingNotes.map((note) => {
                     const authorUrl = note.authorId ? `/user/${note.authorId}` : "#";
 
                     return (
@@ -380,9 +383,9 @@ export default async function Home() {
               </>
             ) : (
               <div className={styles.sectionEmpty}>
-                <h3 className={styles.sectionEmptyTitle}>Featured notes will appear here</h3>
+                <h3 className={styles.sectionEmptyTitle}>Trending notes will appear here</h3>
                 <p className={styles.sectionEmptyText}>
-                  As soon as moderators approve high-quality submissions, this section will spotlight them.
+                  Notes that cross {viewsThreshold.toLocaleString()} views will automatically show up in this section.
                 </p>
               </div>
             )}

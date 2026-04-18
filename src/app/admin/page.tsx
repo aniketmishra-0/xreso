@@ -110,6 +110,8 @@ export default function AdminPage() {
   const [templatesSaving, setTemplatesSaving] = useState(false);
   const [templatesSaved, setTemplatesSaved] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [curatedThreshold, setCuratedThreshold] = useState("500");
+  const [thresholdSaving, setThresholdSaving] = useState(false);
 
   const userRole = (session?.user as { role?: string })?.role;
 
@@ -164,12 +166,14 @@ export default function AdminPage() {
       .then((res) => res.json())
       .then((data: { settings?: {
         auto_approve_enabled?: boolean;
+        curated_views_threshold?: string;
         share_template_x?: string;
         share_template_linkedin?: string;
         share_template_whatsapp?: string;
         share_template_telegram?: string;
       } }) => {
         setAutoApproveEnabled(data.settings?.auto_approve_enabled ?? false);
+        setCuratedThreshold(data.settings?.curated_views_threshold || "500");
         setShareTemplates({
           x: data.settings?.share_template_x || "",
           linkedin: data.settings?.share_template_linkedin || "",
@@ -423,6 +427,43 @@ export default function AdminPage() {
               >
                 <span className={styles.toggleThumb} />
               </button>
+            </div>
+            <div className={styles.curatedThresholdWrap}>
+              <div className={styles.autoApproveInfo}>
+                <span className={styles.autoApproveLabel}>Curated Views</span>
+                <span className={styles.autoApproveHint}>Min views to show in Curated Notes</span>
+              </div>
+              <div className={styles.thresholdInputGroup}>
+                <input
+                  type="number"
+                  min="1"
+                  className={styles.thresholdInput}
+                  value={curatedThreshold}
+                  onChange={(e) => setCuratedThreshold(e.target.value)}
+                  placeholder="500"
+                />
+                <button
+                  className={`btn btn-sm ${styles.thresholdSaveBtn}`}
+                  disabled={thresholdSaving}
+                  onClick={async () => {
+                    setThresholdSaving(true);
+                    try {
+                      const res = await fetch("/api/admin/settings", {
+                        method: "PUT",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ key: "curated_views_threshold", value: curatedThreshold }),
+                      });
+                      if (!res.ok) throw new Error();
+                    } catch {
+                      setError("Failed to save threshold.");
+                    } finally {
+                      setThresholdSaving(false);
+                    }
+                  }}
+                >
+                  {thresholdSaving ? "..." : "Save"}
+                </button>
+              </div>
             </div>
             <button
               className={`btn btn-secondary btn-sm ${styles.refreshBtn}`}

@@ -15,9 +15,25 @@ function getClient(): Client {
   });
 }
 
-export async function getFeaturedNotes(limit = 5) {
+export async function getTrendingNotes(limit = 6) {
   try {
     const client = getClient();
+
+    // Read curated views threshold from admin settings (default: 500)
+    let threshold = 500;
+    try {
+      const settingsResult = await client.execute({
+        sql: "SELECT value FROM settings WHERE key = 'curated_views_threshold'",
+        args: [],
+      });
+      if (settingsResult.rows.length > 0) {
+        const parsed = parseInt(String(settingsResult.rows[0].value), 10);
+        if (!isNaN(parsed) && parsed > 0) threshold = parsed;
+      }
+    } catch {
+      // settings table may not exist yet, use default
+    }
+
     const result = await client.execute({
       sql: `SELECT n.id, n.title, n.description, n.thumbnail_url, n.view_count, n.bookmark_count,
              n.created_at, n.author_credit, n.author_id,
@@ -29,29 +45,32 @@ export async function getFeaturedNotes(limit = 5) {
       LEFT JOIN users u ON n.author_id = u.id
       LEFT JOIN note_tags nt ON n.id = nt.note_id
       LEFT JOIN tags t ON nt.tag_id = t.id
-      WHERE n.status = 'approved' AND n.featured = 1
+      WHERE n.status = 'approved' AND n.view_count >= ?
       GROUP BY n.id
-      ORDER BY n.created_at DESC
+      ORDER BY n.view_count DESC, n.created_at DESC
       LIMIT ?`,
-      args: [limit],
+      args: [threshold, limit],
     });
 
-    return result.rows.map((r) => ({
-      id: r.id as string,
-      title: r.title as string,
-      description: r.description as string,
-      category: r.category_name as string,
-      categorySlug: r.category_slug as string,
-      author: r.author_name as string,
-      authorId: r.author_id as string,
-      thumbnailUrl: r.thumbnail_url as string,
-      viewCount: Number(r.view_count) || 0,
-      bookmarkCount: Number(r.bookmark_count) || 0,
-      tags: r.tag_names ? String(r.tag_names).split(",") : [],
-      createdAt: r.created_at as string,
-    }));
+    return {
+      threshold,
+      notes: result.rows.map((r) => ({
+        id: r.id as string,
+        title: r.title as string,
+        description: r.description as string,
+        category: r.category_name as string,
+        categorySlug: r.category_slug as string,
+        author: r.author_name as string,
+        authorId: r.author_id as string,
+        thumbnailUrl: r.thumbnail_url as string,
+        viewCount: Number(r.view_count) || 0,
+        bookmarkCount: Number(r.bookmark_count) || 0,
+        tags: r.tag_names ? String(r.tag_names).split(",") : [],
+        createdAt: r.created_at as string,
+      })),
+    };
   } catch {
-    return [];
+    return { threshold: 500, notes: [] };
   }
 }
 

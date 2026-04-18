@@ -52,6 +52,7 @@ export async function GET() {
     return NextResponse.json({
       settings: {
         auto_approve_enabled: settings.auto_approve_enabled === "true",
+        curated_views_threshold: settings.curated_views_threshold || "500",
         share_template_x: settings.share_template_x || "",
         share_template_linkedin: settings.share_template_linkedin || "",
         share_template_whatsapp: settings.share_template_whatsapp || "",
@@ -82,6 +83,7 @@ export async function PUT(req: NextRequest) {
 
     const allowedKeys = [
       "auto_approve_enabled",
+      "curated_views_threshold",
       "share_template_x",
       "share_template_linkedin",
       "share_template_whatsapp",

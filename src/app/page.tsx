@@ -178,6 +178,24 @@ export default async function Home() {
       {/* ══ CATEGORIES ════════════════════════════════════════════════ */}
       <section className={styles.section} id="categories-section">
         <div className={styles.container}>
+          <div className={styles.floatingToggleWrapper}>
+            <div className={styles.floatingToggle} role="group" aria-label="Browse mode toggle">
+              <Link
+                href="/"
+                className={`${styles.toggleBtn} ${styles.toggleBtnActive}`}
+                aria-current="page"
+              >
+                Programming
+              </Link>
+              <Link
+                href="/tracks"
+                className={styles.toggleBtn}
+              >
+                Advanced
+              </Link>
+            </div>
+          </div>
+
           <div className={styles.sectionHeader}>
             <div>
               <p className={styles.eyebrow}>Categories</p>

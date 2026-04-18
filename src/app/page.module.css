@@ -377,6 +377,47 @@
   padding: 0 var(--space-lg);
 }
 
+/* ── Floating Sub-nav Toggle ── */
+.floatingToggleWrapper {
+  display: flex;
+  margin-bottom: var(--space-xl);
+  position: relative;
+  z-index: 10;
+}
+
+.floatingToggle {
+  display: inline-flex;
+  align-items: center;
+  background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-full);
+  padding: 4px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--shadow-sm);
+}
+
+.toggleBtn {
+  padding: 8px 20px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.toggleBtn:hover {
+  color: var(--text-secondary);
+}
+
+.toggleBtnActive {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-primary) 80%, transparent);
+  pointer-events: none;
+}
+
 .sectionHeader {
   display: flex;
   align-items: flex-end;

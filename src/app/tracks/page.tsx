@@ -185,6 +185,24 @@ export default async function TracksHomePage() {
 
       <section className={styles.section} id="tracks-section">
         <div className={styles.container}>
+          <div className={styles.floatingToggleWrapper}>
+            <div className={styles.floatingToggle} role="group" aria-label="Browse mode toggle">
+              <Link
+                href="/"
+                className={styles.toggleBtn}
+              >
+                Programming
+              </Link>
+              <Link
+                href="/tracks"
+                className={`${styles.toggleBtn} ${styles.toggleBtnActive}`}
+                aria-current="page"
+              >
+                Advanced
+              </Link>
+            </div>
+          </div>
+
           <div className={styles.sectionHeader}>
             <div>
               <p className={styles.eyebrow}>Tracks</p>

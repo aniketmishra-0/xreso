@@ -391,6 +391,12 @@
   /* Wait briefly before appearing */
 }
 
+@media (min-width: 769px) {
+  .floatingToggleWrapper {
+    display: none;
+  }
+}
+
 @keyframes floatingSlideUp {
   0% {
     opacity: 0;

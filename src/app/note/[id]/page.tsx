@@ -326,7 +326,7 @@ export default function NoteDetailPage() {
 
         <div className={styles.layout}>
           {/* Main Content */}
-          <div className={styles.main}>
+          <div className={`${styles.main} ${isFullscreen ? styles.mainFullscreen : ""}`}>
             {/* File Viewer */}
             <div className={`${styles.viewer} ${isFullscreen ? styles.viewerFullscreen : ""}`} ref={viewerRef}>
               {note.fileType === "application/pdf" ? (

@@ -56,6 +56,11 @@
   top: calc(var(--nav-height) + var(--space-lg));
 }
 
+.mainFullscreen {
+  position: static !important;
+  z-index: 99999 !important;
+}
+
 .viewer {
   background: var(--bg-surface);
   border: 1px solid var(--border-secondary);

@@ -180,6 +180,16 @@ export default function AdminPage() {
   // Reports state
   const [reports, setReports] = useState<AdminReport[]>([]);
 
+  // Users state
+  const [adminUsers, setAdminUsers] = useState<Array<{ id: string; name: string; email: string; role: string; image: string; created_at: string; note_count: number; total_views: number }>>([]);
+  const [roleChanging, setRoleChanging] = useState<string | null>(null);
+
+  // Categories state
+  const [adminCategories, setAdminCategories] = useState<Array<{ id: number; name: string; slug: string; description: string; icon: string; noteCount: number }>>([]);
+
+  // Audit logs state
+  const [auditLogs, setAuditLogs] = useState<Array<{ id: string; admin_email: string; action: string; target_type: string; target_id: string; details: string; created_at: string }>>([]);
+
   type AdminTab = "overview" | "submissions" | "advanced" | "reports" | "users" | "taxonomy" | "audit" | "config";
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
 
@@ -354,12 +364,42 @@ export default function AdminPage() {
     } catch { /* swallow */ }
   }, []);
 
+  const loadUsers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/users", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setAdminUsers(data.users || []);
+    } catch { /* swallow */ }
+  }, []);
+
+  const loadCategories = useCallback(async () => {
+    try {
+      const res = await fetch("/api/categories", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setAdminCategories(data.categories || []);
+    } catch { /* swallow */ }
+  }, []);
+
+  const loadAuditLogs = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/audit-logs", { cache: "no-store" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setAuditLogs(data.logs || []);
+    } catch { /* swallow */ }
+  }, []);
+
   useEffect(() => {
     if (userRole === "admin") {
       void loadAdvData();
       void loadReports();
+      void loadUsers();
+      void loadCategories();
+      void loadAuditLogs();
     }
-  }, [userRole, loadAdvData, loadReports]);
+  }, [userRole, loadAdvData, loadReports, loadUsers, loadCategories, loadAuditLogs]);
 
   const advScopedTopics = useMemo(() => {
     if (!advForm.trackSlug) return [];
@@ -428,6 +468,25 @@ export default function AdminPage() {
       if (!res.ok) throw new Error("Failed to dismiss report");
       await loadReports();
     } catch (e) { setError(e instanceof Error ? e.message : "Failed to dismiss report"); }
+  };
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    setRoleChanging(userId);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, newRole }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to change role");
+      }
+      await loadUsers();
+      await loadAuditLogs();
+    } catch (e) { setError(e instanceof Error ? e.message : "Failed to change role"); }
+    finally { setRoleChanging(null); }
   };
 
   const handleAction = async (
@@ -1324,29 +1383,180 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* ═══ COMING SOON TABS ═══ */}
-            {(activeTab === "users" || activeTab === "taxonomy" || activeTab === "audit") && (
+            {/* ═══ USERS TAB ═══ */}
+            {activeTab === "users" && (
               <div>
                 <div className={styles.adminTabHeader}>
                   <div>
-                    <h2 className={styles.adminTabTitle}>
-                      {activeTab === "users" && "User & Role Management"}
-                      {activeTab === "taxonomy" && "Categories & Taxonomy"}
-                      {activeTab === "audit" && "Audit Logs & Security"}
-                    </h2>
-                    <p className={styles.adminTabSubtitle}>This module is currently being provisioned.</p>
+                    <h2 className={styles.adminTabTitle}>User & Role Management</h2>
+                    <p className={styles.adminTabSubtitle}>{adminUsers.length} registered users. Assign roles or ban spammers.</p>
+                  </div>
+                  <div className={styles.tabActions}>
+                    <button className={`btn btn-secondary btn-sm ${styles.refreshBtn}`} onClick={() => void loadUsers()}>Refresh</button>
                   </div>
                 </div>
-                <div className={styles.panel} style={{ textAlign: "center", padding: "64px 24px" }}>
-                  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--text-tertiary)", margin: "0 auto 16px" }}>
-                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
-                    <line x1="12" y1="22.08" x2="12" y2="12"/>
-                  </svg>
-                  <h3 style={{ fontSize: "var(--text-xl)", fontWeight: 700, color: "var(--text-secondary)", marginBottom: "8px" }}>Coming Soon</h3>
-                  <p style={{ color: "var(--text-tertiary)", maxWidth: "400px", margin: "0 auto" }}>
-                    The backend for {activeTab} is being connected. This power feature will be available in the next deployment.
-                  </p>
+
+                {error && <div className={styles.error}>{error}</div>}
+
+                <div className={styles.panel}>
+                  <div className={styles.table}>
+                    {adminUsers.map((user) => (
+                      <article key={user.id} className={styles.row}>
+                        <div className={styles.rowMain}>
+                          <div className={styles.rowInfo}>
+                            <h3 className={styles.rowTitle}>{user.name || "No Name"}</h3>
+                            <div className={styles.rowMeta}>
+                              <span>{user.email}</span>
+                              <span>Joined: {new Date(user.created_at).toLocaleDateString()}</span>
+                              <span>{user.note_count} notes</span>
+                              <span>{user.total_views} views</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className={styles.rowSide}>
+                          <div className={styles.rowBadges}>
+                            <span className={`${styles.statusBadge} ${user.role === "admin" ? styles.statusApproved : user.role === "banned" ? styles.statusRejected : user.role === "moderator" ? styles.statusPending : ""}`}>
+                              {user.role}
+                            </span>
+                          </div>
+                          <div className={styles.rowActions}>
+                            {user.role !== "admin" && (
+                              <button className="btn btn-sm btn-secondary" disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "moderator")}>
+                                {roleChanging === user.id ? "..." : "Moderator"}
+                              </button>
+                            )}
+                            {user.role !== "admin" && user.role !== "banned" && (
+                              <button className={`btn btn-sm ${styles.rejectBtn}`} disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "banned")}>
+                                Ban
+                              </button>
+                            )}
+                            {user.role === "banned" && (
+                              <button className={`btn btn-sm ${styles.approveBtn}`} disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "user")}>
+                                Unban
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                    {adminUsers.length === 0 && <div className={styles.empty}>No users found.</div>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ═══ CATEGORIES TAB ═══ */}
+            {activeTab === "taxonomy" && (
+              <div>
+                <div className={styles.adminTabHeader}>
+                  <div>
+                    <h2 className={styles.adminTabTitle}>Categories & Taxonomy</h2>
+                    <p className={styles.adminTabSubtitle}>{adminCategories.length} categories with live note counts.</p>
+                  </div>
+                  <div className={styles.tabActions}>
+                    <button className={`btn btn-secondary btn-sm ${styles.refreshBtn}`} onClick={() => void loadCategories()}>Refresh</button>
+                  </div>
+                </div>
+
+                <div className={styles.panel}>
+                  <div className={styles.table}>
+                    {adminCategories.map((cat) => (
+                      <article key={cat.id} className={styles.row}>
+                        <div className={styles.rowMain}>
+                          <div className={styles.rowInfo}>
+                            <h3 className={styles.rowTitle}>
+                              {cat.icon && <span style={{ marginRight: "8px" }}>{cat.icon}</span>}
+                              {cat.name}
+                            </h3>
+                            <div className={styles.rowMeta}>
+                              <span className={styles.metaPill}>/{cat.slug}</span>
+                              <span>{cat.description || "No description"}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className={styles.rowSide}>
+                          <div className={styles.rowBadges}>
+                            <span className={styles.statusBadge}>{cat.noteCount} notes</span>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                    {adminCategories.length === 0 && <div className={styles.empty}>No categories found.</div>}
+                  </div>
+                </div>
+
+                {/* Advanced Tracks & Topics */}
+                {advTracks.length > 0 && (
+                  <div className={styles.panel} style={{ marginTop: "var(--space-2xl)" }}>
+                    <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginBottom: "var(--space-lg)", color: "var(--text-primary)" }}>Advanced Tracks</h3>
+                    <div className={styles.table}>
+                      {advTracks.map((track) => {
+                        const trackTopics = advTopics.filter((t) => t.track_id === track.id);
+                        return (
+                          <article key={track.id} className={styles.row}>
+                            <div className={styles.rowMain}>
+                              <div className={styles.rowInfo}>
+                                <h3 className={styles.rowTitle}>{track.name}</h3>
+                                <div className={styles.rowMeta}>
+                                  <span className={styles.metaPill}>/{track.slug}</span>
+                                  <span>{track.description || "No description"}</span>
+                                  <span>{trackTopics.length} topics</span>
+                                </div>
+                                {trackTopics.length > 0 && (
+                                  <div className={styles.rowMeta} style={{ marginTop: "4px" }}>
+                                    {trackTopics.map((topic) => (
+                                      <span key={topic.id} className={styles.metaPill}>{topic.name} ({topic.level})</span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ═══ AUDIT LOGS TAB ═══ */}
+            {activeTab === "audit" && (
+              <div>
+                <div className={styles.adminTabHeader}>
+                  <div>
+                    <h2 className={styles.adminTabTitle}>Audit Logs</h2>
+                    <p className={styles.adminTabSubtitle}>Recent admin actions and system events.</p>
+                  </div>
+                  <div className={styles.tabActions}>
+                    <button className={`btn btn-secondary btn-sm ${styles.refreshBtn}`} onClick={() => void loadAuditLogs()}>Refresh</button>
+                  </div>
+                </div>
+
+                <div className={styles.panel}>
+                  {auditLogs.length === 0 ? (
+                    <div className={styles.empty}>No audit logs recorded yet. Actions will appear here as admins interact with the system.</div>
+                  ) : (
+                    <div className={styles.table}>
+                      {auditLogs.map((log) => (
+                        <article key={log.id} className={styles.row}>
+                          <div className={styles.rowMain}>
+                            <div className={styles.rowInfo}>
+                              <h3 className={styles.rowTitle} style={{ fontSize: "var(--text-sm)" }}>
+                                <strong>{log.admin_email}</strong>{" "}
+                                <span className={styles.metaPill}>{log.action}</span>{" "}
+                                {log.target_type && <span>on {log.target_type}</span>}
+                              </h3>
+                              <div className={styles.rowMeta}>
+                                <span>{log.details || "No details"}</span>
+                                <span>{new Date(log.created_at).toLocaleString()}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}

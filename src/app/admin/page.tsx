@@ -1440,28 +1440,37 @@ export default function AdminPage() {
                               {user.role}
                             </span>
                           </div>
-                          <div className={styles.rowActions}>
                             {user.role !== "admin" && (
-                              <>
-                                <button className="btn btn-sm btn-ghost" disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "admin")}>
-                                  Make Admin
-                                </button>
-                                <button className="btn btn-sm btn-secondary" disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "moderator")}>
-                                  Moderator
-                                </button>
-                              </>
+                              <button className="btn btn-sm btn-ghost" disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "admin")}>
+                                Make Admin
+                              </button>
                             )}
+                            
+                            {user.role === "admin" && user.email !== session?.user?.email && (
+                              <button className="btn btn-sm btn-ghost" disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "moderator")}>
+                                Demote Admin
+                              </button>
+                            )}
+
+                            {user.role !== "admin" && (
+                              <button className="btn btn-sm btn-secondary" disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "moderator")}>
+                                Moderator
+                              </button>
+                            )}
+                            
                             {user.role !== "admin" && user.role !== "banned" && (
                               <button className={`btn btn-sm ${styles.rejectBtn}`} disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "banned")}>
                                 Ban
                               </button>
                             )}
+                            
                             {user.role === "banned" && (
                               <button className={`btn btn-sm ${styles.approveBtn}`} disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "user")}>
                                 Unban
                               </button>
                             )}
-                            {user.role !== "admin" && (
+
+                            {user.email !== session?.user?.email && (
                               <button className="btn btn-sm btn-danger" style={{ color: "var(--color-danger)" }} disabled={roleChanging === user.id} onClick={() => void handleDeleteUser(user.id)}>
                                 Delete
                               </button>

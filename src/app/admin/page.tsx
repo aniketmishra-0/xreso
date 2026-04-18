@@ -1440,6 +1440,7 @@ export default function AdminPage() {
                               {user.role}
                             </span>
                           </div>
+                          <div className={styles.rowActions}>
                             {user.role !== "admin" && (
                               <button className="btn btn-sm btn-ghost" disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "admin")}>
                                 Make Admin

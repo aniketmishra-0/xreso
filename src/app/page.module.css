@@ -381,7 +381,7 @@
 .floatingToggleWrapper {
   display: flex;
   position: fixed;
-  bottom: clamp(24px, 4vh, 32px);
+  bottom: calc(env(safe-area-inset-bottom, 4px) + 8px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;

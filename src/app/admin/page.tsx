@@ -489,6 +489,27 @@ export default function AdminPage() {
     finally { setRoleChanging(null); }
   };
 
+  const handleDeleteUser = async (userId: string) => {
+    if (!window.confirm("Are you sure you want to permanently delete this user and all their notes? This action cannot be undone.")) return;
+    
+    setRoleChanging(userId);
+    setError("");
+    try {
+      const res = await fetch("/api/admin/users", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete user");
+      }
+      await loadUsers();
+      await loadAuditLogs();
+    } catch (e) { setError(e instanceof Error ? e.message : "Failed to delete user"); }
+    finally { setRoleChanging(null); }
+  };
+
   const handleAction = async (
     noteId: string,
     action: "approve" | "reject" | "feature",
@@ -1421,9 +1442,14 @@ export default function AdminPage() {
                           </div>
                           <div className={styles.rowActions}>
                             {user.role !== "admin" && (
-                              <button className="btn btn-sm btn-secondary" disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "moderator")}>
-                                {roleChanging === user.id ? "..." : "Moderator"}
-                              </button>
+                              <>
+                                <button className="btn btn-sm btn-ghost" disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "admin")}>
+                                  Make Admin
+                                </button>
+                                <button className="btn btn-sm btn-secondary" disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "moderator")}>
+                                  Moderator
+                                </button>
+                              </>
                             )}
                             {user.role !== "admin" && user.role !== "banned" && (
                               <button className={`btn btn-sm ${styles.rejectBtn}`} disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "banned")}>
@@ -1433,6 +1459,11 @@ export default function AdminPage() {
                             {user.role === "banned" && (
                               <button className={`btn btn-sm ${styles.approveBtn}`} disabled={roleChanging === user.id} onClick={() => void handleRoleChange(user.id, "user")}>
                                 Unban
+                              </button>
+                            )}
+                            {user.role !== "admin" && (
+                              <button className="btn btn-sm btn-danger" style={{ color: "var(--color-danger)" }} disabled={roleChanging === user.id} onClick={() => void handleDeleteUser(user.id)}>
+                                Delete
                               </button>
                             )}
                           </div>

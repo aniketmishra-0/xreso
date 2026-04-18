@@ -210,29 +210,37 @@ export default function NoteDetailPage() {
   };
 
   const handleFullscreen = () => {
-    const isCurrentlyFullscreen = isFullscreen;
-    setIsFullscreen(!isCurrentlyFullscreen);
-
     if (!viewerRef.current) return;
     const el = viewerRef.current as HTMLElement & { webkitRequestFullscreen?: () => void };
     const doc = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void };
     
     try {
-      if (document.fullscreenElement || doc.webkitFullscreenElement || isCurrentlyFullscreen) {
-        if (doc.webkitExitFullscreen) {
-          doc.webkitExitFullscreen();
-        } else if (document.exitFullscreen) {
-          document.exitFullscreen();
+      const isNativeActive = !!(document.fullscreenElement || doc.webkitFullscreenElement);
+      
+      if (isFullscreen) {
+        // Exiting Fullscreen Mode
+        if (isNativeActive) {
+          // DO NOT modify React state here. Native exit triggers 'fullscreenchange' which will reliably turn the state to `false`.
+          if (document.exitFullscreen) {
+            document.exitFullscreen();
+          } else if (doc.webkitExitFullscreen) {
+            doc.webkitExitFullscreen();
+          }
+        } else {
+          // If native wasn't active, we were using CSS Fallback mode. We must modify React state manually to exit.
+          setIsFullscreen(false);
         }
       } else {
-        if (el.webkitRequestFullscreen) {
-          el.webkitRequestFullscreen();
-        } else if (el.requestFullscreen) {
+        // Entering Fullscreen Mode
+        setIsFullscreen(true); // Always immediately trigger the CSS mode in React to prevent lag
+        if (el.requestFullscreen) {
           el.requestFullscreen();
+        } else if (el.webkitRequestFullscreen) {
+          el.webkitRequestFullscreen();
         }
       }
     } catch {
-      // Ignore errors for devices (like iOS) that lack native div fullscreen support
+      // Safely ignore errors from browsers that dynamically block native fullscreen execution
     }
   };
 

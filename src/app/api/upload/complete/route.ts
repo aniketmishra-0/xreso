@@ -65,6 +65,19 @@ function normalizeCategorySlug(slug: string): string {
   return CATEGORY_ALIASES[slug] || slug;
 }
 
+async function isAutoApproveEnabled(client: Client): Promise<boolean> {
+  try {
+    const result = await client.execute({
+      sql: "SELECT value FROM settings WHERE key = 'auto_approve_enabled'",
+      args: [],
+    });
+    return result.rows.length > 0 && String(result.rows[0].value) === "true";
+  } catch {
+    // settings table may not exist yet
+    return false;
+  }
+}
+
 async function resolveCategoryId(
   client: Client,
   rawSlug: string
@@ -206,6 +219,9 @@ export async function POST(req: NextRequest) {
     const fileUrl = `/api/files/${noteId}`;
     const thumbnailUrl = fileUrl; // Will use OG image or proxy
 
+    const autoApprove = await isAutoApproveEnabled(client);
+    const initialStatus = autoApprove ? "approved" : "pending";
+
     // Try insert with drive_item_id
     try {
       await client.execute({
@@ -227,7 +243,7 @@ export async function POST(req: NextRequest) {
           fileSize || 0,
           sourceUrl || null,
           licenseType || "CC-BY-4.0",
-          "pending",
+          initialStatus,
           driveItemId,
         ],
       });
@@ -260,7 +276,7 @@ export async function POST(req: NextRequest) {
             fileSize || 0,
             sourceUrl || null,
             licenseType || "CC-BY-4.0",
-            "pending",
+            initialStatus,
           ],
         });
       } else {
@@ -291,11 +307,17 @@ export async function POST(req: NextRequest) {
       console.error("[Excel] append failed:", excelError);
     }
 
+    if (autoApprove) {
+      await client.execute(`UPDATE categories SET note_count = (SELECT COUNT(*) FROM notes WHERE notes.category_id = categories.id AND notes.status = 'approved')`);
+    }
+
     return NextResponse.json({
       success: true,
       noteId,
       storage: "onedrive",
-      message: "Note uploaded successfully! It will be reviewed before publishing.",
+      message: autoApprove
+        ? "Note uploaded and approved successfully!"
+        : "Note uploaded successfully! It will be reviewed before publishing.",
     });
   } catch (error) {
     console.error("POST /api/upload/complete error:", error);

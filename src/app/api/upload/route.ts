@@ -463,7 +463,9 @@ export async function POST(req: NextRequest) {
 
     const oneDriveEnabled = isOneDriveConfigured();
     let storageMode: "local" | "onedrive" | "onedrive-pending-sync" = "local";
-    let uploadMessage = "Note uploaded successfully! It will be reviewed before publishing.";
+    let uploadMessage = autoApprove
+      ? "Note uploaded and approved successfully!"
+      : "Note uploaded successfully! It will be reviewed before publishing.";
 
     if (oneDriveEnabled) {
       try {

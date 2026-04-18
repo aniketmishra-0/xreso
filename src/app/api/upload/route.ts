@@ -92,6 +92,19 @@ function ensureDir(targetDir: string) {
   }
 }
 
+async function isAutoApproveEnabled(client: Client): Promise<boolean> {
+  try {
+    const result = await client.execute({
+      sql: "SELECT value FROM settings WHERE key = 'auto_approve_enabled'",
+      args: [],
+    });
+    return result.rows.length > 0 && String(result.rows[0].value) === "true";
+  } catch {
+    // settings table may not exist yet
+    return false;
+  }
+}
+
 const CATEGORY_ALIASES: Record<string, string> = {
   c: "c-cpp",
   cpp: "c-cpp",
@@ -255,6 +268,7 @@ async function insertUploadedFileNote(
     fileSizeBytes: number;
     sourceUrl: string | null;
     licenseType: string;
+    status: string;
   }
 ) {
   try {
@@ -274,7 +288,7 @@ async function insertUploadedFileNote(
         data.fileSizeBytes,
         data.sourceUrl,
         data.licenseType,
-        "pending",
+        data.status,
         null
       ]
     });
@@ -304,7 +318,7 @@ async function insertUploadedFileNote(
       data.fileSizeBytes,
       data.sourceUrl,
       data.licenseType,
-      "pending"
+      data.status
     ]
   });
 }
@@ -347,6 +361,9 @@ export async function POST(req: NextRequest) {
     const licenseType = formData.get("licenseType") as string;
     const uploadMode = formData.get("uploadMode") as string;
 
+    const autoApprove = await isAutoApproveEnabled(client);
+    const initialStatus = autoApprove ? "approved" : "pending";
+
     if (uploadMode === "link") {
       if (!title || !description || !category || !authorCredit || !resourceUrl) {
         return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -361,8 +378,12 @@ export async function POST(req: NextRequest) {
 
       await client.execute({
         sql: `INSERT INTO notes (id, title, description, category_id, author_id, author_credit, thumbnail_url, file_url, file_name, file_type, file_size_bytes, source_url, license_type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [noteId, title, description, categoryId, authorId, authorCredit, "", resourceUrl, "", "link", 0, resourceUrl, licenseType || "CC-BY-4.0", "pending"]
+        args: [noteId, title, description, categoryId, authorId, authorCredit, "", resourceUrl, "", "link", 0, resourceUrl, licenseType || "CC-BY-4.0", initialStatus]
       });
+
+      if (autoApprove) {
+        await client.execute(`UPDATE categories SET note_count = (SELECT COUNT(*) FROM notes WHERE notes.category_id = categories.id AND notes.status = 'approved')`);
+      }
 
       if (tags) await insertTags(client, noteId, tags);
 
@@ -424,9 +445,14 @@ export async function POST(req: NextRequest) {
       fileSizeBytes: file.size,
       sourceUrl: sourceUrl || null,
       licenseType: licenseType || "CC-BY-4.0",
+      status: initialStatus,
     });
 
     if (tags) await insertTags(client, noteId, tags);
+
+    if (autoApprove) {
+      await client.execute(`UPDATE categories SET note_count = (SELECT COUNT(*) FROM notes WHERE notes.category_id = categories.id AND notes.status = 'approved')`);
+    }
 
     const stableFileUrl = `${req.nextUrl.origin}/api/files/${noteId}`;
     try {

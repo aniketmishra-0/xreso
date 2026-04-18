@@ -36,6 +36,90 @@
   min-width: 132px;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  flex-shrink: 0;
+}
+
+.autoApproveToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: 10px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border-secondary);
+  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+}
+
+.autoApproveInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.autoApproveLabel {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.autoApproveHint {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+.toggleSwitch {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  border-radius: 13px;
+  border: 2px solid rgba(148, 163, 184, 0.3);
+  background: rgba(148, 163, 184, 0.2);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.toggleSwitch:hover {
+  border-color: rgba(148, 163, 184, 0.5);
+}
+
+.toggleSwitch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toggleOn {
+  background: linear-gradient(135deg, rgba(74, 222, 128, 0.35), rgba(16, 185, 129, 0.4));
+  border-color: rgba(74, 222, 128, 0.5);
+}
+
+.toggleOn:hover {
+  border-color: rgba(74, 222, 128, 0.7);
+}
+
+.toggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transition: all 0.25s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.toggleOn .toggleThumb {
+  left: calc(100% - 20px);
+  background: #4ade80;
+  box-shadow: 0 1px 6px rgba(74, 222, 128, 0.4);
+}
+
 .statsGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

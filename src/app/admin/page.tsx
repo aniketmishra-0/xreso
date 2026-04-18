@@ -99,6 +99,8 @@ export default function AdminPage() {
   const [activeAction, setActiveAction] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [storageError, setStorageError] = useState("");
+  const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
+  const [autoApproveToggling, setAutoApproveToggling] = useState(false);
 
   const userRole = (session?.user as { role?: string })?.role;
 
@@ -145,6 +147,38 @@ export default function AdminPage() {
       }
     }
   }, []);
+
+  // Load auto-approve setting
+  useEffect(() => {
+    if (userRole !== "admin") return;
+    fetch("/api/admin/settings", { cache: "no-store" })
+      .then((res) => res.json())
+      .then((data: { settings?: { auto_approve_enabled?: boolean } }) => {
+        setAutoApproveEnabled(data.settings?.auto_approve_enabled ?? false);
+      })
+      .catch(() => {});
+  }, [userRole]);
+
+  const handleAutoApproveToggle = async () => {
+    setAutoApproveToggling(true);
+    setError("");
+    const newValue = !autoApproveEnabled;
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "auto_approve_enabled", value: String(newValue) }),
+      });
+      if (!res.ok) throw new Error("Failed to update setting");
+      setAutoApproveEnabled(newValue);
+      // Refresh data to see updated counts
+      await loadAdminData(true);
+    } catch {
+      setError("Failed to toggle auto-approval.");
+    } finally {
+      setAutoApproveToggling(false);
+    }
+  };
 
   useEffect(() => {
     if (userRole === "admin") {
@@ -300,17 +334,35 @@ export default function AdminPage() {
           <div>
             <h1 className={styles.title}>Admin Command Center</h1>
             <p className={styles.subtitle}>
-              Review submissions, curate featured notes, monitor library health, and
-              auto-publish pending items after 3 days.
+              Review submissions, curate featured notes, and monitor library health.
             </p>
           </div>
-          <button
-            className={`btn btn-secondary btn-sm ${styles.refreshBtn}`}
-            onClick={() => void loadAdminData(true)}
-            disabled={loading || refreshing}
-          >
-            {refreshing ? "Refreshing..." : "Refresh Data"}
-          </button>
+          <div className={styles.headerActions}>
+            <div className={styles.autoApproveToggle}>
+              <div className={styles.autoApproveInfo}>
+                <span className={styles.autoApproveLabel}>Auto-Approve</span>
+                <span className={styles.autoApproveHint}>
+                  {autoApproveEnabled ? "All uploads are auto-approved" : "Uploads need manual review"}
+                </span>
+              </div>
+              <button
+                className={`${styles.toggleSwitch} ${autoApproveEnabled ? styles.toggleOn : ""}`}
+                onClick={() => void handleAutoApproveToggle()}
+                disabled={autoApproveToggling}
+                aria-pressed={autoApproveEnabled}
+                aria-label="Toggle auto-approval"
+              >
+                <span className={styles.toggleThumb} />
+              </button>
+            </div>
+            <button
+              className={`btn btn-secondary btn-sm ${styles.refreshBtn}`}
+              onClick={() => void loadAdminData(true)}
+              disabled={loading || refreshing}
+            >
+              {refreshing ? "Refreshing..." : "Refresh Data"}
+            </button>
+          </div>
         </div>
 
         {stats && (

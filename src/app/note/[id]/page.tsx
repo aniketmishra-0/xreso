@@ -98,6 +98,7 @@ export default function NoteDetailPage() {
   const [imageLoadFailed, setImageLoadFailed] = useState(false);
   const viewerRef = useRef<HTMLDivElement>(null);
   const touchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   useEffect(() => {
     async function fetchNote() {
@@ -141,6 +142,23 @@ export default function NoteDetailPage() {
       probeImage.onerror = null;
     };
   }, [note]);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(
+        !!(
+          document.fullscreenElement ||
+          (document as any).webkitFullscreenElement
+        )
+      );
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   const handleBookmark = async () => {
     if (!session?.user) {
@@ -305,7 +323,7 @@ export default function NoteDetailPage() {
           {/* Main Content */}
           <div className={styles.main}>
             {/* File Viewer */}
-            <div className={styles.viewer} ref={viewerRef}>
+            <div className={`${styles.viewer} ${isFullscreen ? styles.viewerFullscreen : ""}`} ref={viewerRef}>
               {note.fileType === "application/pdf" ? (
                 <iframe
                   src={isMobile ? `/pdfviewer.html?file=${encodeURIComponent(note.fileUrl)}` : note.fileUrl}

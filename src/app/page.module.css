@@ -380,9 +380,12 @@
 /* ── Floating Sub-nav Toggle ── */
 .floatingToggleWrapper {
   display: flex;
-  margin-bottom: var(--space-xl);
-  position: relative;
-  z-index: 10;
+  position: fixed;
+  bottom: clamp(24px, 4vh, 32px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  pointer-events: auto;
 }
 
 .floatingToggle {
@@ -394,7 +397,7 @@
   padding: 4px;
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(139, 92, 246, 0.05); /* Enhanced floating shadow */
 }
 
 .toggleBtn {

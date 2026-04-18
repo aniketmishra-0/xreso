@@ -17,7 +17,7 @@ function getClient() {
 // POST /api/notes/[id]/report
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -25,12 +25,14 @@ export async function POST(
       return NextResponse.json({ error: "You must be signed in to report a note." }, { status: 401 });
     }
 
+    const params = await context.params;
+    const noteId = params.id;
+
     const userEmail = session.user.email;
     if (!userEmail) {
       return NextResponse.json({ error: "User email required." }, { status: 400 });
     }
 
-    const { id: noteId } = params;
     const body = await request.json().catch(() => ({}));
     const reason = body.reason || "Inappropriate content or broken link";
 

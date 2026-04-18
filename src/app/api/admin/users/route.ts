@@ -103,7 +103,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("PATCH /api/admin/users error:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Server error" }, { status: 500 });
   }
 }
 
@@ -125,14 +125,21 @@ export async function DELETE(req: NextRequest) {
     const client = getClient();
     
     // Anonymize their notes so the platform doesn't lose resources
-    await client.execute({
-      sql: "UPDATE notes SET author_id = NULL, author_credit = 'Deleted User' WHERE author_id = ?",
-      args: [userId],
-    });
+    try {
+      await client.execute({
+        sql: "UPDATE notes SET author_id = NULL, author_credit = 'Deleted User' WHERE author_id = ?",
+        args: [userId],
+      });
+    } catch {}
 
     // Delete related user data
-    await client.execute({ sql: "DELETE FROM accounts WHERE userId = ?", args: [userId] });
-    await client.execute({ sql: "DELETE FROM sessions WHERE userId = ?", args: [userId] });
+    try { await client.execute({ sql: "DELETE FROM accounts WHERE userId = ?", args: [userId] }); } catch {}
+    try { await client.execute({ sql: "DELETE FROM versions WHERE userId = ?", args: [userId] }); } catch {}
+    try { await client.execute({ sql: "DELETE FROM accounts WHERE user_id = ?", args: [userId] }); } catch {}
+    try { await client.execute({ sql: "DELETE FROM sessions WHERE userId = ?", args: [userId] }); } catch {}
+    try { await client.execute({ sql: "DELETE FROM sessions WHERE user_id = ?", args: [userId] }); } catch {}
+    
+    // Actually delete the user
     await client.execute({ sql: "DELETE FROM users WHERE id = ?", args: [userId] });
 
     // Log the action
@@ -152,6 +159,6 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("DELETE /api/admin/users error:", error);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Server error" }, { status: 500 });
   }
 }

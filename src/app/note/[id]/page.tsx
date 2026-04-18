@@ -147,7 +147,7 @@ export default function NoteDetailPage() {
     const handleFullscreenChange = () => {
       // Sync state if native API successfully triggers it, but if we're already manually tracking it, keep it in sync.
       const nativeIsFull = !!(document.fullscreenElement || (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement);
-      if (nativeIsFull) setIsFullscreen(true);
+      setIsFullscreen(nativeIsFull);
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);

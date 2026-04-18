@@ -145,12 +145,9 @@ export default function NoteDetailPage() {
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      setIsFullscreen(
-        !!(
-          document.fullscreenElement ||
-          (document as any).webkitFullscreenElement
-        )
-      );
+      // Sync state if native API successfully triggers it, but if we're already manually tracking it, keep it in sync.
+      const nativeIsFull = !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+      if (nativeIsFull) setIsFullscreen(true);
     };
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
@@ -213,21 +210,29 @@ export default function NoteDetailPage() {
   };
 
   const handleFullscreen = () => {
+    const isCurrentlyFullscreen = isFullscreen;
+    setIsFullscreen(!isCurrentlyFullscreen);
+
     if (!viewerRef.current) return;
     const el = viewerRef.current as HTMLElement & { webkitRequestFullscreen?: () => void };
     const doc = document as Document & { webkitFullscreenElement?: Element; webkitExitFullscreen?: () => void };
-    if (document.fullscreenElement || doc.webkitFullscreenElement) {
-      if (doc.webkitExitFullscreen) {
-        doc.webkitExitFullscreen();
+    
+    try {
+      if (document.fullscreenElement || doc.webkitFullscreenElement || isCurrentlyFullscreen) {
+        if (doc.webkitExitFullscreen) {
+          doc.webkitExitFullscreen();
+        } else if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
       } else {
-        document.exitFullscreen();
+        if (el.webkitRequestFullscreen) {
+          el.webkitRequestFullscreen();
+        } else if (el.requestFullscreen) {
+          el.requestFullscreen();
+        }
       }
-    } else {
-      if (el.webkitRequestFullscreen) {
-        el.webkitRequestFullscreen();
-      } else if (el.requestFullscreen) {
-        el.requestFullscreen();
-      }
+    } catch(e) {
+      // Ignore errors for devices (like iOS) that lack native div fullscreen support
     }
   };
 

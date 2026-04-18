@@ -377,7 +377,7 @@
   padding: 0 var(--space-lg);
 }
 
-/* ── Floating Sub-nav Toggle ── */
+/* ── Premium Floating Sub-nav Toggle ── */
 .floatingToggleWrapper {
   display: flex;
   position: fixed;
@@ -386,38 +386,59 @@
   transform: translateX(-50%);
   z-index: 100;
   pointer-events: auto;
+  animation: floatingSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+  animation-delay: 0.2s; /* Wait briefly before appearing */
+}
+
+@keyframes floatingSlideUp {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 30px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
 }
 
 .floatingToggle {
   display: inline-flex;
   align-items: center;
-  background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-full);
-  padding: 4px;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(139, 92, 246, 0.05); /* Enhanced floating shadow */
+  background: color-mix(in srgb, var(--bg-primary) 65%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-secondary) 80%, transparent);
+  border-radius: 100px;
+  padding: 5px;
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: 
+    0 16px 40px -8px rgba(0, 0, 0, 0.2), 
+    0 4px 16px -4px rgba(139, 92, 246, 0.12),
+    inset 0 1px 1px rgba(255, 255, 255, 0.08);
 }
 
 .toggleBtn {
-  padding: 8px 20px;
-  border-radius: var(--radius-full);
-  font-size: var(--text-sm);
-  font-weight: 600;
-  color: var(--text-tertiary);
+  position: relative;
+  padding: 8px 24px;
+  border-radius: 100px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--text-secondary);
   text-decoration: none;
-  transition: all var(--transition-fast);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
 }
 
 .toggleBtn:hover {
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .toggleBtnActive {
   background: var(--bg-elevated);
   color: var(--text-primary);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-primary) 80%, transparent);
+  box-shadow: 
+    0 2px 12px rgba(0, 0, 0, 0.08), 
+    0 0 0 1px color-mix(in srgb, var(--border-primary) 70%, transparent);
   pointer-events: none;
 }
 

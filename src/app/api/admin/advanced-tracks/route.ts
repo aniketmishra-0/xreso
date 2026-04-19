@@ -20,11 +20,12 @@ const ONE_DRIVE_UPLOAD_MAX_ATTEMPTS = 4;
 const ANONYMOUS_USER_ID = "anonymous-uploader";
 const ANONYMOUS_USER_EMAIL = "anonymous@xreso.local";
 const ANONYMOUS_USER_NAME = "Anonymous";
+const MIN_PUBLISH_TITLE_LENGTH = 5;
 
 export const maxDuration = 300;
 
 type ResourceType = "link" | "pdf" | "doc" | "video" | "image";
-type UpdateAction = "approve" | "reject" | "archive" | "feature" | "unfeature";
+type UpdateAction = "approve" | "reject" | "unpublish" | "archive" | "feature" | "unfeature";
 
 function getClient(): Client {
   const databaseUrl = process.env.TURSO_DATABASE_URL;
@@ -423,6 +424,15 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const session = await auth();
+  const sessionUser = session?.user as { id?: string } | undefined;
+  if (!sessionUser?.id) {
+    return NextResponse.json(
+      { error: "Please sign in to upload advanced resources." },
+      { status: 401 }
+    );
+  }
+
   const client = getClient();
   const uploader = await resolveUploaderIdentity(client);
   const authorId = uploader.authorId;
@@ -519,6 +529,13 @@ export async function POST(req: NextRequest) {
     if (!title || !summary || !trackSlug) {
       return NextResponse.json(
         { error: "title, summary, and trackSlug are required" },
+        { status: 400 }
+      );
+    }
+
+    if (title.length < MIN_PUBLISH_TITLE_LENGTH) {
+      return NextResponse.json(
+        { error: `Title must be at least ${MIN_PUBLISH_TITLE_LENGTH} characters.` },
         { status: 400 }
       );
     }
@@ -760,6 +777,7 @@ export async function PATCH(req: NextRequest) {
     const allowedActions: UpdateAction[] = [
       "approve",
       "reject",
+      "unpublish",
       "archive",
       "feature",
       "unfeature",
@@ -770,6 +788,19 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === "approve") {
+      const titleResult = await client.execute({
+        sql: "SELECT title FROM advanced_track_resources WHERE id = ? LIMIT 1",
+        args: [resourceId],
+      });
+
+      const title = toTrimmedString(titleResult.rows[0]?.title);
+      if (title.length < MIN_PUBLISH_TITLE_LENGTH) {
+        return NextResponse.json(
+          { error: `Title must be at least ${MIN_PUBLISH_TITLE_LENGTH} characters before approval.` },
+          { status: 400 }
+        );
+      }
+
       await client.execute({
         sql: "UPDATE advanced_track_resources SET status = 'approved', updated_at = datetime('now') WHERE id = ?",
         args: [resourceId],
@@ -777,6 +808,11 @@ export async function PATCH(req: NextRequest) {
     } else if (action === "reject") {
       await client.execute({
         sql: "UPDATE advanced_track_resources SET status = 'rejected', updated_at = datetime('now') WHERE id = ?",
+        args: [resourceId],
+      });
+    } else if (action === "unpublish") {
+      await client.execute({
+        sql: "UPDATE advanced_track_resources SET status = 'pending', updated_at = datetime('now') WHERE id = ?",
         args: [resourceId],
       });
     } else if (action === "archive") {

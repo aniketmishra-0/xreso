@@ -8,9 +8,25 @@ function getClient() {
   });
 }
 
+async function shouldHideTestDraftPublicContent(client: ReturnType<typeof getClient>) {
+  try {
+    const result = await client.execute({
+      sql: "SELECT value FROM settings WHERE key = 'hide_test_draft_public_content'",
+      args: [],
+    });
+
+    if (result.rows.length === 0) return true;
+    const value = String(result.rows[0].value || "").trim().toLowerCase();
+    return !(value === "false" || value === "0" || value === "no");
+  } catch {
+    return true;
+  }
+}
+
 export async function GET() {
   try {
     const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
 
     const trackRowsRes = await client.execute(
         `SELECT
@@ -21,7 +37,11 @@ export async function GET() {
           at.premium,
           at.status,
           at.sort_order,
-          COUNT(CASE WHEN atr.status = 'approved' THEN 1 END) as approved_count
+          COUNT(CASE
+            WHEN atr.status = 'approved'
+              ${hideTestDraft ? "AND LENGTH(TRIM(atr.title)) >= 5" : ""}
+            THEN 1
+          END) as approved_count
          FROM advanced_tracks at
          LEFT JOIN advanced_track_resources atr ON atr.track_id = at.id
          WHERE at.status = 'active'

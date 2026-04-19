@@ -33,7 +33,7 @@ export default function CategoryCard({
       <div className={styles.content}>
         <h3 className={styles.name}>{name}</h3>
         <p className={styles.description}>{description}</p>
-        <span className={styles.count}>{noteCount} notes</span>
+        <span className={styles.count}>{noteCount} {noteCount === 1 ? "note" : "notes"}</span>
       </div>
       <div className={styles.arrow}>
         <svg

@@ -152,11 +152,18 @@ export default function PublicUserPage() {
               <div className={styles.statsRow}>
                 <div className={styles.statChip}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                  <strong>{notes.length}</strong> notes published
+                  <strong>{notes.length}</strong> {notes.length === 1 ? "note" : "notes"} published
                 </div>
                 <div className={styles.statChip}>
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                  <strong>{notes.reduce((s, n) => s + (n.view_count || 0), 0).toLocaleString()}</strong> total views
+                  {(() => {
+                    const totalViews = notes.reduce((s, n) => s + (n.view_count || 0), 0);
+                    return (
+                      <>
+                        <strong>{totalViews.toLocaleString()}</strong> total {totalViews === 1 ? "view" : "views"}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 

@@ -54,6 +54,7 @@ const ONE_DRIVE_UPLOAD_MAX_ATTEMPTS = 4;
 const ANONYMOUS_USER_ID = "anonymous-uploader";
 const ANONYMOUS_USER_EMAIL = "anonymous@xreso.local";
 const ANONYMOUS_USER_NAME = "Anonymous";
+const MIN_NOTE_TITLE_LENGTH = 5;
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -162,22 +163,17 @@ function normalizeCategorySlug(slug: string): string {
   return CATEGORY_ALIASES[slug] || slug;
 }
 
+function isAllowedStandardCategory(rawSlug: string): boolean {
+  const normalized = normalizeCategorySlug(rawSlug.trim().toLowerCase());
+  return Boolean(CATEGORY_NAMES[normalized]);
+}
+
 async function resolveCategoryId(client: Client, rawSlug: string): Promise<number | undefined> {
   const slug = normalizeCategorySlug(rawSlug);
+  if (!isAllowedStandardCategory(slug)) return undefined;
 
   const existingRes = await client.execute({ sql: "SELECT id FROM categories WHERE slug = ?", args: [slug] });
-  if (existingRes.rows.length > 0) return existingRes.rows[0].id as number;
-
-  const categoryName = CATEGORY_NAMES[slug];
-  if (!categoryName) return undefined;
-
-  await client.execute({
-    sql: "INSERT OR IGNORE INTO categories (name, slug, description, note_count) VALUES (?, ?, ?, 0)",
-    args: [categoryName, slug, `${categoryName} programming notes`]
-  });
-
-  const createdRes = await client.execute({ sql: "SELECT id FROM categories WHERE slug = ?", args: [slug] });
-  return createdRes.rows.length > 0 ? (createdRes.rows[0].id as number) : undefined;
+  return existingRes.rows.length > 0 ? (existingRes.rows[0].id as number) : undefined;
 }
 
 async function createLocalThumbnail(noteId: string, fileName: string, fileBuffer: Buffer, fileType: string) {
@@ -403,6 +399,13 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     const sessionUser = session?.user;
 
+    if (!sessionUser?.id) {
+      return NextResponse.json(
+        { error: "Please sign in to upload content." },
+        { status: 401 }
+      );
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const title = formData.get("title") as string;
@@ -414,6 +417,7 @@ export async function POST(req: NextRequest) {
     const resourceUrl = formData.get("resourceUrl") as string;
     const licenseType = formData.get("licenseType") as string;
     const uploadMode = formData.get("uploadMode") as string;
+    const normalizedTitle = (title || "").trim();
 
     const autoApprove = await isAutoApproveEnabled(client);
     const initialStatus = autoApprove ? "approved" : "pending";
@@ -425,10 +429,22 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
       }
 
+      if (normalizedTitle.length < MIN_NOTE_TITLE_LENGTH) {
+        return NextResponse.json(
+          { error: `Title must be at least ${MIN_NOTE_TITLE_LENGTH} characters.` },
+          { status: 400 }
+        );
+      }
+
       const noteId = uuidv4();
 
-      const categoryId = await resolveCategoryId(client, category);
-      if (!categoryId) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+      const categoryId = await resolveCategoryId(client, category.toLowerCase());
+      if (!categoryId) {
+        return NextResponse.json(
+          { error: "Category must be one of the supported programming topics." },
+          { status: 400 }
+        );
+      }
 
       const imageMimeType = getImageMimeTypeFromUrl(resourceUrl);
 
@@ -436,7 +452,7 @@ export async function POST(req: NextRequest) {
         sql: `INSERT INTO notes (id, title, description, category_id, author_id, author_credit, thumbnail_url, file_url, file_name, file_type, file_size_bytes, source_url, license_type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           noteId,
-          title,
+          normalizedTitle,
           description,
           categoryId,
           authorId,
@@ -460,7 +476,7 @@ export async function POST(req: NextRequest) {
 
       try {
         await appendLinkToExcel({
-          noteId, title, description, category,
+          noteId, title: normalizedTitle, description, category,
           link: resourceUrl, author: sessionUser?.name || normalizedAuthorCredit,
           authorEmail: sessionUser?.email || "", tags: tags || "", license: licenseType || "CC-BY-4.0",
         });
@@ -473,6 +489,13 @@ export async function POST(req: NextRequest) {
 
     if (!file || !title || !description || !category) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    if (normalizedTitle.length < MIN_NOTE_TITLE_LENGTH) {
+      return NextResponse.json(
+        { error: `Title must be at least ${MIN_NOTE_TITLE_LENGTH} characters.` },
+        { status: 400 }
+      );
     }
 
     const allowedTypes = ["image/png", "image/jpeg", "image/webp", "application/pdf"];
@@ -499,12 +522,17 @@ export async function POST(req: NextRequest) {
     const fileUrl = `/api/files/${noteId}`; // Do not rely on local /uploads/ URL
     const thumbnailUrl = (await createLocalThumbnail(noteId, fileName, fileBuffer, file.type)) || fileUrl;
 
-    const categoryId = await resolveCategoryId(client, category);
-    if (!categoryId) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+    const categoryId = await resolveCategoryId(client, category.toLowerCase());
+    if (!categoryId) {
+      return NextResponse.json(
+        { error: "Category must be one of the supported programming topics." },
+        { status: 400 }
+      );
+    }
 
     await insertUploadedFileNote(client, {
       noteId,
-      title,
+      title: normalizedTitle,
       description,
       categoryId,
       authorId,
@@ -527,7 +555,7 @@ export async function POST(req: NextRequest) {
 
     const stableFileUrl = `${req.nextUrl.origin}/api/files/${noteId}`;
     try {
-      await appendLinkToExcel({ noteId, title, description, category, link: stableFileUrl, author: sessionUser?.name || normalizedAuthorCredit, authorEmail: sessionUser?.email || "", tags: tags || "", license: licenseType || "CC-BY-4.0" });
+      await appendLinkToExcel({ noteId, title: normalizedTitle, description, category, link: stableFileUrl, author: sessionUser?.name || normalizedAuthorCredit, authorEmail: sessionUser?.email || "", tags: tags || "", license: licenseType || "CC-BY-4.0" });
     } catch (error) {
       console.error("[Excel] append failed for file upload:", error);
     }

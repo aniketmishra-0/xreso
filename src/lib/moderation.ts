@@ -2,6 +2,7 @@ import { createClient, Client } from "@libsql/client/web";
 
 const AUTO_APPROVE_AFTER_DAYS = 3;
 const SWEEP_COOLDOWN_MS = 60_000;
+const MIN_PUBLISH_TITLE_LENGTH = 5;
 
 type ModerationSweepResult = {
   advancedApproved: number;
@@ -36,8 +37,9 @@ async function performSweep(): Promise<ModerationSweepResult> {
          SET status = 'approved',
              updated_at = datetime('now')
          WHERE status = 'pending'
+           AND LENGTH(TRIM(title)) >= ?
            AND datetime(created_at) <= datetime('now', ?)`,
-    args: [`-${AUTO_APPROVE_AFTER_DAYS} days`],
+    args: [MIN_PUBLISH_TITLE_LENGTH, `-${AUTO_APPROVE_AFTER_DAYS} days`],
   });
   const notesApproved = notesResult.rowsAffected;
 
@@ -60,8 +62,9 @@ async function performSweep(): Promise<ModerationSweepResult> {
          SET status = 'approved',
              updated_at = datetime('now')
          WHERE status = 'pending'
+           AND LENGTH(TRIM(title)) >= ?
            AND datetime(created_at) <= datetime('now', ?)`,
-    args: [`-${AUTO_APPROVE_AFTER_DAYS} days`],
+    args: [MIN_PUBLISH_TITLE_LENGTH, `-${AUTO_APPROVE_AFTER_DAYS} days`],
   });
   const advancedApproved = advancedResult.rowsAffected;
 

@@ -15,9 +15,25 @@ function getClient(): Client {
   });
 }
 
+async function shouldHideTestDraftPublicContent(client: Client): Promise<boolean> {
+  try {
+    const result = await client.execute({
+      sql: "SELECT value FROM settings WHERE key = 'hide_test_draft_public_content'",
+      args: [],
+    });
+
+    if (result.rows.length === 0) return true;
+    const value = String(result.rows[0].value || "").trim().toLowerCase();
+    return !(value === "false" || value === "0" || value === "no");
+  } catch {
+    return true;
+  }
+}
+
 export async function getTrendingNotes(limit = 6) {
   try {
     const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
 
     // Read curated views threshold from admin settings (default: 500)
     let threshold = 500;
@@ -45,7 +61,9 @@ export async function getTrendingNotes(limit = 6) {
       LEFT JOIN users u ON n.author_id = u.id
       LEFT JOIN note_tags nt ON n.id = nt.note_id
       LEFT JOIN tags t ON nt.tag_id = t.id
-      WHERE n.status = 'approved' AND n.view_count >= ?
+      WHERE n.status = 'approved'
+        AND n.view_count >= ?
+        ${hideTestDraft ? "AND LENGTH(TRIM(n.title)) >= 5" : ""}
       GROUP BY n.id
       ORDER BY n.view_count DESC, n.created_at DESC
       LIMIT ?`,
@@ -74,13 +92,21 @@ export async function getTrendingNotes(limit = 6) {
   }
 }
 
-export async function getCategories(limit = 9) {
+export async function getCategories(limit = 9, includeEmpty = false) {
   try {
     const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
     const result = await client.execute({
-      sql: `SELECT c.*,
-        (SELECT COUNT(*) FROM notes n WHERE n.category_id = c.id AND n.status = 'approved') as live_count
-      FROM categories c
+      sql: `SELECT * FROM (
+        SELECT c.*,
+          (SELECT COUNT(*)
+           FROM notes n
+           WHERE n.category_id = c.id
+             AND n.status = 'approved'
+             ${hideTestDraft ? "AND LENGTH(TRIM(n.title)) >= 5" : ""}) as live_count
+        FROM categories c
+      ) ranked_categories
+      ${includeEmpty ? "" : "WHERE live_count > 0"}
       ORDER BY live_count DESC
       LIMIT ?`,
       args: [limit],
@@ -103,9 +129,13 @@ export async function getCategories(limit = 9) {
 export async function getLibraryHeroStats() {
   try {
     const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
     const result = await client.execute(
       `SELECT
-        (SELECT COUNT(*) FROM notes n WHERE n.status = 'approved') as notes_indexed,
+        (SELECT COUNT(*)
+         FROM notes n
+         WHERE n.status = 'approved'
+           ${hideTestDraft ? "AND LENGTH(TRIM(n.title)) >= 5" : ""}) as notes_indexed,
         (SELECT COUNT(*) FROM users u WHERE u.role = 'user') as registered_learners,
         (
           SELECT COUNT(*)
@@ -126,6 +156,7 @@ export async function getLibraryHeroStats() {
           FROM notes n
           WHERE n.author_id IS NOT NULL
             AND n.status IN ('approved', 'pending')
+            ${hideTestDraft ? "AND LENGTH(TRIM(n.title)) >= 5" : ""}
         ) as contributors`
     );
 
@@ -153,9 +184,13 @@ export async function getLibraryHeroStats() {
 export async function getAboutMilestoneStats() {
   try {
     const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
     const result = await client.execute(
       `SELECT
-        (SELECT COUNT(*) FROM notes n WHERE n.status = 'approved') as notes_shared,
+        (SELECT COUNT(*)
+         FROM notes n
+         WHERE n.status = 'approved'
+           ${hideTestDraft ? "AND LENGTH(TRIM(n.title)) >= 5" : ""}) as notes_shared,
         (SELECT COUNT(*) FROM users u WHERE u.role = 'user') as registered_learners,
         (
           SELECT COUNT(*)
@@ -176,6 +211,7 @@ export async function getAboutMilestoneStats() {
           FROM notes n
           WHERE n.author_id IS NOT NULL
             AND n.status IN ('approved', 'pending')
+            ${hideTestDraft ? "AND LENGTH(TRIM(n.title)) >= 5" : ""}
         ) as contributors,
         (SELECT COUNT(*) FROM categories c) as categories_total`
     );
@@ -206,10 +242,12 @@ export async function getAboutMilestoneStats() {
 
 export async function getAdvancedTrackHighlights(
   limitTracks = 3,
-  topicsPerTrack = 5
+  topicsPerTrack = 5,
+  includeEmpty = false
 ) {
   try {
     const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
 
     const tracksResult = await client.execute({
       sql: `SELECT
@@ -217,7 +255,11 @@ export async function getAdvancedTrackHighlights(
           at.slug,
           at.name,
           at.description,
-          COUNT(CASE WHEN atr.status = 'approved' THEN 1 END) as approved_count
+          COUNT(CASE
+            WHEN atr.status = 'approved'
+              ${hideTestDraft ? "AND LENGTH(TRIM(atr.title)) >= 5" : ""}
+            THEN 1
+          END) as approved_count
          FROM advanced_tracks at
          LEFT JOIN advanced_track_resources atr ON atr.track_id = at.id
          WHERE at.status = 'active'
@@ -237,7 +279,7 @@ export async function getAdvancedTrackHighlights(
          ORDER BY sort_order ASC, name ASC`
     );
 
-    return tracksResult.rows.map((track) => ({
+    const tracks = tracksResult.rows.map((track) => ({
       id: Number(track.id),
       slug: track.slug as string,
       name: track.name as string,
@@ -252,6 +294,8 @@ export async function getAdvancedTrackHighlights(
           level: topic.level as "Beginner" | "Intermediate" | "Advanced",
         })),
     }));
+
+    return includeEmpty ? tracks : tracks.filter((track) => track.resourceCount > 0);
   } catch {
     return [];
   }
@@ -260,6 +304,7 @@ export async function getAdvancedTrackHighlights(
 export async function getAdvancedHeroStats() {
   try {
     const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
     const result = await client.execute(
       `SELECT
         (SELECT COUNT(*) FROM advanced_tracks at WHERE at.status = 'active') as track_count,
@@ -267,7 +312,9 @@ export async function getAdvancedHeroStats() {
           SELECT COUNT(*)
           FROM advanced_track_resources atr
           JOIN advanced_tracks at ON atr.track_id = at.id
-          WHERE atr.status = 'approved' AND at.status = 'active'
+          WHERE atr.status = 'approved'
+            AND at.status = 'active'
+            ${hideTestDraft ? "AND LENGTH(TRIM(atr.title)) >= 5" : ""}
         ) as resource_count,
         (
           SELECT COUNT(*)
@@ -279,7 +326,9 @@ export async function getAdvancedHeroStats() {
           SELECT COUNT(DISTINCT atr.author_id)
           FROM advanced_track_resources atr
           JOIN advanced_tracks at ON atr.track_id = at.id
-          WHERE atr.status = 'approved' AND at.status = 'active'
+          WHERE atr.status = 'approved'
+            AND at.status = 'active'
+            ${hideTestDraft ? "AND LENGTH(TRIM(atr.title)) >= 5" : ""}
         ) as contributor_count`
     );
 
@@ -303,6 +352,7 @@ export async function getAdvancedHeroStats() {
 export async function getFeaturedAdvancedResources(limit = 6) {
   try {
     const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
     const result = await client.execute({
       sql: `SELECT
           atr.id,
@@ -325,6 +375,7 @@ export async function getFeaturedAdvancedResources(limit = 6) {
          LEFT JOIN advanced_track_resource_tags atrt ON atr.id = atrt.resource_id
          WHERE atr.status = 'approved'
            AND at.status = 'active'
+           ${hideTestDraft ? "AND LENGTH(TRIM(atr.title)) >= 5" : ""}
          GROUP BY atr.id
          ORDER BY atr.featured DESC, atr.created_at DESC
          LIMIT ?`,
@@ -428,10 +479,11 @@ export async function getApprovedVideos(
   offset = 0,
   categoryId?: number,
   searchQuery?: string,
-  sortBy: "newest" | "popular" = "newest"
+  sortBy: "newest" | "views" | "saved" | "popular" = "newest"
 ) {
   try {
     const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
 
     try {
       await client.execute({
@@ -456,14 +508,23 @@ export async function getApprovedVideos(
         v.id, v.title, v.description, v.thumbnail_url, v.video_type, v.video_id,
         v.view_count, v.created_at, v.author_credit, v.author_id,
         c.name as category_name, c.slug as category_slug,
-        u.name as author_name
+        COALESCE(
+          NULLIF(TRIM(u.name), ''),
+          CASE
+            WHEN LOWER(TRIM(COALESCE(v.author_credit, ''))) = 'anonymous' THEN 'Xreso Member'
+            ELSE NULLIF(TRIM(v.author_credit), '')
+          END,
+          'Xreso Member'
+        ) as author_name,
+        COUNT(b.id) as saved_count
       FROM videos v
       LEFT JOIN categories c ON v.category_id = c.id
       LEFT JOIN users u ON v.author_id = u.id
+      LEFT JOIN bookmarks b ON b.note_id = v.id
       WHERE v.status = 'approved'
     `;
 
-    const args: any[] = [];
+    const args: (string | number)[] = [];
 
     if (categoryId) {
       sql += ` AND v.category_id = ?`;
@@ -476,10 +537,24 @@ export async function getApprovedVideos(
       args.push(searchTerm, searchTerm);
     }
 
-    sql +=
-      sortBy === "popular"
-        ? ` ORDER BY v.view_count DESC, v.created_at DESC`
-        : ` ORDER BY v.created_at DESC`;
+    if (hideTestDraft) {
+      sql += ` AND LENGTH(TRIM(v.title)) >= 5`;
+    }
+
+    sql += `
+      GROUP BY
+        v.id, v.title, v.description, v.thumbnail_url, v.video_type, v.video_id,
+        v.view_count, v.created_at, v.author_credit, v.author_id,
+        c.name, c.slug, u.name
+    `;
+
+    if (sortBy === "saved") {
+      sql += ` ORDER BY saved_count DESC, v.created_at DESC`;
+    } else if (sortBy === "views" || sortBy === "popular") {
+      sql += ` ORDER BY v.view_count DESC, v.created_at DESC`;
+    } else {
+      sql += ` ORDER BY v.created_at DESC`;
+    }
 
     sql += ` LIMIT ? OFFSET ?`;
     args.push(limit, offset);
@@ -501,6 +576,7 @@ export async function getApprovedVideos(
       videoType: r.video_type as string,
       videoId: r.video_id as string,
       viewCount: Number(r.view_count) || 0,
+      savedCount: Number(r.saved_count) || 0,
       createdAt: r.created_at as string,
     }));
   } catch {
@@ -555,7 +631,11 @@ export async function getVideoById(id: string) {
       categorySlug: row.category_slug as string,
       authorId: row.author_id as string,
       authorCredit: row.author_credit as string,
-      authorName: row.author_name as string,
+      authorName:
+        String(row.author_name || row.author_credit || "").trim().toLowerCase() ===
+        "anonymous"
+          ? "Xreso Member"
+          : ((row.author_name as string) || (row.author_credit as string) || "Xreso Member"),
       videoUrl: row.video_url as string,
       videoType: row.video_type as string,
       videoId: row.video_id as string,
@@ -657,6 +737,7 @@ export async function incrementVideoViewCount(videoId: string) {
 export async function getTrendingVideos(limit = 6) {
   try {
     const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
     const result = await client.execute({
       sql: `
         SELECT 
@@ -666,6 +747,7 @@ export async function getTrendingVideos(limit = 6) {
         FROM videos v
         LEFT JOIN categories c ON v.category_id = c.id
         WHERE v.status = 'approved'
+        ${hideTestDraft ? "AND LENGTH(TRIM(v.title)) >= 5" : ""}
         ORDER BY v.view_count DESC, v.created_at DESC
         LIMIT ?
       `,
@@ -692,9 +774,14 @@ export async function getTrendingVideos(limit = 6) {
 export async function countApprovedVideos(categoryId?: number) {
   try {
     const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
 
     let sql = "SELECT COUNT(*) as count FROM videos WHERE status = 'approved'";
-    const args: any[] = [];
+    const args: number[] = [];
+
+    if (hideTestDraft) {
+      sql += " AND LENGTH(TRIM(title)) >= 5";
+    }
 
     if (categoryId) {
       sql += " AND category_id = ?";

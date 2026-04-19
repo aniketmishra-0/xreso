@@ -5,6 +5,7 @@ import { Suspense, useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CATEGORY_CATALOG } from "@/lib/techIcons";
 import {
   detectVideoType,
@@ -345,11 +346,10 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     };
   }, []);
 
-  const closeFromGesture = useCallback((fromOffset?: number) => {
-    const baseOffset = fromOffset ?? swipeOffsetY;
+  const closeFromGesture = useCallback(() => {
     const exitOffset = Math.max(
       typeof window !== "undefined" ? window.innerHeight : 700,
-      baseOffset + 260
+      swipeOffsetY + 260
     );
 
     swipeEnabledRef.current = false;
@@ -405,25 +405,10 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     }
     event.stopPropagation();
 
-    const closeThreshold = Math.min(window.innerHeight * 0.26, 220);
-    const forceCloseDistance = Math.min(window.innerHeight * 0.58, 460);
-    const maxDrag = Math.min(window.innerHeight * 0.95, 820);
+    const maxDrag = Math.min(window.innerHeight * 0.72, 540);
     const nextOffset = Math.max(0, Math.min(deltaY, maxDrag));
     touchLastYRef.current = touch.clientY;
     touchLastTimeRef.current = performance.now();
-
-    if (nextOffset >= forceCloseDistance) {
-      closeFromGesture(nextOffset);
-      return;
-    }
-
-    if (nextOffset >= closeThreshold && deltaY > 0) {
-      // Keep following the finger, but with a lower resistance after threshold for smoother feel.
-      const easedOffset = closeThreshold + (nextOffset - closeThreshold) * 0.92;
-      setSwipeOffsetY(easedOffset);
-      return;
-    }
-
     setSwipeOffsetY(nextOffset);
   };
 
@@ -434,7 +419,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     const dragDistance = Math.max(0, touchLastYRef.current - touchStartYRef.current);
     const dragDuration = Math.max(1, now - touchStartTimeRef.current);
     const releaseVelocity = dragDistance / dragDuration;
-    const closeThreshold = Math.min(window.innerHeight * 0.26, 220);
+    const closeThreshold = Math.min(window.innerHeight * 0.4, 300);
     const shouldClose =
       swipeOffsetY > closeThreshold ||
       (swipeOffsetY > 42 && releaseVelocity > 0.9);
@@ -802,7 +787,8 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
    MAIN UPLOAD PAGE
 ──────────────────────────────────────────────────────────── */
 function UploadPageContent() {
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionUser = session?.user as { name?: string | null; role?: string } | undefined;
@@ -838,6 +824,35 @@ function UploadPageContent() {
   }>({ status: "idle", message: "" });
   const [showVideoTagsInput, setShowVideoTagsInput] = useState(false);
   const [customShareTemplates, setCustomShareTemplates] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (status !== "unauthenticated") return;
+    const callbackUrl = encodeURIComponent("/upload");
+    router.replace(`/login?callbackUrl=${callbackUrl}&reason=upload_login_required`);
+  }, [router, status]);
+
+  if (status === "loading") {
+    return (
+      <div className={styles.page}>
+        <div className={styles.formContainer} aria-busy="true" style={{ minHeight: 560 }} />
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <div className={styles.page}>
+        <div className={styles.formContainer}>
+          <div className={styles.errorBanner}>
+            Please sign in to upload content.
+          </div>
+          <Link href="/login?callbackUrl=%2Fupload&reason=upload_login_required" className="btn btn-primary btn-lg">
+            Sign In to Continue
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Fetch custom share templates from admin settings
   useEffect(() => {
@@ -1890,11 +1905,6 @@ function UploadPageContent() {
           <p className={styles.subtitle}>
             Upload your notes or share any community link — Google Drive, GitHub, YouTube, and more.
           </p>
-          {!session?.user && (
-            <div className={styles.authNotice}>
-              <span>You are sharing as Anonymous. Sign in only if you want profile credit.</span>
-            </div>
-          )}
         </div>
       </div>
 

@@ -142,6 +142,15 @@
   box-shadow: var(--shadow-lg), 0 0 24px rgba(139, 92, 246, 0.08);
 }
 
+.cardComingSoon {
+  opacity: 0.68;
+  filter: saturate(0.82);
+}
+
+.cardComingSoon:hover {
+  opacity: 0.9;
+}
+
 .iconWrap {
   width: 52px;
   height: 52px;
@@ -174,6 +183,34 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.cardMetaRow {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cardMetaCount {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.comingSoonBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--accent-orange) 45%, var(--border-secondary));
+  background: color-mix(in srgb, var(--accent-orange) 12%, transparent);
+  color: color-mix(in srgb, var(--accent-orange-light) 90%, white);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .cardArrow {

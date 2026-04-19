@@ -198,9 +198,14 @@ function TracksPageContent() {
               >
                 <div className={styles.trackCardHeader}>
                   <h2 className={styles.trackName}>{track.name}</h2>
-                  <span className={styles.topicCount}>{track.approvedCount} resources</span>
+                  <span className={styles.topicCount}>
+                    {track.approvedCount} resource{track.approvedCount === 1 ? "" : "s"}
+                  </span>
                 </div>
                 <p className={styles.trackDescription}>{track.description}</p>
+                {track.approvedCount === 0 ? (
+                  <span className={styles.comingSoonBadge}>Coming Soon</span>
+                ) : null}
                 <div className={styles.trackTopics}>
                   {track.visibleTopics.slice(0, 3).map((topic) => (
                     <span key={topic.slug} className={styles.topicTag}>

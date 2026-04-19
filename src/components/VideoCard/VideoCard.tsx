@@ -1,5 +1,5 @@
 import Image from "next/image";
-import Link from "next/link";
+import { useMemo, useState } from "react";
 import styles from "./VideoCard.module.css";
 
 interface VideoCardProps {
@@ -14,6 +14,7 @@ interface VideoCardProps {
   videoType: string;
   viewCount: number;
   createdAt: string;
+  onOpen?: () => void;
 }
 
 function getVideoIcon(videoType: string): string {
@@ -35,6 +36,41 @@ function formatDate(dateStr: string): string {
   }
 }
 
+function getInitials(title: string): string {
+  const parts = (title || "")
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.replace(/[^a-zA-Z0-9]/g, ""))
+    .filter(Boolean);
+
+  if (parts.length === 0) return "VD";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
+function getDescriptionBadge(description: string): string | null {
+  const match = description.match(/https:\/\/\S+/i);
+  if (!match) return null;
+
+  try {
+    const url = new URL(match[0]);
+    const host = url.hostname.toLowerCase();
+    if (host.includes("youtube.com") || host.includes("youtu.be")) return "📎 YouTube";
+    if (host.includes("drive.google.com") || host.includes("docs.google.com")) return "📎 Google Drive";
+    return "📎 External Link";
+  } catch {
+    return "📎 External Link";
+  }
+}
+
+function getDisplayAuthor(author: string): string {
+  const normalized = (author || "").trim();
+  if (!normalized || normalized.toLowerCase() === "anonymous") {
+    return "Xreso Member";
+  }
+  return normalized;
+}
+
 export default function VideoCard({
   id,
   title,
@@ -47,51 +83,62 @@ export default function VideoCard({
   videoType,
   viewCount,
   createdAt,
+  onOpen,
 }: VideoCardProps) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const initials = useMemo(() => getInitials(title), [title]);
+  const descriptionBadge = useMemo(() => getDescriptionBadge(description), [description]);
+
+  void category;
+  void categorySlug;
+  void authorId;
+
   return (
     <article className={styles.videoCard} id={`video-card-${id}`}>
-      <Link
-        href={`/videos/${id}`}
-        className={styles.cardLink}
+      <button
+        type="button"
+        className={styles.cardButton}
         aria-label={`Watch ${title}`}
+        onClick={onOpen}
       />
 
-      {/* Video Thumbnail */}
       <div className={styles.videoThumb}>
-        {thumbnailUrl ? (
+        {thumbnailUrl && !imageFailed ? (
           <Image
             src={thumbnailUrl}
             alt={title}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, (max-width: 1700px) 33vw, 25vw"
             className={styles.thumbImage}
-            onError={(e) => {
-              const img = e.target as HTMLImageElement;
-              img.style.display = "none";
-            }}
+            onError={() => setImageFailed(true)}
           />
-        ) : null}
-        
-        {/* Play Button Overlay */}
+        ) : (
+          <div className={styles.thumbPlaceholder} aria-hidden="true">
+            <span className={styles.thumbInitials}>{initials}</span>
+          </div>
+        )}
+
         <div className={styles.playButton}>
           <div className={styles.playIcon}>{getVideoIcon(videoType)}</div>
         </div>
       </div>
 
-      {/* Content */}
       <div className={styles.videoContent}>
         <h3 className={styles.videoTitle}>{title}</h3>
-        <p className={styles.videoDesc}>{description}</p>
+        {descriptionBadge ? (
+          <span className={styles.videoDescBadge}>{descriptionBadge}</span>
+        ) : (
+          <p className={styles.videoDesc}>{description}</p>
+        )}
 
-        {/* Footer */}
         <div className={styles.videoFooter}>
           <div className={styles.videoMeta}>
-            <span className={styles.author}>{author}</span>
+            <span className={styles.author}>{getDisplayAuthor(author)}</span>
             <span className={styles.separator}>•</span>
             <span className={styles.date}>{formatDate(createdAt)}</span>
           </div>
           <span className={styles.views}>
-            👁️ {viewCount.toLocaleString()} views
+            👁️ {viewCount.toLocaleString()} {viewCount === 1 ? "view" : "views"}
           </span>
         </div>
       </div>

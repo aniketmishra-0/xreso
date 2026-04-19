@@ -47,7 +47,6 @@ export default function Footer() {
             <Link href="/browse" className={styles.footerLink}>Browse Notes</Link>
             <Link href="/categories" className={styles.footerLink}>Categories</Link>
             <Link href="/tracks/library" className={styles.footerLink}>Cloud Native Tracks</Link>
-            <Link href="/admin/advanced-tracks" className={styles.footerLink}>Advanced Tracks Admin</Link>
             <Link href="/upload" className={styles.footerLink}>Upload Notes</Link>
             <Link href="/about" className={styles.footerLink}>About Us</Link>
           </div>

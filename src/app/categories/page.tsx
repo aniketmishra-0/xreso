@@ -1,12 +1,47 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { getTechIcon, CATEGORY_CATALOG } from "@/lib/techIcons";
 import styles from "./page.module.css";
 
+type ApiCategory = {
+  slug: string;
+  noteCount: number;
+};
+
 export default function CategoriesPage() {
   const [search, setSearch] = useState("");
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadCounts = async () => {
+      try {
+        const response = await fetch("/api/categories", { cache: "no-store" });
+        if (!response.ok) return;
+
+        const payload = (await response.json()) as { categories?: ApiCategory[] };
+        const nextCounts: Record<string, number> = {};
+        for (const category of payload.categories || []) {
+          nextCounts[category.slug] = Number(category.noteCount || 0);
+        }
+
+        if (mounted) {
+          setCategoryCounts(nextCounts);
+        }
+      } catch {
+        // Ignore fetch failures and keep zero-count fallback.
+      }
+    };
+
+    void loadCounts();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return CATEGORY_CATALOG;
@@ -69,11 +104,13 @@ export default function CategoriesPage() {
         <div className={styles.grid}>
           {filtered.map((cat) => {
             const { Icon, color, bg } = getTechIcon(cat.slug);
+            const noteCount = categoryCounts[cat.slug] || 0;
+            const noteLabel = `${noteCount} note${noteCount === 1 ? "" : "s"}`;
             return (
               <Link
                 key={cat.slug}
                 href={`/browse?category=${cat.slug}`}
-                className={styles.card}
+                className={`${styles.card} ${noteCount === 0 ? styles.cardComingSoon : ""}`}
                 id={`category-${cat.slug}`}
               >
                 <div className={styles.iconWrap} style={{ background: bg }}>
@@ -82,6 +119,12 @@ export default function CategoriesPage() {
                 <div className={styles.cardContent}>
                   <h3 className={styles.cardName}>{cat.name}</h3>
                   <p className={styles.cardDesc}>{cat.description}</p>
+                  <div className={styles.cardMetaRow}>
+                    <span className={styles.cardMetaCount}>{noteLabel}</span>
+                    {noteCount === 0 ? (
+                      <span className={styles.comingSoonBadge}>Coming Soon</span>
+                    ) : null}
+                  </div>
                 </div>
                 <div className={styles.cardArrow}>
                   <svg

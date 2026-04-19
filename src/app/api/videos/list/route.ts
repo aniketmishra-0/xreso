@@ -10,7 +10,11 @@ export async function GET(request: NextRequest) {
       ? parseInt(searchParams.get("categoryId")!)
       : undefined;
     const searchQuery = searchParams.get("search") || undefined;
-    const sortBy = (searchParams.get("sort") as "newest" | "popular") || "newest";
+    const sortParam = searchParams.get("sort") || "newest";
+    const sortBy =
+      sortParam === "views" || sortParam === "popular" || sortParam === "saved"
+        ? sortParam
+        : "newest";
 
     const offset = (page - 1) * limit;
 

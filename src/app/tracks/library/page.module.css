@@ -174,6 +174,22 @@
   flex: 1;
 }
 
+.comingSoonBadge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin-bottom: var(--space-sm);
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--accent-orange) 45%, var(--border-secondary));
+  background: color-mix(in srgb, var(--accent-orange) 12%, transparent);
+  color: color-mix(in srgb, var(--accent-orange-light) 90%, white);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .topicCount {
   flex-shrink: 0;
   padding: 4px 10px;

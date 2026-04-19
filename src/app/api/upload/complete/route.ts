@@ -21,6 +21,7 @@ export const dynamic = "force-dynamic";
 const ANONYMOUS_USER_ID = "anonymous-uploader";
 const ANONYMOUS_USER_EMAIL = "anonymous@xreso.local";
 const ANONYMOUS_USER_NAME = "Anonymous";
+const MIN_NOTE_TITLE_LENGTH = 5;
 
 const CATEGORY_ALIASES: Record<string, string> = {
   c: "c-cpp",
@@ -69,6 +70,11 @@ function normalizeCategorySlug(slug: string): string {
   return CATEGORY_ALIASES[slug] || slug;
 }
 
+function isAllowedStandardCategory(rawSlug: string): boolean {
+  const normalized = normalizeCategorySlug(rawSlug.trim().toLowerCase());
+  return Boolean(CATEGORY_NAMES[normalized]);
+}
+
 async function isAutoApproveEnabled(client: Client): Promise<boolean> {
   try {
     const result = await client.execute({
@@ -90,25 +96,12 @@ async function resolveCategoryId(
   rawSlug: string
 ): Promise<number | undefined> {
   const slug = normalizeCategorySlug(rawSlug);
+  if (!isAllowedStandardCategory(slug)) return undefined;
   const existing = await client.execute({
     sql: "SELECT id FROM categories WHERE slug = ?",
     args: [slug],
   });
-  if (existing.rows.length > 0) return existing.rows[0].id as number;
-
-  const categoryName = CATEGORY_NAMES[slug];
-  if (!categoryName) return undefined;
-
-  await client.execute({
-    sql: "INSERT OR IGNORE INTO categories (name, slug, description, note_count) VALUES (?, ?, ?, 0)",
-    args: [categoryName, slug, `${categoryName} programming notes`],
-  });
-
-  const created = await client.execute({
-    sql: "SELECT id FROM categories WHERE slug = ?",
-    args: [slug],
-  });
-  return created.rows.length > 0 ? (created.rows[0].id as number) : undefined;
+  return existing.rows.length > 0 ? (existing.rows[0].id as number) : undefined;
 }
 
 async function ensureUserRecord(
@@ -204,6 +197,13 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     const sessionUser = session?.user;
 
+    if (!sessionUser?.id) {
+      return NextResponse.json(
+        { error: "Please sign in to upload content." },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json();
     const {
       driveItemId,
@@ -238,6 +238,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const normalizedTitle = title.trim();
+    if (normalizedTitle.length < MIN_NOTE_TITLE_LENGTH) {
+      return NextResponse.json(
+        { error: `Title must be at least ${MIN_NOTE_TITLE_LENGTH} characters.` },
+        { status: 400 }
+      );
+    }
+
     const client = getClient();
     const noteId = uuidv4();
     const normalizedAuthorCredit =
@@ -246,10 +254,10 @@ export async function POST(req: NextRequest) {
 
     const authorId = await resolveAuthorId(client, sessionUser);
 
-    const categoryId = await resolveCategoryId(client, category);
+    const categoryId = await resolveCategoryId(client, category.toLowerCase());
     if (!categoryId) {
       return NextResponse.json(
-        { error: "Invalid category" },
+        { error: "Category must be one of the supported programming topics." },
         { status: 400 }
       );
     }
@@ -269,7 +277,7 @@ export async function POST(req: NextRequest) {
               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         args: [
           noteId,
-          title,
+          normalizedTitle,
           description,
           categoryId,
           authorId,
@@ -302,7 +310,7 @@ export async function POST(req: NextRequest) {
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           args: [
             noteId,
-            title,
+            normalizedTitle,
             description,
             categoryId,
             authorId,
@@ -332,7 +340,7 @@ export async function POST(req: NextRequest) {
       const stableFileUrl = `${req.nextUrl.origin}/api/files/${noteId}`;
       await appendLinkToExcel({
         noteId,
-        title,
+        title: normalizedTitle,
         description,
         category,
         link: stableFileUrl,

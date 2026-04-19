@@ -119,7 +119,7 @@ export async function PATCH(req: NextRequest) {
 
     const { videoId, action, featured } = (await req.json()) as {
       videoId?: string;
-      action?: "approve" | "reject" | "feature";
+      action?: "approve" | "reject" | "unpublish" | "feature";
       featured?: boolean;
     };
 
@@ -154,6 +154,11 @@ export async function PATCH(req: NextRequest) {
         sql: "UPDATE videos SET status = 'rejected', updated_at = datetime('now') WHERE id = ?",
         args: [normalizedVideoId],
       });
+    } else if (action === "unpublish") {
+      await client.execute({
+        sql: "UPDATE videos SET status = 'pending', updated_at = datetime('now') WHERE id = ?",
+        args: [normalizedVideoId],
+      });
     } else if (action === "feature") {
       await client.execute({
         sql: "UPDATE videos SET featured = ?, updated_at = datetime('now') WHERE id = ?",
@@ -170,7 +175,13 @@ export async function PATCH(req: NextRequest) {
 
     const categoryName = asString(categoryResult.rows[0]?.name, "Video");
     const nextStatus =
-      action === "approve" ? "approved" : action === "reject" ? "rejected" : existing.status;
+      action === "approve"
+        ? "approved"
+        : action === "reject"
+          ? "rejected"
+          : action === "unpublish"
+            ? "pending"
+            : existing.status;
 
     await appendAdminActionToExcel({
       adminId: (session.user.id as string) || "",
@@ -179,7 +190,14 @@ export async function PATCH(req: NextRequest) {
       noteId: normalizedVideoId,
       noteTitle: existing.title,
       category: categoryName,
-      action: action === "feature" ? "featured" : action === "approve" ? "approved" : "rejected",
+      action:
+        action === "feature"
+          ? "featured"
+          : action === "approve"
+            ? "approved"
+            : action === "unpublish"
+              ? "unpublished"
+              : "rejected",
       previousStatus: existing.status,
       newStatus: nextStatus,
       featured: action === "feature" ? Boolean(featured) : Boolean(existing.featured),

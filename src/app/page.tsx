@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Code2, PlayCircle, Zap } from "lucide-react";
+import { House, Play, Zap } from "lucide-react";
 import {
   getTrendingNotes,
   getCategories,
@@ -36,6 +36,14 @@ const formatCompactMetric = (value: number) => {
     maximumFractionDigits: 1,
   }).format(value);
 };
+
+const formatPublicStatValue = (value: number) => {
+  if (value < 20) return "Growing";
+  return formatCompactMetric(value);
+};
+
+const getSingularLabel = (value: number, singular: string, plural: string) =>
+  value === 1 ? singular : plural;
 
 /* ─── Sub-components ───────────────────────────────────────────────── */
 function CategoryGlyph({
@@ -89,16 +97,26 @@ export default async function Home() {
 
   const trendingNotes = trendingData.notes;
   const viewsThreshold = trendingData.threshold;
+  const visibleCategories = categories.filter((category) => category.noteCount > 0);
 
   const stats = [
-    { value: formatCompactMetric(heroStats.notesIndexed), label: "Notes Indexed" },
-    { value: formatCompactMetric(heroStats.activeLearners), label: "Active Learners" },
-    { value: formatCompactMetric(heroStats.contributors), label: "Contributors" },
+    {
+      value: formatPublicStatValue(heroStats.notesIndexed),
+      label: getSingularLabel(heroStats.notesIndexed, "Note Indexed", "Notes Indexed"),
+    },
+    {
+      value: formatPublicStatValue(heroStats.activeLearners),
+      label: getSingularLabel(heroStats.activeLearners, "Active Learner", "Active Learners"),
+    },
+    {
+      value: formatPublicStatValue(heroStats.contributors),
+      label: getSingularLabel(heroStats.contributors, "Contributor", "Contributors"),
+    },
   ];
 
-  const [primaryCategory] = categories;
-  const totalCategoryNotes = categories.reduce((sum, category) => sum + category.noteCount, 0);
-  const activeDomains = categories.filter((category) => category.noteCount > 0).length;
+  const [primaryCategory] = visibleCategories;
+  const totalCategoryNotes = visibleCategories.reduce((sum, category) => sum + category.noteCount, 0);
+  const activeDomains = visibleCategories.length;
   const latestTrendingNote = trendingNotes[0];
 
   return (
@@ -127,8 +145,7 @@ export default async function Home() {
             </h1>
 
             <p className={styles.heroSubtitle}>
-              Navigate an immersive knowledge infrastructure where Rust, WebAssembly,
-              cloud-native systems, and community activity flow through one living engine.
+              Handwritten programming notes by developers, for developers. Browse, save, and contribute for free.
             </p>
 
             <div className={styles.heroActions}>
@@ -187,8 +204,8 @@ export default async function Home() {
                 aria-current="page"
                 prefetch={true}
               >
-                <Code2 size={14} />
-                Programming
+                <House size={14} />
+                Home
               </Link>
               <Link
                 href="/tracks"
@@ -196,15 +213,15 @@ export default async function Home() {
                 prefetch={true}
               >
                 <Zap size={14} />
-                Advanced
+                Tracks
               </Link>
               <Link
                 href="/videos"
                 className={styles.toggleBtn}
                 prefetch={true}
               >
-                <PlayCircle size={14} />
-                Video
+                <Play size={14} />
+                Videos
               </Link>
             </div>
           </div>
@@ -223,7 +240,7 @@ export default async function Home() {
           </div>
 
           <div className={styles.sectionShell}>
-            {categories.length > 0 ? (
+            {visibleCategories.length > 0 ? (
               <>
                 <div className={styles.categorySummary}>
                   <div className={styles.summaryCard}>
@@ -241,7 +258,7 @@ export default async function Home() {
                 </div>
 
                 <div className={styles.categoryGrid}>
-                  {categories.map((cat, idx) => {
+                  {visibleCategories.map((cat, idx) => {
                     const isPrimary = primaryCategory?.slug === cat.slug;
 
                     return (
@@ -320,7 +337,9 @@ export default async function Home() {
                   <div className={styles.summaryCard}>
                     <span className={styles.summaryLabel}>Top note</span>
                     <span className={styles.summaryValue}>
-                      {latestTrendingNote ? `${latestTrendingNote.viewCount.toLocaleString()} views` : "N/A"}
+                      {latestTrendingNote
+                        ? `${latestTrendingNote.viewCount.toLocaleString()} ${latestTrendingNote.viewCount === 1 ? "view" : "views"}`
+                        : "N/A"}
                     </span>
                   </div>
                 </div>
@@ -374,7 +393,9 @@ export default async function Home() {
                           ))}
                         </div>
                         <div className={styles.noteMetrics}>
-                          <span className={styles.noteMetric}>{note.bookmarkCount} saves</span>
+                          <span className={styles.noteMetric}>
+                            {note.bookmarkCount} {note.bookmarkCount === 1 ? "save" : "saves"}
+                          </span>
                           <span className={styles.noteMetric}>{note.tags.length} tags</span>
                         </div>
                         <div className={styles.noteFooter}>
@@ -400,7 +421,7 @@ export default async function Home() {
                             </div>
                           </div>
                           
-                          <span className={styles.noteViews}>{note.viewCount} views</span>
+                          <span className={styles.noteViews}>{note.viewCount} {note.viewCount === 1 ? "view" : "views"}</span>
                         </div>
                       </div>
                     </article>
@@ -412,7 +433,7 @@ export default async function Home() {
               <div className={styles.sectionEmpty}>
                 <h3 className={styles.sectionEmptyTitle}>Trending notes will appear here</h3>
                 <p className={styles.sectionEmptyText}>
-                  Notes that cross {viewsThreshold.toLocaleString()} views will automatically show up in this section.
+                  Notes that cross {viewsThreshold.toLocaleString()} {viewsThreshold === 1 ? "view" : "views"} will automatically show up in this section.
                 </p>
               </div>
             )}

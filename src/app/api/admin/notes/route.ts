@@ -8,6 +8,7 @@ import fs from "fs";
 import path from "path";
 
 export const dynamic = "force-dynamic";
+const MIN_PUBLISH_TITLE_LENGTH = 5;
 
 function getClient(): Client {
   const databaseUrl = process.env.TURSO_DATABASE_URL;
@@ -164,7 +165,7 @@ export async function PATCH(req: NextRequest) {
     const client = getClient();
     const { noteId, action, featured } = (await req.json()) as {
       noteId?: string;
-      action?: "approve" | "reject" | "feature";
+      action?: "approve" | "reject" | "unpublish" | "feature";
       featured?: boolean;
     };
 
@@ -199,6 +200,15 @@ export async function PATCH(req: NextRequest) {
     const categoryName = asString(categoryResult.rows[0]?.name, "Unknown");
 
     if (action === "approve") {
+      if (previousNote.title.trim().length < MIN_PUBLISH_TITLE_LENGTH) {
+        return NextResponse.json(
+          {
+            error: `Title must be at least ${MIN_PUBLISH_TITLE_LENGTH} characters before approval.`,
+          },
+          { status: 400 }
+        );
+      }
+
       await client.execute({
         sql: "UPDATE notes SET status = 'approved', updated_at = datetime('now') WHERE id = ?",
         args: [normalizedNoteId],
@@ -214,6 +224,11 @@ export async function PATCH(req: NextRequest) {
     } else if (action === "reject") {
       await client.execute({
         sql: "UPDATE notes SET status = 'rejected', updated_at = datetime('now') WHERE id = ?",
+        args: [normalizedNoteId],
+      });
+    } else if (action === "unpublish") {
+      await client.execute({
+        sql: "UPDATE notes SET status = 'pending', updated_at = datetime('now') WHERE id = ?",
         args: [normalizedNoteId],
       });
     } else if (action === "feature") {
@@ -266,6 +281,8 @@ export async function PATCH(req: NextRequest) {
         ? "approved"
         : action === "reject"
           ? "rejected"
+          : action === "unpublish"
+            ? "pending"
           : previousNote.status;
 
     await appendAdminActionToExcel({
@@ -275,7 +292,14 @@ export async function PATCH(req: NextRequest) {
       noteId: normalizedNoteId,
       noteTitle: previousNote.title,
       category: categoryName,
-      action: action === "feature" ? "featured" : action === "approve" ? "approved" : "rejected",
+      action:
+        action === "feature"
+          ? "featured"
+          : action === "approve"
+            ? "approved"
+            : action === "unpublish"
+              ? "unpublished"
+              : "rejected",
       previousStatus: previousNote.status,
       newStatus: nextStatus,
       featured: action === "feature" ? Boolean(featured) : Boolean(previousNote.featured),

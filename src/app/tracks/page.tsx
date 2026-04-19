@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Code2, PlayCircle, Zap } from "lucide-react";
+import { House, Play, Zap } from "lucide-react";
 import {
   getAdvancedHeroStats,
   getAdvancedTrackHighlights,
@@ -36,6 +36,14 @@ const formatCompactMetric = (value: number) => {
     maximumFractionDigits: 1,
   }).format(value);
 };
+
+const formatPublicStatValue = (value: number) => {
+  if (value < 10) return "Growing";
+  return formatCompactMetric(value);
+};
+
+const getSingularLabel = (value: number, singular: string, plural: string) =>
+  value === 1 ? singular : plural;
 
 function CategoryGlyph({
   slug,
@@ -84,15 +92,25 @@ export default async function TracksHomePage() {
     getAdvancedTrackHighlights(9, 5),
     getFeaturedAdvancedResources(6),
   ]);
+  const visibleTracks = advancedTracks.filter((track) => track.resourceCount > 0);
 
   const stats = [
-    { value: formatCompactMetric(heroStats.trackCount), label: "Tracks" },
-    { value: formatCompactMetric(heroStats.topicCount), label: "Topics" },
-    { value: formatCompactMetric(heroStats.contributorCount), label: "Contributors" },
+    {
+      value: formatPublicStatValue(heroStats.trackCount),
+      label: getSingularLabel(heroStats.trackCount, "Track", "Tracks"),
+    },
+    {
+      value: formatPublicStatValue(heroStats.topicCount),
+      label: getSingularLabel(heroStats.topicCount, "Topic", "Topics"),
+    },
+    {
+      value: formatPublicStatValue(heroStats.contributorCount),
+      label: getSingularLabel(heroStats.contributorCount, "Contributor", "Contributors"),
+    },
   ];
 
-  const [primaryTrack] = advancedTracks;
-  const totalTrackResources = advancedTracks.reduce(
+  const [primaryTrack] = visibleTracks;
+  const totalTrackResources = visibleTracks.reduce(
     (sum, track) => sum + track.resourceCount,
     0
   );
@@ -140,7 +158,7 @@ export default async function TracksHomePage() {
                 <span className={styles.arrow}>→</span>
               </Link>
               <Link href="/tracks/notes" id="hero-upload-btn" className="btn btn-secondary btn-lg">
-                Open Advanced Notes
+                Browse Advanced Notes
               </Link>
             </div>
 
@@ -187,8 +205,8 @@ export default async function TracksHomePage() {
                 className={styles.toggleBtn}
                 prefetch={true}
               >
-                <Code2 size={14} />
-                Programming
+                <House size={14} />
+                Home
               </Link>
               <Link
                 href="/tracks"
@@ -197,15 +215,15 @@ export default async function TracksHomePage() {
                 prefetch={true}
               >
                 <Zap size={14} />
-                Advanced
+                Tracks
               </Link>
               <Link
                 href="/videos"
                 className={styles.toggleBtn}
                 prefetch={true}
               >
-                <PlayCircle size={14} />
-                Video
+                <Play size={14} />
+                Videos
               </Link>
             </div>
           </div>
@@ -225,15 +243,19 @@ export default async function TracksHomePage() {
           </div>
 
           <div className={styles.sectionShell}>
-            {advancedTracks.length > 0 ? (
+            {visibleTracks.length > 0 ? (
               <>
                 <div className={styles.categorySummary}>
                   <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Active tracks</span>
-                    <span className={styles.summaryValue}>{advancedTracks.length}</span>
+                    <span className={styles.summaryLabel}>
+                      Active {visibleTracks.length === 1 ? "track" : "tracks"}
+                    </span>
+                    <span className={styles.summaryValue}>{visibleTracks.length}</span>
                   </div>
                   <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Approved resources</span>
+                    <span className={styles.summaryLabel}>
+                      Approved {totalTrackResources === 1 ? "resource" : "resources"}
+                    </span>
                     <span className={styles.summaryValue}>{totalTrackResources}</span>
                   </div>
                   <div className={styles.summaryCard}>
@@ -243,7 +265,7 @@ export default async function TracksHomePage() {
                 </div>
 
                 <div className={styles.categoryGrid}>
-                  {advancedTracks.map((track, idx) => {
+                  {visibleTracks.map((track, idx) => {
                     const isPrimary = primaryTrack?.slug === track.slug;
 
                     return (
@@ -391,7 +413,9 @@ export default async function TracksHomePage() {
                           </div>
 
                           <div className={styles.noteMetrics}>
-                            <span className={styles.noteMetric}>{resource.saveCount} saves</span>
+                            <span className={styles.noteMetric}>
+                              {resource.saveCount} {resource.saveCount === 1 ? "save" : "saves"}
+                            </span>
                             <span className={styles.noteMetric}>
                               {resource.topicName ?? "General track"}
                             </span>
@@ -405,7 +429,9 @@ export default async function TracksHomePage() {
                               <span className={styles.noteAuthor}>{resource.authorName}</span>
                             </div>
 
-                            <span className={styles.noteViews}>{resource.viewCount} views</span>
+                            <span className={styles.noteViews}>
+                              {resource.viewCount} {resource.viewCount === 1 ? "view" : "views"}
+                            </span>
                           </div>
                         </div>
                       </article>

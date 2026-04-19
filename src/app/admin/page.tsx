@@ -110,6 +110,9 @@ const formatCompact = (value: number) =>
 const getStatusLabel = (status: string) =>
   status.charAt(0).toUpperCase() + status.slice(1);
 
+const pluralize = (value: number, singular: string, plural: string) =>
+  `${value} ${value === 1 ? singular : plural}`;
+
 const getNoteThumbnail = (note: AdminNote) =>
   !note.thumbnail_url || note.thumbnail_url.includes("placeholder")
     ? `/api/og?title=${encodeURIComponent(note.title)}&category=${encodeURIComponent(note.category_name)}&v=3`
@@ -151,6 +154,8 @@ export default function AdminPage() {
   const [storageError, setStorageError] = useState("");
   const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
   const [autoApproveToggling, setAutoApproveToggling] = useState(false);
+  const [hideTestDraftPublicContent, setHideTestDraftPublicContent] = useState(true);
+  const [hideTestDraftToggling, setHideTestDraftToggling] = useState(false);
   const [shareTemplates, setShareTemplates] = useState({
     x: "",
     linkedin: "",
@@ -241,6 +246,7 @@ export default function AdminPage() {
       .then((data: { settings?: {
         auto_approve_enabled?: boolean;
         curated_views_threshold?: string;
+        hide_test_draft_public_content?: boolean;
         share_template_x?: string;
         share_template_linkedin?: string;
         share_template_whatsapp?: string;
@@ -248,6 +254,9 @@ export default function AdminPage() {
       } }) => {
         setAutoApproveEnabled(data.settings?.auto_approve_enabled ?? false);
         setCuratedThreshold(data.settings?.curated_views_threshold || "500");
+        setHideTestDraftPublicContent(
+          data.settings?.hide_test_draft_public_content ?? true
+        );
         setShareTemplates({
           x: data.settings?.share_template_x || "",
           linkedin: data.settings?.share_template_linkedin || "",
@@ -299,6 +308,28 @@ export default function AdminPage() {
       setError(`Failed to save ${platform} template.`);
     } finally {
       setTemplatesSaving(false);
+    }
+  };
+
+  const handleHideTestDraftToggle = async () => {
+    setHideTestDraftToggling(true);
+    setError("");
+    const newValue = !hideTestDraftPublicContent;
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          key: "hide_test_draft_public_content",
+          value: String(newValue),
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update setting");
+      setHideTestDraftPublicContent(newValue);
+    } catch {
+      setError("Failed to update public visibility filter.");
+    } finally {
+      setHideTestDraftToggling(false);
     }
   };
 
@@ -396,7 +427,7 @@ export default function AdminPage() {
     featured: advResources.filter((r) => Boolean(r.featured)).length,
   }), [advResources]);
 
-  const handleAdvAction = async (resourceId: string, action: "approve" | "reject" | "archive" | "feature" | "unfeature") => {
+  const handleAdvAction = async (resourceId: string, action: "approve" | "reject" | "unpublish" | "archive" | "feature" | "unfeature") => {
     const actionKey = `${resourceId}:${action}`;
     setActiveAdvAction(actionKey);
     setError("");
@@ -479,7 +510,7 @@ export default function AdminPage() {
 
   const handleAction = async (
     noteId: string,
-    action: "approve" | "reject" | "feature",
+    action: "approve" | "reject" | "unpublish" | "feature",
     featured?: boolean,
   ) => {
     const actionKey = `${noteId}:${action}`;
@@ -612,7 +643,7 @@ export default function AdminPage() {
 
   const handleVideoAction = async (
     videoId: string,
-    action: "approve" | "reject" | "feature",
+    action: "approve" | "reject" | "unpublish" | "feature",
     featured?: boolean,
   ) => {
     const actionKey = `${videoId}:${action}`;
@@ -678,7 +709,7 @@ export default function AdminPage() {
     }
   };
 
-  const isAdvActionBusy = (resourceId: string, action: "approve" | "reject" | "feature" | "delete") => {
+  const isAdvActionBusy = (resourceId: string, action: "approve" | "reject" | "unpublish" | "feature" | "delete") => {
     if (!activeAdvAction) return false;
     if (action === "feature") {
       return (
@@ -974,8 +1005,8 @@ export default function AdminPage() {
                                 <div className={styles.rowMeta}>
                                   <span className={styles.metaPill}>{note.category_name}</span>
                                   <span>{new Date(note.created_at).toLocaleDateString()}</span>
-                                  <span>{note.view_count} views</span>
-                                  <span>{note.bookmark_count} saves</span>
+                                  <span>{pluralize(note.view_count, "view", "views")}</span>
+                                  <span>{pluralize(note.bookmark_count, "save", "saves")}</span>
                                 </div>
                                 <div className={styles.rowAuthor}>
                                   <span className={styles.rowAuthorAvatar}>
@@ -1007,6 +1038,11 @@ export default function AdminPage() {
                                       {isActionBusy(note.id, "reject") ? "Rejecting..." : "Reject"}
                                     </button>
                                   </>
+                                )}
+                                {note.status === "approved" && (
+                                  <button className={`btn btn-sm ${styles.rejectBtn}`} onClick={() => void handleAction(note.id, "unpublish")} disabled={isNoteLocked(note.id)}>
+                                    {isActionBusy(note.id, "unpublish") ? "Unpublishing..." : "Unpublish"}
+                                  </button>
                                 )}
                                 <button className={`btn btn-sm ${styles.featureBtn}`} onClick={() => void handleAction(note.id, "feature", !note.featured)} disabled={isNoteLocked(note.id)}>
                                   {isActionBusy(note.id, "feature") ? "Updating..." : note.featured ? "Unfeature" : "Feature"}
@@ -1057,7 +1093,7 @@ export default function AdminPage() {
                               <div className={styles.rowMeta}>
                                 <span className={styles.metaPill}>{video.category_name || "Video"}</span>
                                 <span>{new Date(video.created_at).toLocaleDateString()}</span>
-                                <span>{video.view_count} views</span>
+                                <span>{pluralize(video.view_count, "view", "views")}</span>
                                 <span>{(video.video_type || "video").toUpperCase()}</span>
                               </div>
                               <div className={styles.rowAuthor}>
@@ -1090,6 +1126,11 @@ export default function AdminPage() {
                                     {isVideoActionBusy(video.id, "reject") ? "Rejecting..." : "Reject"}
                                   </button>
                                 </>
+                              )}
+                              {video.status === "approved" && (
+                                <button className={`btn btn-sm ${styles.rejectBtn}`} onClick={() => void handleVideoAction(video.id, "unpublish")} disabled={isVideoLocked(video.id)}>
+                                  {isVideoActionBusy(video.id, "unpublish") ? "Unpublishing..." : "Unpublish"}
+                                </button>
                               )}
                               <button className={`btn btn-sm ${styles.featureBtn}`} onClick={() => void handleVideoAction(video.id, "feature", !video.featured)} disabled={isVideoLocked(video.id)}>
                                 {isVideoActionBusy(video.id, "feature") ? "Updating..." : video.featured ? "Unfeature" : "Feature"}
@@ -1176,6 +1217,24 @@ export default function AdminPage() {
                             {thresholdSaving ? "..." : "Save"}
                           </button>
                         </div>
+                      </div>
+                      <div className={styles.autoApproveToggle}>
+                        <div className={styles.autoApproveInfo}>
+                          <span className={styles.autoApproveLabel}>Public Test Filter</span>
+                          <span className={styles.autoApproveHint}>
+                            {hideTestDraftPublicContent
+                              ? "Short test/draft-like titles are hidden from public pages"
+                              : "All approved content is visible on public pages"}
+                          </span>
+                        </div>
+                        <button
+                          className={`${styles.toggleSwitch} ${hideTestDraftPublicContent ? styles.toggleOn : ""}`}
+                          onClick={() => void handleHideTestDraftToggle()}
+                          disabled={hideTestDraftToggling}
+                          aria-pressed={hideTestDraftPublicContent}
+                        >
+                          <span className={styles.toggleThumb} />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1415,6 +1474,11 @@ export default function AdminPage() {
                                     {isAdvActionBusy(resource.id, "reject") ? "Rejecting..." : "Reject"}
                                   </button>
                                 )}
+                                {resource.status === "approved" && (
+                                  <button className={`btn btn-sm ${styles.rejectBtn}`} onClick={() => void handleAdvAction(resource.id, "unpublish")} disabled={isAdvResourceLocked(resource.id)}>
+                                    {isAdvActionBusy(resource.id, "unpublish") ? "Unpublishing..." : "Unpublish"}
+                                  </button>
+                                )}
                                 <button className={`btn btn-sm ${styles.featureBtn}`} onClick={() => void handleAdvAction(resource.id, resource.featured ? "unfeature" : "feature")} disabled={isAdvResourceLocked(resource.id)}>
                                   {isAdvActionBusy(resource.id, "feature") ? "Updating..." : resource.featured ? "Unfeature" : "Feature"}
                                 </button>
@@ -1506,8 +1570,8 @@ export default function AdminPage() {
                             <div className={styles.rowMeta}>
                               <span>{user.email}</span>
                               <span>Joined: {new Date(user.created_at).toLocaleDateString()}</span>
-                              <span>{user.note_count} notes</span>
-                              <span>{user.total_views} views</span>
+                              <span>{pluralize(user.note_count, "note", "notes")}</span>
+                              <span>{pluralize(user.total_views, "view", "views")}</span>
                             </div>
                           </div>
                         </div>
@@ -1594,7 +1658,7 @@ export default function AdminPage() {
                         </div>
                         <div className={styles.rowSide}>
                           <div className={styles.rowBadges}>
-                            <span className={styles.statusBadge}>{cat.noteCount} notes</span>
+                            <span className={styles.statusBadge}>{pluralize(cat.noteCount, "note", "notes")}</span>
                           </div>
                         </div>
                       </article>

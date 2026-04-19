@@ -13,13 +13,33 @@ function getClient() {
   });
 }
 
+async function shouldHideTestDraftPublicContent(client: ReturnType<typeof getClient>) {
+  try {
+    const result = await client.execute({
+      sql: "SELECT value FROM settings WHERE key = 'hide_test_draft_public_content'",
+      args: [],
+    });
+
+    if (result.rows.length === 0) return true;
+    const value = String(result.rows[0].value || "").trim().toLowerCase();
+    return !(value === "false" || value === "0" || value === "no");
+  } catch {
+    return true;
+  }
+}
+
 // GET /api/categories — List all categories with live note counts
 export async function GET() {
   try {
     const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
     const result = await client.execute(`
       SELECT c.*,
-        (SELECT COUNT(*) FROM notes n WHERE n.category_id = c.id AND n.status = 'approved') as live_count
+        (SELECT COUNT(*)
+         FROM notes n
+         WHERE n.category_id = c.id
+           AND n.status = 'approved'
+           ${hideTestDraft ? "AND LENGTH(TRIM(n.title)) >= 5" : ""}) as live_count
       FROM categories c
       ORDER BY live_count DESC
     `);

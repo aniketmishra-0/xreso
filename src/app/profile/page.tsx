@@ -521,8 +521,8 @@ export default function ProfilePage() {
                         {note.status}
                       </span>
                       <span>{note.category_name}</span>
-                      <span>{note.view_count} views</span>
-                      <span>{note.bookmark_count} saves</span>
+                      <span>{note.view_count} {note.view_count === 1 ? "view" : "views"}</span>
+                      <span>{note.bookmark_count} {note.bookmark_count === 1 ? "save" : "saves"}</span>
                     </div>
                   </div>
                 </Link>
@@ -544,7 +544,7 @@ export default function ProfilePage() {
                     <h3 className={styles.noteTitle}>{note.title}</h3>
                     <div className={styles.noteMeta}>
                       <span>{note.category_name}</span>
-                      <span>{note.view_count} views</span>
+                      <span>{note.view_count} {note.view_count === 1 ? "view" : "views"}</span>
                     </div>
                   </div>
                 </Link>

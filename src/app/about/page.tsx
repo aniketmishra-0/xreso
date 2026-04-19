@@ -49,14 +49,34 @@ const formatCompactMetric = (value: number) => {
   }).format(value);
 };
 
+const formatPublicStatValue = (value: number) => {
+  if (value < 20) return "Growing";
+  return formatCompactMetric(value);
+};
+
+const getSingularLabel = (value: number, singular: string, plural: string) =>
+  value === 1 ? singular : plural;
+
 export default async function AboutPage() {
   const stats = await getAboutMilestoneStats();
 
   const milestones = [
-    { value: formatCompactMetric(stats.notesShared), label: "Notes Shared" },
-    { value: formatCompactMetric(stats.activeLearners), label: "Active Learners" },
-    { value: formatCompactMetric(stats.contributors), label: "Contributors" },
-    { value: formatCompactMetric(stats.categories), label: "Categories" },
+    {
+      value: formatPublicStatValue(stats.notesShared),
+      label: getSingularLabel(stats.notesShared, "Note Shared", "Notes Shared"),
+    },
+    {
+      value: formatPublicStatValue(stats.activeLearners),
+      label: getSingularLabel(stats.activeLearners, "Active Learner", "Active Learners"),
+    },
+    {
+      value: formatPublicStatValue(stats.contributors),
+      label: getSingularLabel(stats.contributors, "Contributor", "Contributors"),
+    },
+    {
+      value: formatPublicStatValue(stats.categories),
+      label: getSingularLabel(stats.categories, "Category", "Categories"),
+    },
   ];
 
   return (
@@ -118,9 +138,9 @@ export default async function AboutPage() {
       <section className={styles.section}>
         <div className={styles.container}>
           <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>Meet the Team</h2>
+            <h2 className={styles.sectionTitle}>Meet the Founder</h2>
             <p className={styles.sectionSubtitle}>
-              The people behind xreso
+              The person behind xreso
             </p>
           </div>
           <div className={styles.teamGrid}>

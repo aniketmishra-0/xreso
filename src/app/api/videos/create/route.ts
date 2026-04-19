@@ -12,10 +12,39 @@ import {
 } from "@/lib/video-utils";
 import { inspectVideoAccess } from "@/lib/video-access";
 import { v4 as uuidv4 } from "uuid";
+const MIN_VIDEO_TITLE_LENGTH = 5;
 
-const ANONYMOUS_USER_ID = "anonymous-uploader";
-const ANONYMOUS_USER_EMAIL = "anonymous@xreso.local";
-const ANONYMOUS_USER_NAME = "Anonymous";
+const VIDEO_CATEGORY_ALIASES: Record<string, string> = {
+  c: "c-cpp",
+  cpp: "c-cpp",
+  "c-c++": "c-cpp",
+};
+
+const ALLOWED_VIDEO_CATEGORY_SLUGS = new Set([
+  "javascript",
+  "typescript",
+  "python",
+  "sql",
+  "java",
+  "csharp",
+  "c",
+  "cpp",
+  "c-cpp",
+  "ruby",
+  "php",
+  "go",
+  "rust",
+  "swift",
+  "kotlin",
+  "bash",
+  "html",
+  "css",
+  "react",
+  "data-structures",
+  "algorithms",
+  "web-dev",
+  "other",
+]);
 
 function getClient(): Client {
   return createClient({
@@ -78,66 +107,33 @@ async function ensureVideosTable(client: Client): Promise<void> {
   }
 }
 
-async function ensureAnonymousUserRecord(client: Client): Promise<string> {
-  const byId = await client.execute({
-    sql: "SELECT id FROM users WHERE id = ?",
-    args: [ANONYMOUS_USER_ID],
-  });
-  if (byId.rows.length > 0) return ANONYMOUS_USER_ID;
-
-  const byEmail = await client.execute({
-    sql: "SELECT id FROM users WHERE email = ?",
-    args: [ANONYMOUS_USER_EMAIL],
-  });
-  if (byEmail.rows.length > 0) return String(byEmail.rows[0].id);
-
-  await client.execute({
-    sql: "INSERT OR IGNORE INTO users (id, name, email, role) VALUES (?, ?, ?, ?)",
-    args: [ANONYMOUS_USER_ID, ANONYMOUS_USER_NAME, ANONYMOUS_USER_EMAIL, "user"],
-  });
-
-  return ANONYMOUS_USER_ID;
+function normalizeVideoCategorySlug(input: string) {
+  const normalized = input.trim().toLowerCase();
+  return VIDEO_CATEGORY_ALIASES[normalized] || normalized;
 }
 
 async function resolveCategoryId(client: Client, value: string | number) {
-  const resolveFallbackCategoryId = async () => {
-    const fallback = await client.execute({
-      sql: "SELECT id FROM categories WHERE slug = 'other' OR name = 'Other' ORDER BY id LIMIT 1",
-      args: [],
-    });
-    if (fallback.rows.length > 0) return Number(fallback.rows[0].id);
-
-    const firstCategory = await client.execute({
-      sql: "SELECT id FROM categories ORDER BY id LIMIT 1",
-      args: [],
-    });
-    if (firstCategory.rows.length > 0) return Number(firstCategory.rows[0].id);
-
-    const insertResult = await client.execute({
-      sql: "INSERT INTO categories (name, slug, description, icon, gradient, note_count) VALUES (?, ?, ?, ?, ?, ?)",
-      args: ["Other", "other", "General resources", "📚", "from-slate-500 to-slate-700", 0],
-    });
-
-    return Number(insertResult.lastInsertRowid);
-  };
-
   if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
+    const byId = await client.execute({
+      sql: "SELECT id, slug FROM categories WHERE id = ? LIMIT 1",
+      args: [value],
+    });
+    if (byId.rows.length === 0) return undefined;
+    const slug = normalizeVideoCategorySlug(String(byId.rows[0].slug || ""));
+    return ALLOWED_VIDEO_CATEGORY_SLUGS.has(slug) ? value : undefined;
   }
 
   const slugOrName = String(value || "").trim();
-  if (!slugOrName) {
-    return resolveFallbackCategoryId();
-  }
+  if (!slugOrName) return undefined;
+  const normalizedSlug = normalizeVideoCategorySlug(slugOrName);
+  if (!ALLOWED_VIDEO_CATEGORY_SLUGS.has(normalizedSlug)) return undefined;
 
   const result = await client.execute({
-    sql: "SELECT id FROM categories WHERE slug = ? OR name = ? LIMIT 1",
-    args: [slugOrName, slugOrName],
+    sql: "SELECT id FROM categories WHERE slug = ? LIMIT 1",
+    args: [normalizedSlug],
   });
 
-  if (result.rows.length === 0) {
-    return resolveFallbackCategoryId();
-  }
+  if (result.rows.length === 0) return undefined;
   return Number(result.rows[0].id);
 }
 
@@ -149,6 +145,13 @@ export async function POST(request: NextRequest) {
     const sessionUser = session?.user as
       | { id?: string; name?: string | null; email?: string | null }
       | undefined;
+
+    if (!sessionUser?.id) {
+      return NextResponse.json(
+        { error: "Please sign in to upload videos." },
+        { status: 401 }
+      );
+    }
 
     // Parse request body
     const body = await request.json();
@@ -191,6 +194,13 @@ export async function POST(request: NextRequest) {
     if (!title?.trim()) {
       return NextResponse.json(
         { error: "Title is required" },
+        { status: 400 }
+      );
+    }
+
+    if (title.trim().length < MIN_VIDEO_TITLE_LENGTH) {
+      return NextResponse.json(
+        { error: `Title must be at least ${MIN_VIDEO_TITLE_LENGTH} characters.` },
         { status: 400 }
       );
     }
@@ -276,10 +286,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let authorId = sessionUser?.id;
-    if (!authorId) {
-      authorId = await ensureAnonymousUserRecord(client);
-    }
+    const authorId = sessionUser.id;
 
     // Create video record
     const videoRecord = {
@@ -288,7 +295,7 @@ export async function POST(request: NextRequest) {
       description: description.trim(),
       categoryId: Number(resolvedCategoryId),
       authorId,
-      authorCredit: sessionUser?.name || "Anonymous",
+      authorCredit: sessionUser.name?.trim() || "Xreso Member",
       videoUrl,
       videoType,
       videoId,

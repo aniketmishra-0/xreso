@@ -15,12 +15,28 @@ function getClient() {
   });
 }
 
+async function shouldHideTestDraftPublicContent(client: ReturnType<typeof getClient>) {
+  try {
+    const result = await client.execute({
+      sql: "SELECT value FROM settings WHERE key = 'hide_test_draft_public_content'",
+      args: [],
+    });
+
+    if (result.rows.length === 0) return true;
+    const value = String(result.rows[0].value || "").trim().toLowerCase();
+    return !(value === "false" || value === "0" || value === "no");
+  } catch {
+    return true;
+  }
+}
+
 // GET /api/notes — List notes with filtering, search, sorting, and pagination
 export async function GET(req: NextRequest) {
   try {
     runAutoApprovalSweepIfNeeded();
 
     const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
     const { searchParams } = new URL(req.url);
     const session = await auth();
     const requesterId = session?.user?.id || null;
@@ -61,6 +77,10 @@ export async function GET(req: NextRequest) {
     if (status !== "all") {
       query += " AND n.status = ?";
       params.push(status);
+    }
+
+    if (hideTestDraft && status === "approved") {
+      query += " AND LENGTH(TRIM(n.title)) >= 5";
     }
 
     if (category && category !== "All") {

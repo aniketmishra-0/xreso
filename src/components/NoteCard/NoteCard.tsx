@@ -146,7 +146,9 @@ export default function NoteCard({
         )}
 
         <div className={styles.noteMetrics}>
-          <span className={styles.noteMetric}>{bookmarkCount} saves</span>
+          <span className={styles.noteMetric}>
+            {bookmarkCount} {bookmarkCount === 1 ? "save" : "saves"}
+          </span>
           <span className={styles.noteMetric}>{tags.length} tags</span>
         </div>
 
@@ -189,7 +191,7 @@ export default function NoteCard({
             </div>
           </div>
 
-          <span className={styles.noteViews}>{viewCount} views</span>
+          <span className={styles.noteViews}>{viewCount} {viewCount === 1 ? "view" : "views"}</span>
         </div>
       </div>
     </article>

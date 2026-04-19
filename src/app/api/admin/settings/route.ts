@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { createClient } from "@libsql/client/web";
 
 export const dynamic = "force-dynamic";
+const MIN_PUBLISH_TITLE_LENGTH = 5;
 
 function getClient() {
   const databaseUrl = process.env.TURSO_DATABASE_URL;
@@ -53,6 +54,8 @@ export async function GET() {
       settings: {
         auto_approve_enabled: settings.auto_approve_enabled === "true",
         curated_views_threshold: settings.curated_views_threshold || "500",
+        hide_test_draft_public_content:
+          settings.hide_test_draft_public_content !== "false",
         share_template_x: settings.share_template_x || "",
         share_template_linkedin: settings.share_template_linkedin || "",
         share_template_whatsapp: settings.share_template_whatsapp || "",
@@ -84,6 +87,7 @@ export async function PUT(req: NextRequest) {
     const allowedKeys = [
       "auto_approve_enabled",
       "curated_views_threshold",
+      "hide_test_draft_public_content",
       "share_template_x",
       "share_template_linkedin",
       "share_template_whatsapp",
@@ -104,9 +108,13 @@ export async function PUT(req: NextRequest) {
 
     // If auto-approval was just turned ON, approve all currently pending notes
     if (key === "auto_approve_enabled" && value === "true") {
-      const result = await client.execute(
-        `UPDATE notes SET status = 'approved', updated_at = datetime('now') WHERE status = 'pending'`
-      );
+      const result = await client.execute({
+        sql: `UPDATE notes
+         SET status = 'approved', updated_at = datetime('now')
+         WHERE status = 'pending'
+           AND LENGTH(TRIM(title)) >= ?`,
+        args: [MIN_PUBLISH_TITLE_LENGTH],
+      });
 
       if (result.rowsAffected > 0) {
         // Refresh category counts

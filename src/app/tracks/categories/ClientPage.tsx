@@ -72,6 +72,7 @@ export default function TracksCategoriesClient({
         <div className={styles.grid}>
           {filtered.map((cat) => {
             const { Icon, color, bg } = getTechIcon(cat.slug);
+            const resourceLabel = `${cat.resourceCount} resource${cat.resourceCount === 1 ? "" : "s"}`;
             return (
               <Link
                 key={cat.slug}
@@ -85,6 +86,12 @@ export default function TracksCategoriesClient({
                 <div className={styles.cardContent}>
                   <h3 className={styles.cardName}>{cat.name}</h3>
                   <p className={styles.cardDesc}>{cat.description}</p>
+                  <div className={styles.cardMetaRow}>
+                    <span className={styles.cardMetaCount}>{resourceLabel}</span>
+                    {cat.resourceCount === 0 ? (
+                      <span className={styles.comingSoonBadge}>Coming Soon</span>
+                    ) : null}
+                  </div>
                 </div>
                 <div className={styles.cardArrow}>
                   <svg
@@ -124,7 +131,7 @@ export default function TracksCategoriesClient({
 
         {/* Count badge */}
         <div className={styles.countBadge}>
-          Showing {filtered.length} of {tracks.length} tracks
+          Showing {filtered.length} of {tracks.length} {tracks.length === 1 ? "track" : "tracks"}
         </div>
       </div>
     </section>

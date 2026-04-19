@@ -122,8 +122,8 @@
 .centerShell {
   position: relative;
   display: flex;
-  width: 130px;
-  height: 130px;
+  width: 172px;
+  height: 172px;
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -145,8 +145,8 @@
   position: relative;
   z-index: 1;
   display: flex;
-  width: 98px;
-  height: 98px;
+  width: 138px;
+  height: 138px;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
@@ -155,8 +155,8 @@
 }
 
 .centerLogo {
-  width: auto;
-  height: 30px;
+  width: 86%;
+  height: auto;
   filter: drop-shadow(0 2px 5px rgba(249, 115, 22, 0.16));
 }
 
@@ -247,17 +247,17 @@
   }
 
   .centerShell {
+    width: 148px;
+    height: 148px;
+  }
+
+  .centerInner {
     width: 112px;
     height: 112px;
   }
 
-  .centerInner {
-    width: 82px;
-    height: 82px;
-  }
-
   .centerLogo {
-    height: 24px;
+    width: 82%;
   }
 }
 

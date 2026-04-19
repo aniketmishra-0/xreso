@@ -141,7 +141,8 @@ export default function NoteDetailPage() {
   }, [params.id]);
 
   useEffect(() => {
-    if (!note || note.fileType === "application/pdf" || note.fileType === "link") {
+    const normalizedType = (note?.fileType || "").toLowerCase();
+    if (!note || !normalizedType.startsWith("image/")) {
       setImageLoadFailed(false);
       return;
     }
@@ -328,6 +329,13 @@ export default function NoteDetailPage() {
     month: "long", day: "numeric", year: "numeric",
   });
   const embeddableLink = note.fileType === "link" ? getEmbeddableLink(note.fileUrl) : null;
+  const normalizedFileType = (note.fileType || "").toLowerCase();
+  const isPdf = normalizedFileType.includes("pdf");
+  const isLink = normalizedFileType === "link";
+  const isImage = normalizedFileType.startsWith("image/");
+  const isVideo = normalizedFileType.startsWith("video/");
+  const isAudio = normalizedFileType.startsWith("audio/");
+  const isPreviewableMedia = isImage || isVideo || isAudio;
   const ogFallbackUrl = `/api/og?title=${encodeURIComponent(note.title)}&category=${encodeURIComponent(note.category)}&v=4`;
   const hasUsableThumbnail = !!note.thumbnailUrl && !isSyntheticPlaceholderUrl(note.thumbnailUrl);
   const imageSourceUrl =
@@ -358,21 +366,21 @@ export default function NoteDetailPage() {
           <div className={`${styles.main} ${isFullscreen ? styles.mainFullscreen : ""}`}>
             {/* File Viewer */}
             <div className={`${styles.viewer} ${isFullscreen ? styles.viewerFullscreen : ""}`} ref={viewerRef}>
-              {note.fileType === "application/pdf" ? (
+              {isPdf ? (
                 <iframe
                   src={`/pdfviewer.html?file=${encodeURIComponent(note.fileUrl)}`}
                   className={styles.viewerPdf}
                   title={note.title}
                   sandbox="allow-scripts allow-same-origin"
                 />
-              ) : note.fileType === "link" && embeddableLink ? (
+              ) : isLink && embeddableLink ? (
                 <iframe
                   src={embeddableLink}
                   className={styles.viewerPdf}
                   title={note.title}
                   allow="autoplay"
                 />
-              ) : note.fileType === "link" ? (
+              ) : isLink ? (
                 <div className={styles.viewerLink}>
                   <div className={styles.linkIcon}>🔗</div>
                   <h3>External Resource</h3>
@@ -380,22 +388,54 @@ export default function NoteDetailPage() {
                     Open Link ↗
                   </a>
                 </div>
-              ) : (
+              ) : isImage ? (
                 <div
                   className={styles.viewerImage}
                   onTouchStart={handleTouchStart}
                   onTouchMove={handleTouchMove}
                   onTouchEnd={handleTouchEnd}
-                  style={{
-                    backgroundImage: `url(${imageSourceUrl})`,
-                    transform: `scale(${zoom})`,
-                    transformOrigin: "center center",
-                    transition: touchRef.current ? "none" : "transform 0.3s ease",
-                  }}
-                />
+                >
+                  <img
+                    src={imageSourceUrl}
+                    alt={note.title}
+                    className={styles.viewerImageAsset}
+                    style={{
+                      transform: `scale(${zoom})`,
+                      transformOrigin: "center center",
+                      transition: touchRef.current ? "none" : "transform 0.3s ease",
+                    }}
+                  />
+                </div>
+              ) : isVideo ? (
+                <div className={styles.viewerImage}>
+                  <video controls className={styles.viewerMediaAsset} src={note.fileUrl}>
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              ) : isAudio ? (
+                <div className={styles.viewerLink}>
+                  <div className={styles.linkIcon}>🎵</div>
+                  <h3>Audio File</h3>
+                  <audio controls className={styles.viewerAudio} src={note.fileUrl}>
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
+              ) : (
+                <div className={styles.viewerLink}>
+                  <div className={styles.linkIcon}>📄</div>
+                  <h3>Preview not available for this file type</h3>
+                  <a
+                    href={note.fileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-primary"
+                  >
+                    Open File ↗
+                  </a>
+                </div>
               )}
               <div className={styles.viewerControls}>
-                {note.fileType !== "application/pdf" && note.fileType !== "link" && (
+                {isImage && (
                   <button className="btn btn-secondary btn-sm" id="zoom-btn" onClick={handleZoom}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="11" cy="11" r="8" />
@@ -417,7 +457,7 @@ export default function NoteDetailPage() {
                     </span>
                   </button>
                 )}
-                {note.fileType !== "link" ? (
+                {!isLink ? (
                   <a
                     href={`${note.fileUrl}?action=download`}
                     download={note.fileName}
@@ -456,7 +496,7 @@ export default function NoteDetailPage() {
                   </svg>
                   <span className={styles.controlLabel}>Fullscreen</span>
                 </button>
-                {isMobile && note.fileType === "application/pdf" && (
+                {isMobile && isPdf && (
                   <a
                     href={note.fileUrl}
                     target="_blank"

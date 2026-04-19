@@ -255,6 +255,38 @@
   white-space: nowrap;
 }
 
+.heroTrustRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: min(100%, 640px);
+  animation: fadeInUp 0.7s ease 0.4s both;
+}
+
+.heroTrustPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--border-secondary) 88%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 86%, transparent);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.heroTrustPill::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-light), var(--accent-orange));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent);
+}
+
 /* ── Right terminal column ── */
 .heroRight {
   position: relative;
@@ -734,18 +766,30 @@
 
 .categoryGlyph {
   width: 40px;
-  height: 40px;
+  min-height: 40px;
   border-radius: var(--radius-md);
   border: 1px solid;
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
   flex-shrink: 0;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .categoryGlyphProminent {
-  width: 46px;
-  height: 46px;
+  min-height: 46px;
+}
+
+.categoryGlyphLabel {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  max-width: 18ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .noteCount {
@@ -1250,6 +1294,80 @@
 }
 
 /* ═══════════════════════════════════════════════
+   SOCIAL PROOF SECTION
+   ══════════════════════════════════════════════ */
+.proofSection {
+  padding-top: 0;
+}
+
+.proofGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.proofCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 220px;
+  padding: clamp(20px, 2vw, 26px);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-secondary);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--bg-surface) 94%, transparent), color-mix(in srgb, var(--bg-elevated) 66%, var(--bg-surface)));
+  box-shadow: var(--shadow-sm);
+}
+
+.proofCard::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 100%;
+  height: 2px;
+  opacity: 0.78;
+  background: linear-gradient(90deg, var(--primary-light), var(--accent-orange));
+}
+
+.proofLabel {
+  margin: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.proofTitle {
+  margin: 0;
+  font-size: clamp(1.15rem, 1.7vw, 1.45rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.proofText {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+.proofLink {
+  margin-top: auto;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.proofLink:hover {
+  color: var(--primary-light);
+}
+
+/* ═══════════════════════════════════════════════
    CTA SECTION
    ══════════════════════════════════════════════ */
 .ctaSection {
@@ -1373,6 +1491,14 @@
   .featuredTrack>article {
     flex: 0 0 300px;
   }
+
+  .proofGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .proofCard:last-child {
+    grid-column: span 2;
+  }
 }
 
 @media (max-width: 1366px) and (min-width: 1201px) {
@@ -1458,6 +1584,10 @@
     width: 100%;
   }
 
+  .heroTrustRow {
+    width: 100%;
+  }
+
   .terminal {
     max-width: 100%;
   }
@@ -1516,6 +1646,14 @@
     grid-template-columns: 1fr;
   }
 
+  .proofGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .proofCard:last-child {
+    grid-column: auto;
+  }
+
   .categoryCardFooter {
     flex-direction: column;
     align-items: flex-start;
@@ -1549,6 +1687,15 @@
   .heroStats {
     grid-template-columns: repeat(3, 1fr);
     gap: 8px;
+  }
+
+  .heroTrustRow {
+    gap: 8px;
+  }
+
+  .heroTrustPill {
+    font-size: 10px;
+    padding: 6px 10px;
   }
 
   .statItem {
@@ -1591,6 +1738,15 @@
 
   .categoryCard {
     min-height: 200px;
+  }
+
+  .categoryGlyph {
+    min-height: 36px;
+    padding: 0 10px;
+  }
+
+  .categoryGlyphLabel {
+    max-width: 14ch;
   }
 
   .noteCardContent {

@@ -83,6 +83,7 @@ export default function NoteCard({
   const hasSocials = authorGithub || authorLinkedin || authorTwitter || authorWebsite;
   const authorProfileUrl = authorId ? `/user/${authorId}` : "#";
   const effectiveCategorySlug = normalizeSlug(categorySlug || categoryColor || category);
+  const displayAuthor = !author || author.trim().toLowerCase() === "anonymous" ? "Community Member" : author;
   
   // Use custom href for advanced resources/external links, default to /note/[id]
   const cardHref = href || `/note/${id}`;
@@ -156,17 +157,17 @@ export default function NoteCard({
           <div className={styles.noteAuthorWrap}>
             <Link href={authorProfileUrl} className={styles.noteAuthorGroup}>
               <span className={styles.noteAuthorAvatar} aria-hidden="true">
-                {author.charAt(0).toUpperCase()}
+                {displayAuthor.charAt(0).toUpperCase()}
               </span>
-              <span className={styles.noteAuthor}>{author}</span>
+              <span className={styles.noteAuthor}>{displayAuthor}</span>
             </Link>
 
             <div className={styles.authorPopoverShell}>
               <div className={styles.authorPopover}>
                 <div className={styles.popoverHeader}>
-                  <div className={styles.popoverAvatar}>{author.charAt(0).toUpperCase()}</div>
+                  <div className={styles.popoverAvatar}>{displayAuthor.charAt(0).toUpperCase()}</div>
                   <div className={styles.popoverInfo}>
-                    <p className={styles.popoverName}>{author}</p>
+                    <p className={styles.popoverName}>{displayAuthor}</p>
                     <Link href={authorProfileUrl} className={styles.popoverLink}>View Profile</Link>
                   </div>
                 </div>

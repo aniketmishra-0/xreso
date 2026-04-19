@@ -66,7 +66,7 @@ function getDescriptionBadge(description: string): string | null {
 function getDisplayAuthor(author: string): string {
   const normalized = (author || "").trim();
   if (!normalized || normalized.toLowerCase() === "anonymous") {
-    return "Xreso Member";
+    return "Community Member";
   }
   return normalized;
 }

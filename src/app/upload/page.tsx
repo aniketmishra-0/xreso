@@ -303,7 +303,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
   const swipeEnabledRef = useRef(false);
   const closeTimerRef = useRef<number | null>(null);
   const tagList = formData.tags ? formData.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
-  const authorName = formData.authorCredit || session?.user?.name || "Anonymous";
+  const authorName = formData.authorCredit || session?.user?.name || "Community Member";
   const selectedTrack = advancedTracks.find((track) => track.slug === formData.advancedTrackSlug);
   const catLabel =
     resourceTier === "advanced"
@@ -965,7 +965,7 @@ function UploadPageContent() {
     setFormData((current) => (
       current.authorCredit
         ? current
-        : { ...current, authorCredit: sessionName || "Anonymous" }
+        : { ...current, authorCredit: sessionName || "Community Member" }
     ));
   }, [sessionName]);
 
@@ -1631,7 +1631,7 @@ function UploadPageContent() {
         body.append("description", formData.description);
         body.append("category", formData.category);
         body.append("tags", formData.tags);
-        body.append("authorCredit", formData.authorCredit || sessionName || "Anonymous");
+        body.append("authorCredit", formData.authorCredit || sessionName || "Community Member");
         body.append("sourceUrl", formData.resourceUrl || formData.sourceUrl);
         body.append("resourceUrl", formData.resourceUrl);
         body.append("licenseType", formData.licenseType);
@@ -1714,7 +1714,7 @@ function UploadPageContent() {
             description: formData.description,
             category: formData.category,
             tags: formData.tags,
-            authorCredit: formData.authorCredit || sessionName || "Anonymous",
+            authorCredit: formData.authorCredit || sessionName || "Community Member",
             sourceUrl: formData.resourceUrl || formData.sourceUrl,
             licenseType: formData.licenseType,
             fileName: file.name,
@@ -1743,7 +1743,7 @@ function UploadPageContent() {
     setResourceTier(preferredResourceTier);
     setUploadMode("file");
     setDetectedLinkContentType("");
-    setFormData({ ...INITIAL_FORM_DATA, authorCredit: sessionName || "Anonymous" });
+    setFormData({ ...INITIAL_FORM_DATA, authorCredit: sessionName || "Community Member" });
     setChecks({ ownership: false, license: false, tos: false });
     setPreviewOpen(false);
   };

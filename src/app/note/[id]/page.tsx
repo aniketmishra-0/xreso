@@ -86,6 +86,27 @@ function getEmbeddableLink(link: string): string | null {
   }
 }
 
+function formatFileSize(sizeBytes: number): string {
+  const safeSize = Number.isFinite(sizeBytes) && sizeBytes > 0 ? sizeBytes : 0;
+
+  if (safeSize < 1024) {
+    return `${safeSize} B`;
+  }
+
+  if (safeSize < 1024 * 1024) {
+    const kb = safeSize / 1024;
+    return `${kb.toFixed(kb >= 100 ? 0 : 1)} KB`;
+  }
+
+  if (safeSize < 1024 * 1024 * 1024) {
+    const mb = safeSize / (1024 * 1024);
+    return `${mb.toFixed(mb >= 100 ? 0 : 1)} MB`;
+  }
+
+  const gb = safeSize / (1024 * 1024 * 1024);
+  return `${gb.toFixed(gb >= 100 ? 0 : 1)} GB`;
+}
+
 export default function NoteDetailPage() {
   const params = useParams();
   const { data: session } = useSession();
@@ -302,7 +323,7 @@ export default function NoteDetailPage() {
     );
   }
 
-  const fileSizeMB = (note.fileSizeBytes / (1024 * 1024)).toFixed(1);
+  const formattedFileSize = formatFileSize(note.fileSizeBytes);
   const formattedDate = new Date(note.createdAt).toLocaleDateString("en-US", {
     month: "long", day: "numeric", year: "numeric",
   });
@@ -523,7 +544,7 @@ export default function NoteDetailPage() {
                   <span className={styles.statLabel}>Bookmarks</span>
                 </div>
                 <div className={styles.statCard}>
-                  <span className={styles.statValue}>{fileSizeMB} MB</span>
+                  <span className={styles.statValue}>{formattedFileSize}</span>
                   <span className={styles.statLabel}>File Size</span>
                 </div>
                 <div className={styles.statCard}>

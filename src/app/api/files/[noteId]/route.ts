@@ -4,10 +4,11 @@ import path from "path";
 import fs from "fs";
 import os from "os";
 
-const TOKEN_CACHE_PATH = path.join(process.cwd(), ".onedrive-token.json");
+const TOKEN_CACHE_PATH = path.join(/*turbopackIgnore: true*/ process.cwd(), ".onedrive-token.json");
 const GRAPH_BASE = "https://graph.microsoft.com/v1.0";
 const TMP_UPLOAD_DIR = path.join(os.tmpdir(), "xreso_uploads");
 const TMP_THUMB_DIR = path.join(TMP_UPLOAD_DIR, "thumbs");
+const PUBLIC_UPLOADS_ROOT = path.join(/*turbopackIgnore: true*/ process.cwd(), "public", "uploads");
 
 function getClient() {
   const databaseUrl = process.env.TURSO_DATABASE_URL;
@@ -99,6 +100,25 @@ function findTempUploadFilePath(noteId: string, action: string): string | null {
   return fs.existsSync(absolutePath) ? absolutePath : null;
 }
 
+function resolvePublicUploadPath(fileUrl: string): string | null {
+  if (!fileUrl.startsWith("/uploads/")) {
+    return null;
+  }
+
+  const normalizedRelativePath = fileUrl.replace(/^\/uploads\//, "");
+  if (!normalizedRelativePath || normalizedRelativePath.includes("..")) {
+    return null;
+  }
+
+  const absolutePath = path.resolve(PUBLIC_UPLOADS_ROOT, normalizedRelativePath);
+  const safeRoot = path.resolve(PUBLIC_UPLOADS_ROOT) + path.sep;
+  if (!absolutePath.startsWith(safeRoot)) {
+    return null;
+  }
+
+  return absolutePath;
+}
+
 // GET /api/files/[noteId] — Serve file securely (proxy from OneDrive or local)
 export async function GET(
   req: NextRequest,
@@ -177,8 +197,8 @@ export async function GET(
 
     // ── Local file ─────────────────────────────────────────
     if (note.file_url.startsWith("/uploads/")) {
-      const filePath = path.join(process.cwd(), "public", note.file_url);
-      if (!fs.existsSync(filePath)) {
+      const filePath = resolvePublicUploadPath(note.file_url);
+      if (!filePath || !fs.existsSync(filePath)) {
         return NextResponse.json({ error: "File not found" }, { status: 404 });
       }
 

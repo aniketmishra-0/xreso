@@ -339,10 +339,10 @@ export default function NoteDetailPage() {
             <div className={`${styles.viewer} ${isFullscreen ? styles.viewerFullscreen : ""}`} ref={viewerRef}>
               {note.fileType === "application/pdf" ? (
                 <iframe
-                  src={isMobile ? `/pdfviewer.html?file=${encodeURIComponent(note.fileUrl)}` : note.fileUrl}
+                  src={`/pdfviewer.html?file=${encodeURIComponent(note.fileUrl)}`}
                   className={styles.viewerPdf}
                   title={note.title}
-                  sandbox={isMobile ? "allow-scripts allow-same-origin" : undefined}
+                  sandbox="allow-scripts allow-same-origin"
                 />
               ) : note.fileType === "link" && embeddableLink ? (
                 <iframe

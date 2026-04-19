@@ -1,0 +1,147 @@
+.floatingToggleWrapper {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .floatingToggleWrapper {
+    display: flex;
+    position: fixed !important;
+    top: auto !important;
+    right: auto !important;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 4px) + 8px);
+    transform: translateX(-50%);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    will-change: opacity;
+    transition:
+      opacity 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+      visibility 0s linear 0s;
+    z-index: 1001;
+  }
+
+  .floatingToggleWrapperHidden {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity 0.24s ease,
+      visibility 0s linear 0.24s;
+  }
+}
+
+.floatingToggle {
+  display: inline-flex;
+  align-items: center;
+  min-height: 58px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border-secondary) 64%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 80%, rgba(255, 255, 255, 0.2));
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.28);
+  transform: translateY(0) scale(1);
+  will-change: transform;
+  transition: transform 0.34s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.floatingToggleWrapperHidden .floatingToggle {
+  transform: translateY(18px) scale(0.985);
+}
+
+.toggleBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 50px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.toggleBtn:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-primary) 5%, transparent);
+}
+
+.toggleBtnActive {
+  color: var(--primary-light);
+  background: var(--bg-elevated);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--border-primary) 74%, transparent);
+  pointer-events: none;
+}
+
+.trackMenu {
+  position: relative;
+}
+
+.trackMenuTrigger {
+  border: none;
+  font-family: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.trackMenuTrigger.toggleBtnActive {
+  pointer-events: auto;
+}
+
+.trackChevron {
+  transition: transform 0.2s ease;
+}
+
+.trackChevronOpen {
+  transform: rotate(180deg);
+}
+
+.trackMenuPopover {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  min-width: 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--border-secondary) 68%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 92%, rgba(255, 255, 255, 0.2));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 14px 32px -14px rgba(0, 0, 0, 0.35);
+  z-index: 6;
+}
+
+.trackMenuItem {
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--bg-elevated) 70%, transparent);
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.trackMenuItem:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--border-primary) 72%, transparent);
+}
+
+.trackMenuItemActive {
+  color: var(--primary-light);
+  border-color: color-mix(in srgb, var(--border-primary) 80%, transparent);
+  background: color-mix(in srgb, var(--primary-subtle) 72%, var(--bg-elevated));
+}

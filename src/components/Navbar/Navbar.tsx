@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
+import FloatingQuickNav from "@/components/FloatingQuickNav/FloatingQuickNav";
 import styles from "./Navbar.module.css";
 
 type BrowseMode = "programming" | "advanced";
@@ -21,6 +22,8 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+  const [loginPromptOpen, setLoginPromptOpen] = useState(false);
+  const [loginPromptContext, setLoginPromptContext] = useState<"upload" | "contribute">("upload");
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
@@ -82,6 +85,25 @@ export default function Navbar() {
   }, [mobileMenuOpen]);
 
   useEffect(() => {
+    if (!loginPromptOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setLoginPromptOpen(false);
+      }
+    };
+
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [loginPromptOpen]);
+
+  useEffect(() => {
     let active = true;
 
     async function loadProfileAvatar() {
@@ -133,9 +155,32 @@ export default function Navbar() {
   const browseMode: BrowseMode = pathname.startsWith("/tracks")
     ? "advanced"
     : browseModeFromQuery || "programming";
+  const isHomeHubRoute = pathname === "/home";
+  const isNoteDetailRoute = pathname.startsWith("/note/");
+  const isTrackNotesRoute = pathname.startsWith("/tracks/notes");
+  const isVideoDetailRoute = pathname.startsWith("/videos/") && pathname !== "/videos";
+  const isVideoModalOpen = pathname === "/videos" && !!searchParams.get("video");
+  const isLoginRoute = pathname === "/login";
+  const isForgotPasswordRoute = pathname === "/forgot-password";
+  const isResetPasswordRoute = pathname.startsWith("/reset-password");
+  const isProfileRoute = pathname.startsWith("/profile");
+  const isAdminRoute = pathname.startsWith("/admin");
+  const shouldHideFloatingQuickNav =
+    headerHidden ||
+    mobileMenuOpen ||
+    isNoteDetailRoute ||
+    isTrackNotesRoute ||
+    isVideoDetailRoute ||
+    isVideoModalOpen ||
+    isLoginRoute ||
+    isForgotPasswordRoute ||
+    isResetPasswordRoute ||
+    isProfileRoute ||
+    isAdminRoute;
 
   const isDark = theme === "dark";
   const themeLabel = isDark ? "Light" : theme === "light" ? "Dark" : "Theme";
+  const isAuthenticated = Boolean(session?.user);
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const resolvedAvatar = profileAvatar || session?.user?.image || null;
 
@@ -149,10 +194,28 @@ export default function Navbar() {
       ? { href: "/tracks/library", label: "Browse" }
       : { href: "/browse", label: "Browse" };
 
-  const modeAwareHome =
-    browseMode === "advanced" ? "/tracks" : "/";
+  const modeAwareHome = browseMode === "advanced" ? "/home?mode=advanced" : "/home";
 
   const uploadHref = browseMode === "advanced" ? "/upload?mode=advanced" : "/upload?mode=programming";
+  const mobileQuickUploadHref =
+    browseMode === "advanced"
+      ? "/upload?mode=advanced#resource-section"
+      : "/upload?mode=programming#upload-drop-zone";
+  const navUploadHref = uploadHref;
+  const navMobileQuickUploadHref = mobileQuickUploadHref;
+  const loginPromptCallbackPath =
+    loginPromptContext === "contribute" ? mobileQuickUploadHref : uploadHref;
+  const loginPromptHref =
+    `/login?callbackUrl=${encodeURIComponent(loginPromptCallbackPath)}&reason=upload_login_required`;
+  const loginPromptMessage =
+    loginPromptContext === "contribute"
+      ? "Please login first, then contribute your resource."
+      : "Please login first, then upload your notes.";
+  const mobileQuickUploadLabel = browseMode === "advanced" ? "Contribute" : "Upload";
+  const mobileQuickUploadAriaLabel =
+    browseMode === "advanced"
+      ? "Contribute advanced resource"
+      : "Upload programming notes";
 
   const navItemsBeforeMode = useMemo(
     () => [
@@ -172,12 +235,13 @@ export default function Navbar() {
   );
 
   const isItemActive = (href: string) => {
-    if (href === "/") return pathname === "/";
+    const hrefPath = href.split("?")[0] || href;
+    if (hrefPath === "/") return pathname === "/";
     
     // For home-like paths (e.g., /tracks in advanced mode), only match exactly
     // For other paths (e.g., /browse, /categories), match exactly or with a trailing slash
-    if (pathname === href) return true;
-    if (pathname.startsWith(href + "/")) return true;
+    if (pathname === hrefPath) return true;
+    if (pathname.startsWith(hrefPath + "/")) return true;
     return false;
   };
 
@@ -190,20 +254,38 @@ export default function Navbar() {
 
     if (event.defaultPrevented || isModifiedClick) return;
 
-    const homeHref = browseMode === "advanced" ? "/tracks" : "/";
+    const homeHref = "/home";
     if (pathname === homeHref) {
       event.preventDefault();
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     }
   };
 
+  const handleProtectedActionClick = (
+    event: MouseEvent<HTMLAnchorElement>,
+    context: "upload" | "contribute"
+  ) => {
+    if (isAuthenticated) return;
+
+    const isModifiedClick =
+      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0;
+
+    if (event.defaultPrevented || isModifiedClick) return;
+
+    event.preventDefault();
+    setLoginPromptContext(context);
+    setLoginPromptOpen(true);
+    setMobileMenuOpen(false);
+  };
+
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
-    <header
-      id="main-navbar"
-      className={`${styles.header} ${scrolled ? styles.scrolled : ""} ${headerHidden ? styles.headerHidden : ""}`}
-    >
+    <>
+      <header
+        id="main-navbar"
+        className={`${styles.header} ${scrolled ? styles.scrolled : ""} ${headerHidden ? styles.headerHidden : ""}`}
+      >
       <nav className={styles.nav}>
         <Link href={modeAwareHome} className={styles.logo} id="nav-logo" onClick={handleHomeLogoClick}>
           <span className={styles.logoText}>xreso</span>
@@ -224,11 +306,11 @@ export default function Navbar() {
           <div className={styles.modeToggle} role="group" aria-label="Browse mode toggle">
             <Link
               href="/"
-              className={`${styles.modeToggleBtn} ${browseMode === "programming" ? styles.modeToggleBtnActive : ""}`}
+              className={`${styles.modeToggleBtn} ${browseMode === "programming" && !isHomeHubRoute ? styles.modeToggleBtnActive : ""}`}
               onClick={closeMobileMenu}
-              aria-current={browseMode === "programming" ? "page" : undefined}
+              aria-current={browseMode === "programming" && !isHomeHubRoute ? "page" : undefined}
             >
-              Programming
+              Core Code
             </Link>
             <Link
               href="/tracks"
@@ -236,7 +318,7 @@ export default function Navbar() {
               onClick={closeMobileMenu}
               aria-current={browseMode === "advanced" ? "page" : undefined}
             >
-              Advanced
+              Deep Tech
             </Link>
           </div>
 
@@ -255,11 +337,16 @@ export default function Navbar() {
         </div>
 
         <div className={styles.navActions}>
-          <Link href={uploadHref} className={`btn btn-primary btn-sm ${styles.uploadBtn}`} id="nav-upload">
+          <Link
+            href={navUploadHref}
+            className={`btn btn-primary btn-sm ${styles.uploadBtn}`}
+            id="nav-upload"
+            onClick={(event) => handleProtectedActionClick(event, "upload")}
+          >
             Upload
           </Link>
 
-          {session?.user ? (
+          {isAuthenticated ? (
             <div className={styles.userMenu}>
               <button
                 className={styles.userAvatar}
@@ -328,15 +415,36 @@ export default function Navbar() {
           )}
         </div>
 
-        <button
-          className={styles.mobileToggle}
-          id="nav-mobile-toggle"
-          onClick={() => setMobileMenuOpen((open) => !open)}
-          aria-label={mobileMenuOpen ? "Close mobile menu" : "Open mobile menu"}
-          aria-expanded={mobileMenuOpen}
-        >
-          <span className={`${styles.hamburger} ${mobileMenuOpen ? styles.open : ""}`} />
-        </button>
+        <div className={styles.mobileHeaderActions}>
+          <Link
+            href={navMobileQuickUploadHref}
+            className={styles.mobileQuickUpload}
+            id="nav-mobile-upload"
+            onClick={(event) => {
+              handleProtectedActionClick(event, "contribute");
+              if (isAuthenticated) {
+                closeMobileMenu();
+              }
+            }}
+            aria-label={mobileQuickUploadAriaLabel}
+            title={mobileQuickUploadAriaLabel}
+          >
+            <span className={styles.mobileQuickUploadIcon} aria-hidden="true">
+              {"</>"}
+            </span>
+            <span className={styles.mobileQuickUploadLabel}>{mobileQuickUploadLabel}</span>
+          </Link>
+
+          <button
+            className={styles.mobileToggle}
+            id="nav-mobile-toggle"
+            onClick={() => setMobileMenuOpen((open) => !open)}
+            aria-label={mobileMenuOpen ? "Close mobile menu" : "Open mobile menu"}
+            aria-expanded={mobileMenuOpen}
+          >
+            <span className={`${styles.hamburger} ${mobileMenuOpen ? styles.open : ""}`} />
+          </button>
+        </div>
       </nav>
 
       <div className={`${styles.mobileMenu} ${mobileMenuOpen ? styles.mobileMenuOpen : ""}`}>
@@ -344,17 +452,17 @@ export default function Navbar() {
           <div className={styles.modeToggle} role="group" aria-label="Browse mode toggle">
             <Link
               href="/"
-              className={`${styles.modeToggleBtn} ${browseMode === "programming" ? styles.modeToggleBtnActive : ""}`}
+              className={`${styles.modeToggleBtn} ${browseMode === "programming" && !isHomeHubRoute ? styles.modeToggleBtnActive : ""}`}
               onClick={closeMobileMenu}
             >
-              Programming
+              Core Code
             </Link>
             <Link
               href="/tracks"
               className={`${styles.modeToggleBtn} ${browseMode === "advanced" ? styles.modeToggleBtnActive : ""}`}
               onClick={closeMobileMenu}
             >
-              Advanced
+              Deep Tech
             </Link>
           </div>
 
@@ -377,14 +485,19 @@ export default function Navbar() {
           </button>
 
           <Link
-            href={uploadHref}
+            href={navUploadHref}
             className={`btn btn-primary ${styles.mobileUpload}`}
-            onClick={closeMobileMenu}
+            onClick={(event) => {
+              handleProtectedActionClick(event, "upload");
+              if (isAuthenticated) {
+                closeMobileMenu();
+              }
+            }}
           >
             Upload Notes
           </Link>
 
-          {session?.user ? (
+          {isAuthenticated ? (
             <>
               <Link
                 href="/profile"
@@ -414,6 +527,51 @@ export default function Navbar() {
           )}
         </div>
       </div>
-    </header>
+
+      </header>
+
+      {loginPromptOpen ? (
+        <div
+          className={styles.authPromptOverlay}
+          onClick={() => setLoginPromptOpen(false)}
+          aria-hidden="true"
+        >
+          <div
+            className={styles.authPromptDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="login-first-title"
+            aria-describedby="login-first-description"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className={styles.authPromptBadge}>Login Required</p>
+            <h3 id="login-first-title" className={styles.authPromptTitle}>
+              Login First
+            </h3>
+            <p id="login-first-description" className={styles.authPromptText}>
+              {loginPromptMessage}
+            </p>
+            <div className={styles.authPromptActions}>
+              <Link
+                href={loginPromptHref}
+                className={`btn btn-primary ${styles.authPromptPrimary}`}
+                onClick={() => setLoginPromptOpen(false)}
+              >
+                Continue to Login
+              </Link>
+              <button
+                type="button"
+                className={`btn btn-ghost ${styles.authPromptSecondary}`}
+                onClick={() => setLoginPromptOpen(false)}
+              >
+                Not Now
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <FloatingQuickNav hidden={shouldHideFloatingQuickNav} />
+    </>
   );
 }

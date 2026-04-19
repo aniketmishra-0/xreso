@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import { House, Play, Zap } from "lucide-react";
 import {
   getTrendingNotes,
   getCategories,
@@ -196,36 +195,6 @@ export default async function Home() {
       {/* ══ CATEGORIES ════════════════════════════════════════════════ */}
       <section className={styles.section} id="categories-section">
         <div className={styles.container}>
-          <div className={styles.floatingToggleWrapper}>
-            <div className={styles.floatingToggle} role="group" aria-label="Browse mode toggle">
-              <Link
-                href="/"
-                className={`${styles.toggleBtn} ${styles.toggleBtnActive}`}
-                aria-current="page"
-                prefetch={true}
-              >
-                <House size={14} />
-                Home
-              </Link>
-              <Link
-                href="/tracks"
-                className={styles.toggleBtn}
-                prefetch={true}
-              >
-                <Zap size={14} />
-                Tracks
-              </Link>
-              <Link
-                href="/videos"
-                className={styles.toggleBtn}
-                prefetch={true}
-              >
-                <Play size={14} />
-                Videos
-              </Link>
-            </div>
-          </div>
-
           <div className={styles.sectionHeader}>
             <div>
               <p className={styles.eyebrow}>Categories</p>

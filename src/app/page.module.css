@@ -460,6 +460,81 @@
   z-index: 2;
 }
 
+.trackMenu {
+  position: relative;
+}
+
+.trackMenuDetails {
+  position: relative;
+}
+
+.trackMenuSummary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.trackMenuSummary::marker {
+  content: "";
+}
+
+.trackMenuSummary::-webkit-details-marker {
+  display: none;
+}
+
+.trackMenuSummaryActive,
+.trackMenuDetails[open] .trackMenuSummary {
+  background: var(--bg-elevated);
+  color: var(--primary-light);
+  font-weight: 700;
+  box-shadow:
+    0 2px 8px -2px rgba(0, 0, 0, 0.12),
+    0 0 0 1px color-mix(in srgb, var(--border-primary) 80%, transparent);
+}
+
+.trackMenuPopover {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 10px);
+  transform: translateX(-50%);
+  min-width: 172px;
+  padding: 8px;
+  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--border-secondary) 65%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 88%, rgba(255, 255, 255, 0.22));
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 12px 28px -12px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 8;
+}
+
+.trackMenuItem {
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  background: color-mix(in srgb, var(--bg-elevated) 66%, transparent);
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.trackMenuItem:hover {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--border-primary) 70%, transparent);
+}
+
+.trackMenuItemActive {
+  color: var(--primary-light);
+  border-color: color-mix(in srgb, var(--border-primary) 80%, transparent);
+  background: color-mix(in srgb, var(--primary-subtle) 72%, var(--bg-elevated));
+}
+
 .sectionHeader {
   display: flex;
   align-items: flex-end;

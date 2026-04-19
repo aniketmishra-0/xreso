@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import styles from "./VideoCard.module.css";
 
@@ -93,15 +94,10 @@ export default function VideoCard({
   void categorySlug;
   void authorId;
 
+  const detailHref = `/videos/${id}`;
+
   return (
     <article className={styles.videoCard} id={`video-card-${id}`}>
-      <button
-        type="button"
-        className={styles.cardButton}
-        aria-label={`Watch ${title}`}
-        onClick={onOpen}
-      />
-
       <div className={styles.videoThumb}>
         {thumbnailUrl && !imageFailed ? (
           <Image
@@ -118,30 +114,43 @@ export default function VideoCard({
           </div>
         )}
 
-        <div className={styles.playButton}>
-          <div className={styles.playIcon}>{getVideoIcon(videoType)}</div>
-        </div>
-      </div>
-
-      <div className={styles.videoContent}>
-        <h3 className={styles.videoTitle}>{title}</h3>
-        {descriptionBadge ? (
-          <span className={styles.videoDescBadge}>{descriptionBadge}</span>
-        ) : (
-          <p className={styles.videoDesc}>{description}</p>
-        )}
-
-        <div className={styles.videoFooter}>
-          <div className={styles.videoMeta}>
-            <span className={styles.author}>{getDisplayAuthor(author)}</span>
-            <span className={styles.separator}>•</span>
-            <span className={styles.date}>{formatDate(createdAt)}</span>
+        <button
+          type="button"
+          className={styles.thumbPlayButton}
+          aria-label={`Play ${title}`}
+          onClick={onOpen}
+        >
+          <div className={styles.playButton}>
+            <div className={styles.playIcon}>{getVideoIcon(videoType)}</div>
           </div>
-          <span className={styles.views}>
-            👁️ {viewCount.toLocaleString()} {viewCount === 1 ? "view" : "views"}
-          </span>
-        </div>
+        </button>
       </div>
+
+      <Link
+        href={detailHref}
+        className={styles.videoContentLink}
+        aria-label={`Open ${title} details`}
+      >
+        <div className={styles.videoContent}>
+          <h3 className={styles.videoTitle}>{title}</h3>
+          {descriptionBadge ? (
+            <span className={styles.videoDescBadge}>{descriptionBadge}</span>
+          ) : (
+            <p className={styles.videoDesc}>{description}</p>
+          )}
+
+          <div className={styles.videoFooter}>
+            <div className={styles.videoMeta}>
+              <span className={styles.author}>{getDisplayAuthor(author)}</span>
+              <span className={styles.separator}>•</span>
+              <span className={styles.date}>{formatDate(createdAt)}</span>
+            </div>
+            <span className={styles.views}>
+              👁️ {viewCount.toLocaleString()} {viewCount === 1 ? "view" : "views"}
+            </span>
+          </div>
+        </div>
+      </Link>
     </article>
   );
 }

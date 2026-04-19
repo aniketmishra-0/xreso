@@ -16,14 +16,19 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
 }
 
-.cardButton {
+.thumbPlayButton {
   position: absolute;
   inset: 0;
-  z-index: 10;
+  z-index: 6;
   cursor: pointer;
   border: 0;
   background: transparent;
   padding: 0;
+}
+
+.thumbPlayButton:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
 }
 
 .videoThumb {
@@ -66,7 +71,8 @@
   z-index: 5;
 }
 
-.videoCard:hover .playButton {
+.thumbPlayButton:hover .playButton,
+.thumbPlayButton:focus-visible .playButton {
   background: rgba(0, 0, 0, 0.3);
 }
 
@@ -102,6 +108,21 @@
   z-index: 15;
   backdrop-filter: blur(4px);
   background: rgba(255, 255, 255, 0.9);
+}
+
+.videoContentLink {
+  display: flex;
+  flex: 1;
+  text-decoration: none;
+}
+
+.videoContentLink:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.videoContentLink:hover .videoTitle {
+  color: var(--color-primary);
 }
 
 .videoContent {

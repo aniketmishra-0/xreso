@@ -1,10 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import { Suspense, useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { CATEGORY_CATALOG } from "@/lib/techIcons";
 import {
   detectVideoType,
@@ -316,7 +316,9 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
   const touchLastYRef = useRef(0);
   const touchLastTimeRef = useRef(0);
   const swipeEnabledRef = useRef(false);
+  const maxSwipeOffsetRef = useRef(0);
   const closeTimerRef = useRef<number | null>(null);
+  const gestureCloseDurationMs = 280;
   const tagList = formData.tags ? formData.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
   const authorName = formData.authorCredit || session?.user?.name || "Community Member";
   const selectedTrack = advancedTracks.find((track) => track.slug === formData.advancedTrackSlug);
@@ -350,6 +352,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
       setIsSwipingDrawer(false);
       setIsGestureClosing(false);
       swipeEnabledRef.current = false;
+      maxSwipeOffsetRef.current = 0;
     }
   }, [open]);
 
@@ -361,10 +364,23 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     };
   }, []);
 
+  const canStartSwipeClose = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
+
+    if (target.closest("button, a, input, textarea, select, iframe, video")) {
+      return false;
+    }
+
+    return Boolean(
+      target.closest(`.${styles.previewHeader}`) ||
+      target.closest(`.${styles.previewSwipeHandle}`)
+    );
+  };
+
   const closeFromGesture = useCallback(() => {
     const exitOffset = Math.max(
-      typeof window !== "undefined" ? window.innerHeight : 700,
-      swipeOffsetY + 260
+      typeof window !== "undefined" ? window.innerHeight + 40 : 760,
+      swipeOffsetY + 160
     );
 
     swipeEnabledRef.current = false;
@@ -379,17 +395,28 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     closeTimerRef.current = window.setTimeout(() => {
       closeTimerRef.current = null;
       onClose();
-    }, 180);
-  }, [onClose, swipeOffsetY]);
+    }, gestureCloseDurationMs);
+  }, [gestureCloseDurationMs, onClose, swipeOffsetY]);
 
   const handleSwipeStart = (event: React.TouchEvent<HTMLElement>) => {
     if (!open) return;
+
+    if (!canStartSwipeClose(event.target)) {
+      swipeEnabledRef.current = false;
+      return;
+    }
 
     const bodyTop = previewBodyRef.current?.scrollTop || 0;
     if (bodyTop > 0) {
       swipeEnabledRef.current = false;
       return;
     }
+
+    const drawerHeight = event.currentTarget.getBoundingClientRect().height;
+    maxSwipeOffsetRef.current = Math.min(
+      typeof window !== "undefined" ? window.innerHeight + 40 : drawerHeight + 40,
+      drawerHeight + 120
+    );
 
     const touch = event.touches[0];
     touchStartXRef.current = touch.clientX;
@@ -414,14 +441,20 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
       return;
     }
 
+    if (deltaY < 6) {
+      return;
+    }
+
     // Prevent touch momentum from leaking to the background page while dragging the drawer.
     if (event.cancelable) {
       event.preventDefault();
     }
     event.stopPropagation();
 
-    const maxDrag = Math.min(window.innerHeight * 0.72, 540);
-    const nextOffset = Math.max(0, Math.min(deltaY, maxDrag));
+    const maxDrag =
+      maxSwipeOffsetRef.current || Math.min(window.innerHeight * 0.9, 760);
+    const easedOffset = deltaY <= 220 ? deltaY : 220 + (deltaY - 220) * 0.55;
+    const nextOffset = Math.max(0, Math.min(easedOffset, maxDrag));
     touchLastYRef.current = touch.clientY;
     touchLastTimeRef.current = performance.now();
     setSwipeOffsetY(nextOffset);
@@ -434,10 +467,10 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     const dragDistance = Math.max(0, touchLastYRef.current - touchStartYRef.current);
     const dragDuration = Math.max(1, now - touchStartTimeRef.current);
     const releaseVelocity = dragDistance / dragDuration;
-    const closeThreshold = Math.min(window.innerHeight * 0.4, 300);
+    const closeThreshold = Math.min(window.innerHeight * 0.5, 360);
     const shouldClose =
       swipeOffsetY > closeThreshold ||
-      (swipeOffsetY > 42 && releaseVelocity > 0.9);
+      (swipeOffsetY > 96 && releaseVelocity > 1.15);
     swipeEnabledRef.current = false;
 
     if (shouldClose) {
@@ -446,6 +479,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     }
 
     setIsSwipingDrawer(false);
+    setIsGestureClosing(false);
     setSwipeOffsetY(0);
   };
 
@@ -475,7 +509,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
               transition: isSwipingDrawer
                 ? "none"
                 : isGestureClosing
-                  ? "transform 180ms cubic-bezier(0.22, 1, 0.36, 1)"
+                  ? `transform ${gestureCloseDurationMs}ms cubic-bezier(0.2, 0.9, 0.2, 1)`
                   : undefined,
             }
             : undefined
@@ -808,7 +842,13 @@ function UploadPageContent() {
   const sessionUser = session?.user as { name?: string | null; role?: string } | undefined;
   const sessionName = sessionUser?.name ?? "";
   const preferredResourceTier: "standard" | "advanced" =
-    searchParams.get("mode") === "advanced" && sessionUser ? "advanced" : "standard";
+    searchParams.get("mode") === "advanced" ? "advanced" : "standard";
+  const uploadLoginCallbackPath =
+    preferredResourceTier === "advanced"
+      ? "/upload?mode=advanced"
+      : "/upload?mode=programming";
+  const loginToContributeHref =
+    `/login?callbackUrl=${encodeURIComponent(uploadLoginCallbackPath)}&reason=upload_login_required`;
 
   const [resourceTier, setResourceTier] = useState<"standard" | "advanced">(preferredResourceTier);
   const [uploadMode, setUploadMode] = useState<"file" | "link" | "video">("file");
@@ -843,6 +883,21 @@ function UploadPageContent() {
     return (
       <div className={styles.page}>
         <div className={styles.formContainer} aria-busy="true" style={{ minHeight: 560 }} />
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <div className={styles.page}>
+        <div className={styles.formContainer}>
+          <div className={styles.errorBanner}>
+            Login first, then contribute your resource.
+          </div>
+          <Link href={loginToContributeHref} className="btn btn-primary btn-lg">
+            Login First to Contribute
+          </Link>
+        </div>
       </div>
     );
   }
@@ -2183,7 +2238,7 @@ function UploadPageContent() {
           </div>
 
           {/* ── Details ─────────────────────── */}
-          <div className={styles.section}>
+          <div className={styles.section} id="resource-section">
             <h2 className={styles.sectionTitle}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -2208,11 +2263,7 @@ function UploadPageContent() {
                       className={`${styles.resourceChoiceBtn} ${
                         isActive ? styles.resourceChoiceBtnActive : ""
                       }`}
-                      onClick={() => {
-                        if (option.tier === "advanced" && !sessionUser) return;
-                        setResourceTier(option.tier);
-                      }}
-                      disabled={option.tier === "advanced" && !sessionUser}
+                      onClick={() => setResourceTier(option.tier)}
                     >
                       <span className={styles.resourceChoiceEyebrow}>
                         {option.eyebrow}

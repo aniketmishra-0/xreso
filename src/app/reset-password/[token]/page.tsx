@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useParams, useRouter } from "next/navigation";
 import styles from "./page.module.css";
 
@@ -57,7 +58,14 @@ export default function ResetPasswordPage() {
         <div className={styles.card}>
           <div className={styles.header}>
             <Link href="/login" className={styles.logoLink}>
-              <span className={styles.logoText}>xreso</span>
+              <Image
+                src="/logo.svg"
+                alt="xreso"
+                width={158}
+                height={34}
+                className={styles.logoImage}
+                priority
+              />
             </Link>
             <h1 className={styles.title}>Reset password</h1>
             <p className={styles.subtitle}>Choose a new password for your account.</p>

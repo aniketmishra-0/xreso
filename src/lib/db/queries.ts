@@ -181,6 +181,77 @@ export async function getLibraryHeroStats() {
   }
 }
 
+export async function getLatestApprovedNotesActivity(limit = 4) {
+  try {
+    const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
+
+    const result = await client.execute({
+      sql: `SELECT
+        n.id,
+        n.title,
+        n.created_at,
+        n.author_id,
+        u.name as author_name
+      FROM notes n
+      LEFT JOIN users u ON n.author_id = u.id
+      WHERE n.status = 'approved'
+        ${hideTestDraft ? "AND LENGTH(TRIM(n.title)) >= 5" : ""}
+      ORDER BY n.created_at DESC
+      LIMIT ?`,
+      args: [limit],
+    });
+
+    return result.rows.map((row) => ({
+      id: String(row.id),
+      title: String(row.title || "Untitled note"),
+      createdAt: String(row.created_at || ""),
+      authorId: row.author_id ? String(row.author_id) : null,
+      author: row.author_name ? String(row.author_name) : "Community member",
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getTopContributors(limit = 3) {
+  try {
+    const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
+
+    const result = await client.execute({
+      sql: `SELECT
+        COALESCE(u.name, 'Community member') as author_name,
+        COUNT(n.id) as note_count,
+        SUM(COALESCE(n.view_count, 0)) as total_views,
+        SUM(COALESCE(n.bookmark_count, 0)) as total_bookmarks
+      FROM notes n
+      LEFT JOIN users u ON n.author_id = u.id
+      WHERE n.status = 'approved'
+        ${hideTestDraft ? "AND LENGTH(TRIM(n.title)) >= 5" : ""}
+      GROUP BY author_name
+      ORDER BY note_count DESC, total_views DESC, total_bookmarks DESC
+      LIMIT ?`,
+      args: [limit],
+    });
+
+    return result.rows.map((row) => {
+      const noteCount = Number(row.note_count || 0);
+      const totalViews = Number(row.total_views || 0);
+      const totalBookmarks = Number(row.total_bookmarks || 0);
+      const points = Math.max(20, noteCount * 20 + Math.floor(totalViews / 10) + totalBookmarks * 2);
+
+      return {
+        name: String(row.author_name || "Community member"),
+        noteCount,
+        points,
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 export async function getAboutMilestoneStats() {
   try {
     const client = getClient();

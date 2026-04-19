@@ -178,7 +178,14 @@ function LoginPageContent() {
         <div className={styles.card}>
           <div className={styles.header}>
             <Link href="/home" className={styles.logoLink}>
-              <span className={styles.logoText}>xreso</span>
+              <Image
+                src="/logo.svg"
+                alt="xreso"
+                width={158}
+                height={34}
+                className={styles.logoImage}
+                priority
+              />
             </Link>
             <p className={styles.eyebrow}>Account Access</p>
             <h1 className={styles.title}>

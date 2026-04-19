@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import ContributeCtaLink from "@/components/ContributeCtaLink";
 import styles from "./Footer.module.css";
 
@@ -15,7 +16,7 @@ export default function Footer() {
           {/* Brand Column */}
           <div className={styles.brandCol}>
             <Link href="/home" className={styles.logo}>
-              <span className={styles.logoText}>xreso</span>
+              <Image src="/logo.svg" alt="xreso" width={156} height={34} className={styles.logoImage} />
             </Link>
             <p className={styles.brandDesc}>
               Community-driven handwritten programming notes. Learn fast, share

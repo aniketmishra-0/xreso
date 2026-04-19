@@ -31,16 +31,10 @@
   align-items: center;
 }
 
-.logoText {
-  font-size: clamp(1.35rem, 2vw, 1.7rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  text-transform: lowercase;
-  line-height: 1;
-  background: linear-gradient(120deg, var(--primary) 0%, var(--accent-orange) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+.logoImage {
+  display: block;
+  width: 156px;
+  height: auto;
 }
 
 .brandDesc {
@@ -146,6 +140,10 @@
 }
 
 @media (max-width: 768px) {
+  .logoImage {
+    width: 136px;
+  }
+
   .grid {
     grid-template-columns: 1fr 1fr;
     gap: var(--space-xl);

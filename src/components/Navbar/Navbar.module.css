@@ -330,38 +330,6 @@
   margin-left: var(--space-xs);
 }
 
-.uploadBtn {
-  composes: uploadBtn;
-}
-
-.loginBtn {
-  composes: loginBtn;
-}
-
-.userMenu {
-  position: relative;
-}
-
-.userAvatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  background: linear-gradient(145deg, #8b5cf6, #f97316);
-  color: #fff;
-  font-size: var(--text-sm);
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  cursor: pointer;
-  transition:
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
 .userAvatar:hover {
   transform: scale(1.04);
   border-color: color-mix(in srgb, var(--accent-orange) 58%, transparent);
@@ -672,24 +640,21 @@
   z-index: 10;
   transition: transform var(--transition-fast), filter var(--transition-fast);
 }
+
+.logoImage {
+  display: block;
+  width: 160px;
+  height: auto;
+}
+
+@media (max-width: 768px) {
+  .logoImage {
+    width: 138px;
+  }
+}
 .logo:hover {
   transform: scale(1.02);
   filter: drop-shadow(0 0 12px var(--primary-glow));
-}
-
-.logoText {
-  font-size: 26px;
-  font-weight: 900;
-  letter-spacing: -0.04em;
-  text-transform: lowercase;
-  color: var(--text-primary);
-  /* Crisp styling without clip-text which can cause blurriness */
-  background: var(--gradient-brand);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 2px 4px rgba(124, 58, 237, 0.25));
 }
 
 /* Nav Links */

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import Image from "next/image";
 import { FaJava } from "react-icons/fa6";
 import type { IconType } from "react-icons";
 import {
@@ -139,7 +140,13 @@ export default function HeroDigitalLibraryDashboard({
         <div className={styles.centerShell}>
           <span className={styles.centerBorder} />
           <div className={styles.centerInner}>
-            <span className={styles.centerWordmark}>xreso</span>
+            <Image
+              src="/logo.svg"
+              alt="xreso"
+              width={112}
+              height={32}
+              className={styles.centerLogo}
+            />
           </div>
         </div>
       </div>

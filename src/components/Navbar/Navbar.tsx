@@ -322,8 +322,8 @@ export default function Navbar() {
         className={`${styles.header} ${scrolled ? styles.scrolled : ""} ${headerHidden ? styles.headerHidden : ""} ${isContributeFocusFlow ? styles.headerContributeFocus : ""}`}
       >
       <nav className={styles.nav}>
-        <Link href={modeAwareHome} className={styles.logo} id="nav-logo" onClick={handleHomeLogoClick}>
-          <span className={styles.logoText}>xreso</span>
+        <Link href={modeAwareHome} className={styles.logo} id="nav-logo" onClick={handleHomeLogoClick} aria-label="xreso home">
+          <Image src="/logo.svg" alt="xreso" width={160} height={35} priority className={styles.logoImage} />
         </Link>
 
         <div className={styles.navLinks}>

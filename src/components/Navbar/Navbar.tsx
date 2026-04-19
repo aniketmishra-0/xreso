@@ -16,17 +16,11 @@ export default function Navbar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Keep first server/client render identical; enable theme-dependent UI only after mount.
-  const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [headerHidden, setHeaderHidden] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
@@ -141,7 +135,7 @@ export default function Navbar() {
     : browseModeFromQuery || "programming";
 
   const isDark = theme === "dark";
-  const themeLabel = mounted ? (isDark ? "Light" : "Dark") : "Theme";
+  const themeLabel = isDark ? "Light" : theme === "light" ? "Dark" : "Theme";
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const resolvedAvatar = profileAvatar || session?.user?.image || null;
 
@@ -159,7 +153,13 @@ export default function Navbar() {
     browseMode === "advanced" ? "/tracks" : "/";
 
   const uploadHref =
-    browseMode === "advanced" ? "/upload?mode=advanced" : "/upload?mode=programming";
+    session?.user
+      ? browseMode === "advanced"
+        ? "/upload?mode=advanced"
+        : "/upload?mode=programming"
+      : `/login?callbackUrl=${encodeURIComponent(
+          browseMode === "advanced" ? "/upload?mode=advanced" : "/upload?mode=programming"
+        )}&reason=upload_login_required`;
 
   const navItemsBeforeMode = useMemo(
     () => [

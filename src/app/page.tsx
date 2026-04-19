@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { House, Play, Zap } from "lucide-react";
+import { auth } from "@/lib/auth";
 import {
   getTrendingNotes,
   getCategories,
@@ -89,6 +90,7 @@ function NoteCategoryPill({
 
 /* ─── Page ─────────────────────────────────────────────────────────── */
 export default async function Home() {
+  const session = await auth();
   const [trendingData, categories, heroStats] = await Promise.all([
     getTrendingNotes(6),
     getCategories(9),
@@ -98,6 +100,9 @@ export default async function Home() {
   const trendingNotes = trendingData.notes;
   const viewsThreshold = trendingData.threshold;
   const visibleCategories = categories.filter((category) => category.noteCount > 0);
+  const uploadHref = session?.user
+    ? "/upload"
+    : `/login?callbackUrl=${encodeURIComponent("/upload")}&reason=upload_login_required`;
 
   const stats = [
     {
@@ -153,7 +158,7 @@ export default async function Home() {
                 Explore Library
                 <span className={styles.arrow}>→</span>
               </Link>
-              <Link href="/upload" id="hero-upload-btn" className={`btn btn-secondary btn-lg`}>
+              <Link href={uploadHref} id="hero-upload-btn" className={`btn btn-secondary btn-lg`}>
                 Contribute Notes
               </Link>
             </div>
@@ -453,7 +458,7 @@ export default async function Home() {
               You keep your copyright — we amplify your reach.
             </p>
             <div className={styles.ctaActions}>
-              <Link href="/upload" id="cta-upload-btn" className="btn btn-primary btn-lg">
+              <Link href={uploadHref} id="cta-upload-btn" className="btn btn-primary btn-lg">
                 Start Contributing
               </Link>
               <Link href="/terms" id="cta-learn-btn" className="btn btn-secondary btn-lg">

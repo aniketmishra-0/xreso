@@ -296,6 +296,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
   const touchStartXRef = useRef(0);
   const touchStartYRef = useRef(0);
   const swipeEnabledRef = useRef(false);
+  const swipeCloseTriggeredRef = useRef(false);
   const tagList = formData.tags ? formData.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
   const authorName = formData.authorCredit || session?.user?.name || "Anonymous";
   const selectedTrack = advancedTracks.find((track) => track.slug === formData.advancedTrackSlug);
@@ -324,6 +325,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
       setSwipeOffsetY(0);
       setIsSwipingDrawer(false);
       swipeEnabledRef.current = false;
+      swipeCloseTriggeredRef.current = false;
     }
   }, [open]);
 
@@ -340,6 +342,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     touchStartXRef.current = touch.clientX;
     touchStartYRef.current = touch.clientY;
     swipeEnabledRef.current = true;
+    swipeCloseTriggeredRef.current = false;
     setIsSwipingDrawer(true);
   };
 
@@ -361,20 +364,37 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     }
     event.stopPropagation();
 
+    if (deltaY > 120 && !swipeCloseTriggeredRef.current) {
+      swipeCloseTriggeredRef.current = true;
+      swipeEnabledRef.current = false;
+      setIsSwipingDrawer(false);
+      onClose();
+      return;
+    }
+
     setSwipeOffsetY(Math.min(deltaY, 240));
   };
 
   const handleSwipeEnd = () => {
+    if (swipeCloseTriggeredRef.current) {
+      swipeCloseTriggeredRef.current = false;
+      return;
+    }
+
     if (!swipeEnabledRef.current) return;
 
     const shouldClose = swipeOffsetY > 120;
     swipeEnabledRef.current = false;
-    setIsSwipingDrawer(false);
-    setSwipeOffsetY(0);
 
     if (shouldClose) {
+      // Close directly from the current drag position; avoid snapping back first.
+      setIsSwipingDrawer(false);
       onClose();
+      return;
     }
+
+    setIsSwipingDrawer(false);
+    setSwipeOffsetY(0);
   };
 
   return (
@@ -965,6 +985,7 @@ function UploadPageContent() {
     const previousBodyOverscroll = document.body.style.overscrollBehavior;
     const previousHtmlOverflow = document.documentElement.style.overflow;
     const previousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+    const previousHtmlScrollBehavior = document.documentElement.style.scrollBehavior;
 
     scrollLockYRef.current = window.scrollY;
 
@@ -984,8 +1005,12 @@ function UploadPageContent() {
       document.body.style.overscrollBehavior = previousBodyOverscroll;
       document.documentElement.style.overflow = previousHtmlOverflow;
       document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
+      document.documentElement.style.scrollBehavior = "auto";
       requestAnimationFrame(() => {
         window.scrollTo(0, scrollLockYRef.current);
+        requestAnimationFrame(() => {
+          document.documentElement.style.scrollBehavior = previousHtmlScrollBehavior;
+        });
       });
     };
   }, [isOverlayOpen]);

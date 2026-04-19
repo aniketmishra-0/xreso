@@ -1028,6 +1028,7 @@
     font-size: 10px;
     line-height: 1.4;
     display: -webkit-box;
+    line-clamp: 2;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
@@ -1825,6 +1826,7 @@
   color: var(--text-secondary);
   line-height: 1.5;
   display: -webkit-box;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
@@ -2164,8 +2166,7 @@
   }
 
   .previewDrawer {
-    width: calc(100vw - 20px);
-    max-width: 860px;
+    width: 460px;
   }
 }
 
@@ -2275,11 +2276,6 @@
   .previewBody {
     padding: 16px;
     gap: 16px;
-  }
-
-  .previewDrawer {
-    width: calc(100vw - 12px);
-    max-width: none;
   }
 }
 

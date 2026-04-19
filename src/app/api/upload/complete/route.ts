@@ -71,7 +71,10 @@ async function isAutoApproveEnabled(client: Client): Promise<boolean> {
       sql: "SELECT value FROM settings WHERE key = 'auto_approve_enabled'",
       args: [],
     });
-    return result.rows.length > 0 && String(result.rows[0].value) === "true";
+    // Case-insensitive check for true/1/yes
+    if (result.rows.length === 0) return false;
+    const value = String(result.rows[0].value).toLowerCase().trim();
+    return value === "true" || value === "1" || value === "yes";
   } catch {
     // settings table may not exist yet
     return false;

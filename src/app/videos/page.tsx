@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import VideoCard from "@/components/VideoCard/VideoCard";
 import { CATEGORY_CATALOG } from "@/lib/techIcons";
 import styles from "./page.module.css";
@@ -43,6 +43,8 @@ const SORT_OPTIONS = [
 
 function VideoPageContent() {
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
 
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(false);
@@ -53,6 +55,25 @@ function VideoPageContent() {
   const categoryId = searchParams.get("categoryId") || "";
   const searchQuery = searchParams.get("search") || "";
   const sortBy = (searchParams.get("sort") as "newest" | "popular") || "newest";
+
+  const updateQueryParams = useCallback(
+    (nextValues: Record<string, string>) => {
+      const params = new URLSearchParams(searchParams.toString());
+
+      Object.entries(nextValues).forEach(([key, value]) => {
+        if (!value) {
+          params.delete(key);
+          return;
+        }
+        params.set(key, value);
+      });
+
+      params.set("page", "1");
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
 
   // Fetch categories
   useEffect(() => {
@@ -123,9 +144,29 @@ function VideoPageContent() {
 
       {/* Filters */}
       <div className={styles.controls}>
+        <div className={styles.categoryControl}>
+          <label htmlFor="category">Category:</label>
+          <select
+            id="category"
+            value={categoryId}
+            onChange={(event) => updateQueryParams({ categoryId: event.target.value })}
+          >
+            <option value="">All Categories</option>
+            {categories.map((cat) => (
+              <option key={cat.id} value={String(cat.id)}>
+                {CATEGORY_LABELS[cat.slug] || cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className={styles.sortControl}>
           <label htmlFor="sort">Sort by:</label>
-          <select id="sort" defaultValue={sortBy} disabled>
+          <select
+            id="sort"
+            value={sortBy}
+            onChange={(event) => updateQueryParams({ sort: event.target.value })}
+          >
             {SORT_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}

@@ -91,13 +91,21 @@
   gap: 8px;
 }
 
-.sortControl label {
+.categoryControl {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sortControl label,
+.categoryControl label {
   font-size: 14px;
   font-weight: 500;
   color: var(--color-text-primary);
 }
 
-.sortControl select {
+.sortControl select,
+.categoryControl select {
   padding: 6px 10px;
   border: 1px solid var(--color-border);
   border-radius: 6px;
@@ -108,13 +116,9 @@
   transition: border-color 0.2s ease;
 }
 
-.sortControl select:hover:not(:disabled) {
+.sortControl select:hover,
+.categoryControl select:hover {
   border-color: var(--color-primary);
-}
-
-.sortControl select:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .videoGrid {
@@ -189,7 +193,7 @@
   }
 
   .videoGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 12px;
   }
 
@@ -198,12 +202,14 @@
     border-radius: 16px;
   }
 
-  .sortControl {
+  .sortControl,
+  .categoryControl {
     width: 100%;
     flex-wrap: wrap;
   }
 
-  .sortControl select {
+  .sortControl select,
+  .categoryControl select {
     flex: 1;
     min-width: 0;
   }
@@ -214,5 +220,11 @@
 
   .uploadSectionSubtitle {
     font-size: 13px;
+  }
+}
+
+@media (max-width: 360px) {
+  .videoGrid {
+    grid-template-columns: 1fr;
   }
 }

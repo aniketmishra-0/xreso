@@ -439,17 +439,8 @@ function TrackNotesContent() {
         ) : (
           <div className={styles.resourceGrid} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "24px" }}>
             {resources.map((resource) => {
-              // Determine href based on resource type
-              const isExternalLink = resource.contentUrl?.startsWith("http") || resource.contentUrl?.startsWith("https");
-              const isOneDrive = resource.contentUrl?.startsWith("onedrive://");
-              
-              // External links open directly, OneDrive/internal use resource API
-              const cardHref = isExternalLink 
-                ? resource.contentUrl 
-                : isOneDrive
-                  ? `/api/advanced-tracks/resource/${resource.id}`
-                  : resource.contentUrl || `/api/advanced-tracks/resource/${resource.id}`;
-              
+              const cardHref = `/api/advanced-tracks/resource/${resource.id}`;
+
               return (
                 <NoteCard
                   key={resource.id}
@@ -465,8 +456,7 @@ function TrackNotesContent() {
                   bookmarkCount={resource.saveCount}
                   tags={[...resource.tags, resource.topicName].filter(Boolean) as string[]}
                   createdAt={formatDate(resource.createdAt)}
-                  href={cardHref || undefined}
-                  external={isExternalLink}
+                  href={cardHref}
                 />
               );
             })}

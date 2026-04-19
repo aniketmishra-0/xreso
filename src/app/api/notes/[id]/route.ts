@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@libsql/client/web";
 import { auth } from "@/lib/auth";
 import { runAutoApprovalSweepIfNeeded } from "@/lib/moderation";
+import fs from "fs";
+import path from "path";
+import { getOneDriveItemMetadata } from "@/lib/onedrive";
+
+const PUBLIC_ROOT = path.join(process.cwd(), "public");
 
 function getClient() {
   const databaseUrl = process.env.TURSO_DATABASE_URL;
@@ -13,6 +18,29 @@ function getClient() {
     url: databaseUrl,
     authToken: process.env.TURSO_AUTH_TOKEN,
   });
+}
+
+function resolvePublicPathFromUploadsUrl(fileUrl: string): string | null {
+  if (!fileUrl.startsWith("/uploads/")) return null;
+
+  const relativePath = fileUrl.replace(/^\/+/, "");
+  if (!relativePath || relativePath.includes("..")) return null;
+
+  const absolutePath = path.resolve(PUBLIC_ROOT, relativePath);
+  const safeRoot = path.resolve(PUBLIC_ROOT) + path.sep;
+  if (!absolutePath.startsWith(safeRoot)) return null;
+
+  return absolutePath;
+}
+
+async function getContentLengthFromUrl(url: string): Promise<number> {
+  try {
+    const headRes = await fetch(url, { method: "HEAD" });
+    const value = headRes.headers.get("content-length");
+    return value ? Number(value) || 0 : 0;
+  } catch {
+    return 0;
+  }
 }
 
 // GET /api/notes/[id] — Get single note
@@ -64,6 +92,40 @@ export async function GET(
         args: [id],
       });
 
+      let resolvedFileSizeBytes = Number(row.file_size_bytes) || 0;
+      let resolvedFileName = String(row.file_name || "file");
+      let resolvedFileType = String(row.file_type || "application/octet-stream");
+
+      if (resolvedFileSizeBytes <= 0) {
+        const driveItemId = String(row.drive_item_id || "").trim();
+        const fileUrl = String(row.file_url || "");
+
+        if (driveItemId) {
+          try {
+            const metadata = await getOneDriveItemMetadata(driveItemId);
+            resolvedFileSizeBytes = metadata.sizeBytes;
+            resolvedFileName = metadata.name || resolvedFileName;
+            resolvedFileType = metadata.mimeType || resolvedFileType;
+          } catch {
+            // Fallbacks below.
+          }
+        }
+
+        if (resolvedFileSizeBytes <= 0 && fileUrl.startsWith("/uploads/")) {
+          const filePath = resolvePublicPathFromUploadsUrl(fileUrl);
+          if (filePath && fs.existsSync(filePath)) {
+            resolvedFileSizeBytes = fs.statSync(filePath).size;
+          }
+        }
+
+        if (
+          resolvedFileSizeBytes <= 0 &&
+          (fileUrl.startsWith("http://") || fileUrl.startsWith("https://"))
+        ) {
+          resolvedFileSizeBytes = await getContentLengthFromUrl(fileUrl);
+        }
+      }
+
       const note = {
         id: row.id,
         title: row.title,
@@ -77,9 +139,9 @@ export async function GET(
         authorCredit: row.author_credit,
         thumbnailUrl: row.thumbnail_url,
         fileUrl: row.file_url,
-        fileName: row.file_name,
-        fileType: row.file_type,
-        fileSizeBytes: row.file_size_bytes,
+        fileName: resolvedFileName,
+        fileType: resolvedFileType,
+        fileSizeBytes: resolvedFileSizeBytes,
         sourceUrl: row.source_url,
         licenseType: row.license_type,
         status: row.status,
@@ -142,6 +204,32 @@ export async function GET(
     const resourceType = String(advancedRow.resource_type || "link");
     const contentUrl = String(advancedRow.content_url || "");
     const isDirectLink = contentUrl.startsWith("http://") || contentUrl.startsWith("https://");
+
+    let resolvedFileSizeBytes = 0;
+    let resolvedFileName = `${String(advancedRow.title || "resource")}.${resourceType}`;
+    let resolvedFileType = resourceType === "pdf" ? "application/pdf" : "link";
+
+    if (contentUrl.startsWith("onedrive://")) {
+      const driveItemId = contentUrl.replace("onedrive://", "").trim();
+      if (driveItemId) {
+        try {
+          const metadata = await getOneDriveItemMetadata(driveItemId);
+          resolvedFileSizeBytes = metadata.sizeBytes;
+          resolvedFileName = metadata.name || resolvedFileName;
+          resolvedFileType = metadata.mimeType || resolvedFileType;
+        } catch {
+          // Ignore metadata failures and keep defaults.
+        }
+      }
+    } else if (contentUrl.startsWith("/uploads/")) {
+      const filePath = resolvePublicPathFromUploadsUrl(contentUrl);
+      if (filePath && fs.existsSync(filePath)) {
+        resolvedFileSizeBytes = fs.statSync(filePath).size;
+      }
+    } else if (isDirectLink) {
+      resolvedFileSizeBytes = await getContentLengthFromUrl(contentUrl);
+    }
+
     const advancedFileUrl =
       resourceType === "pdf"
         ? `/api/advanced-tracks/resource/${id}`
@@ -162,9 +250,9 @@ export async function GET(
       authorCredit: String(advancedRow.author_name || "Unknown author"),
       thumbnailUrl: String(advancedRow.thumbnail_url || ""),
       fileUrl: advancedFileUrl,
-      fileName: `${String(advancedRow.title || "resource")}.${resourceType}`,
-      fileType: resourceType === "pdf" ? "application/pdf" : "link",
-      fileSizeBytes: 0,
+      fileName: resolvedFileName,
+      fileType: resolvedFileType,
+      fileSizeBytes: resolvedFileSizeBytes,
       sourceUrl: isDirectLink ? contentUrl : null,
       licenseType: "Open Access",
       status: advancedStatus,

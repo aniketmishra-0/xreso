@@ -404,6 +404,36 @@ export async function getOneDriveItemDownloadInfo(driveItemId: string): Promise<
   return { downloadUrl, name, mimeType };
 }
 
+export async function getOneDriveItemMetadata(driveItemId: string): Promise<{
+  name: string;
+  mimeType: string;
+  sizeBytes: number;
+}> {
+  const token = await getAccessToken();
+  const itemRes = await fetch(
+    `${GRAPH_BASE}/me/drive/items/${driveItemId}?$select=id,name,size,file,folder`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+
+  if (!itemRes.ok) {
+    const err = await itemRes.text();
+    throw new Error(`Failed to get OneDrive item metadata: ${err}`);
+  }
+
+  const item = await itemRes.json();
+  if (item.folder) {
+    throw new Error("OneDrive item is a folder, not a file");
+  }
+
+  const name = (item.name as string | undefined) || "file";
+  const mimeType = (item.file?.mimeType as string | undefined) || "application/octet-stream";
+  const sizeBytes = Number(item.size) || 0;
+
+  return { name, mimeType, sizeBytes };
+}
+
 /* ── Delete a file from OneDrive by drive item id ──────── */
 export async function deleteOneDriveItem(driveItemId: string): Promise<void> {
   if (!driveItemId) return;

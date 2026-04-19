@@ -8,7 +8,9 @@ import {
   detectVideoType,
   isValidVideoUrl,
   getYouTubeThumbnailUrl,
+  type VideoSourceType,
 } from "@/lib/video-utils";
+import { inspectVideoAccess } from "@/lib/video-access";
 import { v4 as uuidv4 } from "uuid";
 
 const ANONYMOUS_USER_ID = "anonymous-uploader";
@@ -156,6 +158,7 @@ export async function POST(request: NextRequest) {
       categoryId,
       category,
       videoUrl,
+      videoSourceType,
       channelName = "",
       channelUrl = "",
       tags = "",
@@ -211,7 +214,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error:
-            "Invalid video URL. Supported: YouTube (youtube.com, youtu.be) and Vimeo (vimeo.com)",
+            "Invalid video URL. Supported: YouTube, Vimeo, Google Drive and OneDrive.",
         },
         { status: 400 }
       );
@@ -226,6 +229,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const requestedType = String(videoSourceType || "").trim() as VideoSourceType | "";
+    if (requestedType) {
+      const isDriveFamily = requestedType === "drive" && (videoType === "drive" || videoType === "onedrive");
+      if (!isDriveFamily && requestedType !== videoType) {
+        return NextResponse.json(
+          { error: `Selected source (${requestedType}) does not match the pasted URL type (${videoType})` },
+          { status: 400 }
+        );
+      }
+    }
+
     // Extract video ID
     const videoId = extractVideoId(videoUrl, videoType);
     if (!videoId) {
@@ -235,9 +249,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const accessCheck = await inspectVideoAccess(videoUrl);
+    if (!accessCheck.isPublic) {
+      return NextResponse.json(
+        {
+          error:
+            accessCheck.message ||
+            "Video must be public and embeddable before it can be posted.",
+        },
+        { status: 400 }
+      );
+    }
+
     // Generate thumbnail URL
     const thumbnailUrl =
-      videoType === "youtube" ? getYouTubeThumbnailUrl(videoId) : undefined;
+      videoType === "youtube" ? getYouTubeThumbnailUrl(videoId) : "";
 
     const resolvedCategoryId = await resolveCategoryId(
       client,

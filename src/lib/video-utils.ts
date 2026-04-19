@@ -4,6 +4,8 @@ function sanitizeVideoInput(url: string): string {
   return (url || "").trim();
 }
 
+export type VideoSourceType = "youtube" | "vimeo" | "drive" | "onedrive";
+
 /**
  * Extract video ID from YouTube URL
  * Supports: youtube.com/watch?v=ID, youtu.be/ID, youtube.com/embed/ID
@@ -131,11 +133,54 @@ export function extractGoogleDriveId(url: string): string | null {
 }
 
 /**
+ * Extract OneDrive reference from URL.
+ * Returns one of:
+ * - item:<graphDriveItemId>
+ * - resid:<onedriveResid>
+ * - url:<encodedUrl>
+ */
+export function extractOneDriveReference(url: string): string | null {
+  const input = sanitizeVideoInput(url);
+  if (!input) return null;
+
+  if (input.startsWith("onedrive://")) {
+    const driveItemId = input.replace("onedrive://", "").trim();
+    return driveItemId ? `item:${driveItemId}` : null;
+  }
+
+  try {
+    const urlObj = new URL(input);
+    const host = urlObj.hostname.toLowerCase();
+
+    const isOneDriveHost =
+      host.includes("onedrive.live.com") ||
+      host.includes("1drv.ms") ||
+      host.includes("sharepoint.com");
+
+    if (!isOneDriveHost) return null;
+
+    const itemId = urlObj.searchParams.get("itemId") || urlObj.searchParams.get("id");
+    if (itemId && /^[a-zA-Z0-9!._-]+$/.test(itemId)) {
+      return `item:${itemId}`;
+    }
+
+    const resid = urlObj.searchParams.get("resid");
+    if (resid && /^[a-zA-Z0-9!._-]+$/.test(resid)) {
+      return `resid:${resid}`;
+    }
+
+    return `url:${encodeURIComponent(input)}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Detect video type from URL (including Google Drive)
  */
 export function detectVideoType(
   url: string
-): "youtube" | "vimeo" | "drive" | null {
+): VideoSourceType | null {
   const input = sanitizeVideoInput(url).toLowerCase();
   if (!input) return null;
 
@@ -153,6 +198,13 @@ export function detectVideoType(
     return "drive";
   }
 
+  if (
+    input.startsWith("onedrive://") ||
+    /onedrive\.live\.com|1drv\.ms|sharepoint\.com/.test(input)
+  ) {
+    return "onedrive";
+  }
+
   return null;
 }
 
@@ -161,7 +213,7 @@ export function detectVideoType(
  */
 export function extractVideoId(
   url: string,
-  videoType: "youtube" | "vimeo" | "drive"
+  videoType: VideoSourceType
 ): string | null {
   if (videoType === "youtube") {
     return extractYouTubeId(url);
@@ -169,6 +221,8 @@ export function extractVideoId(
     return extractVimeoId(url);
   } else if (videoType === "drive") {
     return extractGoogleDriveId(url);
+  } else if (videoType === "onedrive") {
+    return extractOneDriveReference(url);
   }
 
   return null;
@@ -179,6 +233,37 @@ export function extractVideoId(
  */
 export function getGoogleDriveEmbedUrl(fileId: string): string {
   return `https://drive.google.com/file/d/${fileId}/preview`;
+}
+
+/**
+ * Generate OneDrive playback/embed URL from normalized reference.
+ */
+export function getOneDriveEmbedUrl(reference: string): string {
+  if (!reference) return "";
+
+  if (reference.startsWith("item:")) {
+    const itemId = reference.slice(5);
+    return `/api/videos/onedrive-stream?itemId=${encodeURIComponent(itemId)}`;
+  }
+
+  if (reference.startsWith("resid:")) {
+    const resid = reference.slice(6);
+    return `https://onedrive.live.com/embed?resid=${encodeURIComponent(resid)}`;
+  }
+
+  if (reference.startsWith("url:")) {
+    try {
+      return decodeURIComponent(reference.slice(4));
+    } catch {
+      return "";
+    }
+  }
+
+  if (reference.startsWith("http://") || reference.startsWith("https://")) {
+    return reference;
+  }
+
+  return `/api/videos/onedrive-stream?itemId=${encodeURIComponent(reference)}`;
 }
 
 /**
@@ -216,7 +301,7 @@ export function getVimeoThumbnailUrl(videoId: string): string {
  */
 export function getVideoIframeHtml(
   videoId: string,
-  videoType: "youtube" | "vimeo" | "drive",
+  videoType: VideoSourceType,
   title?: string
 ): string {
   let embedUrl: string;
@@ -225,6 +310,8 @@ export function getVideoIframeHtml(
     embedUrl = getYouTubeEmbedUrl(videoId);
   } else if (videoType === "vimeo") {
     embedUrl = getVimeoEmbedUrl(videoId);
+  } else if (videoType === "onedrive") {
+    embedUrl = getOneDriveEmbedUrl(videoId);
   } else {
     embedUrl = getGoogleDriveEmbedUrl(videoId);
   }
@@ -251,6 +338,30 @@ export function isValidVideoUrl(url: string): boolean {
   return Boolean(videoId);
 }
 
+export function getVideoPlaybackSource(videoType: VideoSourceType, videoId: string): {
+  kind: "iframe" | "video";
+  src: string;
+} {
+  if (videoType === "youtube") {
+    return { kind: "iframe", src: getYouTubeEmbedUrl(videoId) };
+  }
+
+  if (videoType === "vimeo") {
+    return { kind: "iframe", src: getVimeoEmbedUrl(videoId) };
+  }
+
+  if (videoType === "drive") {
+    return { kind: "iframe", src: getGoogleDriveEmbedUrl(videoId) };
+  }
+
+  const src = getOneDriveEmbedUrl(videoId);
+  if (src.startsWith("/api/videos/onedrive-stream")) {
+    return { kind: "video", src };
+  }
+
+  return { kind: "iframe", src };
+}
+
 /**
  * Format video type for display
  */
@@ -264,5 +375,6 @@ export function formatVideoType(videoType: string): string {
 export function getVideoIcon(videoType: string): string {
   if (videoType === "youtube") return "▶️";
   if (videoType === "vimeo") return "🎬";
+  if (videoType === "onedrive") return "☁️";
   return "🎥";
 }

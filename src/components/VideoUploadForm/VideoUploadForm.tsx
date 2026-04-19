@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import VideoPlayer from "@/components/VideoPlayer/VideoPlayer";
 import {
   isValidVideoUrl,
   detectVideoType,
   extractVideoId,
   getYouTubeThumbnailUrl,
+  type VideoSourceType,
 } from "@/lib/video-utils";
 import styles from "./VideoUploadForm.module.css";
 
@@ -35,9 +36,13 @@ export default function VideoUploadForm({
 
   const [videoPreview, setVideoPreview] = useState<{
     videoId: string;
-    videoType: "youtube" | "vimeo" | "drive";
+    videoType: VideoSourceType;
     thumbnailUrl: string;
   } | null>(null);
+  const [publicCheck, setPublicCheck] = useState<{
+    status: "idle" | "checking" | "public" | "private";
+    message: string;
+  }>({ status: "idle", message: "" });
 
   const [checks, setChecks] = useState({
     ownership: false,
@@ -60,7 +65,7 @@ export default function VideoUploadForm({
 
     if (!isValidVideoUrl(url)) {
       setError(
-        "Invalid video URL. Supported: YouTube (youtube.com, youtu.be) and Vimeo (vimeo.com)"
+        "Invalid video URL. Supported: YouTube, Vimeo, Google Drive, and OneDrive"
       );
       setVideoPreview(null);
       return;
@@ -90,6 +95,64 @@ export default function VideoUploadForm({
     });
   };
 
+  useEffect(() => {
+    const url = formData.videoUrl.trim();
+    if (!url || !videoPreview) {
+      setPublicCheck({ status: "idle", message: "" });
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setPublicCheck({ status: "checking", message: "Checking whether this video is public..." });
+
+      try {
+        const response = await fetch("/api/videos/public-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+          signal: controller.signal,
+        });
+
+        const payload = (await response.json()) as {
+          isPublic?: boolean;
+          message?: string;
+          error?: string;
+        };
+
+        if (!response.ok || !payload.isPublic) {
+          if (!controller.signal.aborted) {
+            setPublicCheck({
+              status: "private",
+              message:
+                payload.message || payload.error || "This video is not public or embeddable.",
+            });
+          }
+          return;
+        }
+
+        if (!controller.signal.aborted) {
+          setPublicCheck({
+            status: "public",
+            message: payload.message || "Video is public and ready to post.",
+          });
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setPublicCheck({
+            status: "private",
+            message: "Could not verify the video link.",
+          });
+        }
+      }
+    }, 500);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [formData.videoUrl, videoPreview]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -116,6 +179,11 @@ export default function VideoUploadForm({
 
     if (!videoPreview) {
       setError("Invalid video URL");
+      return;
+    }
+
+    if (publicCheck.status !== "public") {
+      setError(publicCheck.message || "Video must be public before posting");
       return;
     }
 
@@ -175,6 +243,7 @@ export default function VideoUploadForm({
     formData.description.trim() &&
     formData.categoryId &&
     videoPreview &&
+    publicCheck.status === "public" &&
     checks.ownership &&
     checks.license &&
     checks.tos &&
@@ -245,19 +314,19 @@ export default function VideoUploadForm({
         {/* Video URL */}
         <div className={styles.formGroup}>
           <label htmlFor="videoUrl" className={styles.label}>
-            Video URL (YouTube or Vimeo) *
+            Video URL (YouTube, Vimeo, Drive, OneDrive) *
           </label>
           <input
             id="videoUrl"
             type="url"
-            placeholder="Paste YouTube or Vimeo link..."
+            placeholder="Paste YouTube / Vimeo / Drive / OneDrive link..."
             value={formData.videoUrl}
             onChange={(e) => handleVideoUrlChange(e.target.value)}
             className={styles.input}
             disabled={uploading}
           />
           <p className={styles.hint}>
-            Supports YouTube (youtube.com, youtu.be) and Vimeo (vimeo.com)
+            Supports YouTube, Vimeo, Google Drive, and OneDrive video links
           </p>
         </div>
 
@@ -270,6 +339,14 @@ export default function VideoUploadForm({
               videoType={videoPreview.videoType}
               title={formData.title || "Video Preview"}
             />
+            <p
+              className={styles.hint}
+              style={{ color: publicCheck.status === "public" ? "#16a34a" : "#b45309" }}
+            >
+              {publicCheck.status === "checking"
+                ? publicCheck.message
+                : publicCheck.message || "Video must be public to post."}
+            </p>
           </div>
         )}
 

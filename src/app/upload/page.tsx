@@ -9,6 +9,8 @@ import { CATEGORY_CATALOG } from "@/lib/techIcons";
 import {
   detectVideoType,
   extractVideoId,
+  getGoogleDriveEmbedUrl,
+  getOneDriveEmbedUrl,
   getYouTubeEmbedUrl,
   getVimeoEmbedUrl,
 } from "@/lib/video-utils";
@@ -521,6 +523,7 @@ function UploadPageContent() {
 
   const [resourceTier, setResourceTier] = useState<"standard" | "advanced">(preferredResourceTier);
   const [uploadMode, setUploadMode] = useState<"file" | "link" | "video">("file");
+  const [videoSourceType, setVideoSourceType] = useState<"youtube" | "vimeo" | "drive">("youtube");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [mobilePicker, setMobilePicker] = useState<MobilePickerState | null>(null);
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
@@ -537,6 +540,10 @@ function UploadPageContent() {
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; noteId?: string } | null>(null);
   const [linkImagePreviewFailed, setLinkImagePreviewFailed] = useState(false);
   const [detectedLinkContentType, setDetectedLinkContentType] = useState("");
+  const [videoPublicCheck, setVideoPublicCheck] = useState<{
+    status: "idle" | "checking" | "public" | "private";
+    message: string;
+  }>({ status: "idle", message: "" });
   const [showVideoTagsInput, setShowVideoTagsInput] = useState(false);
   const [customShareTemplates, setCustomShareTemplates] = useState<Record<string, string>>({});
 
@@ -576,7 +583,8 @@ function UploadPageContent() {
     Boolean(formData.title.trim()) &&
     Boolean(formData.description.trim()) &&
     hasSelectedCategory &&
-    hasSelectedContent;
+    hasSelectedContent &&
+    (uploadMode !== "video" || videoPublicCheck.status === "public");
   const selectedResourceSection =
     RESOURCE_SECTION_OPTIONS.find((option) => option.tier === resourceTier) ||
     RESOURCE_SECTION_OPTIONS[0];
@@ -591,12 +599,26 @@ function UploadPageContent() {
     uploadMode === "video" ? detectVideoType(formData.resourceUrl) : null;
   const detectedVideoId =
     detectedVideoType ? extractVideoId(formData.resourceUrl, detectedVideoType) : null;
+  const normalizedDetectedVideoType =
+    detectedVideoType === "onedrive" ? "drive" : detectedVideoType;
+  const isVideoSourceMatched =
+    uploadMode !== "video"
+      ? true
+      : Boolean(detectedVideoType && normalizedDetectedVideoType === videoSourceType);
   const videoEmbedUrl =
     detectedVideoType && detectedVideoId
       ? detectedVideoType === "youtube"
         ? getYouTubeEmbedUrl(detectedVideoId)
-        : getVimeoEmbedUrl(detectedVideoId)
+        : detectedVideoType === "vimeo"
+          ? getVimeoEmbedUrl(detectedVideoId)
+          : detectedVideoType === "drive"
+            ? getGoogleDriveEmbedUrl(detectedVideoId)
+            : getOneDriveEmbedUrl(detectedVideoId)
       : "";
+  const videoPreviewKind =
+    detectedVideoType === "onedrive" && videoEmbedUrl.startsWith("/api/videos/onedrive-stream")
+      ? "video"
+      : "iframe";
   const fieldShieldProps = {
     translate: "no",
     autoComplete: "off",
@@ -729,6 +751,69 @@ function UploadPageContent() {
       setShowVideoTagsInput(false);
     }
   }, [uploadMode]);
+
+  useEffect(() => {
+    if (uploadMode !== "video") {
+      setVideoPublicCheck({ status: "idle", message: "" });
+      return;
+    }
+
+    const resourceUrl = formData.resourceUrl.trim();
+    if (!resourceUrl || !detectedVideoType || !detectedVideoId || !isVideoSourceMatched) {
+      setVideoPublicCheck({ status: "idle", message: "" });
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setVideoPublicCheck({ status: "checking", message: "Checking whether this video is public..." });
+
+      try {
+        const response = await fetch("/api/videos/public-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: resourceUrl }),
+          signal: controller.signal,
+        });
+
+        const payload = (await response.json()) as {
+          isPublic?: boolean;
+          message?: string;
+          error?: string;
+        };
+
+        if (!response.ok || !payload.isPublic) {
+          if (!controller.signal.aborted) {
+            setVideoPublicCheck({
+              status: "private",
+              message:
+                payload.message || payload.error || "This video is not public or embeddable.",
+            });
+          }
+          return;
+        }
+
+        if (!controller.signal.aborted) {
+          setVideoPublicCheck({
+            status: "public",
+            message: payload.message || "Video is public and ready to post.",
+          });
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setVideoPublicCheck({
+            status: "private",
+            message: "Could not verify the video link.",
+          });
+        }
+      }
+    }, 500);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [detectedVideoId, detectedVideoType, formData.resourceUrl, isVideoSourceMatched, uploadMode]);
 
   useEffect(() => {
     if (uploadMode !== "link") {
@@ -1064,10 +1149,10 @@ function UploadPageContent() {
         }
 
         if (uploadMode === "video") {
-          if (!detectedVideoType || !detectedVideoId) {
+          if (!detectedVideoType || !detectedVideoId || !isVideoSourceMatched) {
             setUploadResult({
               success: false,
-              message: "Invalid video link. Use YouTube (youtube.com/youtu.be) or Vimeo.",
+              message: "Invalid video link. Choose matching source and use YouTube, Vimeo, Google Drive, or OneDrive.",
             });
             return;
           }
@@ -1122,15 +1207,25 @@ function UploadPageContent() {
         if (!formData.resourceUrl.trim()) {
           setUploadResult({
             success: false,
-            message: "Please paste a YouTube or Vimeo video link.",
+            message: "Please paste a YouTube, Vimeo, Google Drive, or OneDrive video link.",
           });
           return;
         }
 
-        if (!detectedVideoType || !detectedVideoId) {
+        if (!detectedVideoType || !detectedVideoId || !isVideoSourceMatched) {
           setUploadResult({
             success: false,
-            message: "Invalid video link. Use YouTube (youtube.com/youtu.be) or Vimeo.",
+            message: "Invalid video link. Choose matching source and use YouTube, Vimeo, Google Drive, or OneDrive.",
+          });
+          return;
+        }
+
+        if (videoPublicCheck.status !== "public") {
+          setUploadResult({
+            success: false,
+            message:
+              videoPublicCheck.message ||
+              "Video must be public and embeddable before it can be posted.",
           });
           return;
         }
@@ -1143,6 +1238,7 @@ function UploadPageContent() {
             description: formData.description,
             category: formData.category || "other",
             videoUrl: formData.resourceUrl,
+            videoSourceType,
             channelName: formData.channelName,
             channelUrl: formData.channelUrl,
             tags: formData.tags,
@@ -1639,32 +1735,80 @@ function UploadPageContent() {
                 <div className={styles.linkInputWrap}>
                   <span className={styles.linkIcon}>🎥</span>
                   <input type="url" name="resourceUrl" id="videoUrl" className={styles.linkInput}
-                    placeholder="Paste YouTube / Vimeo link (watch/embed/short)"
+                    placeholder="Paste YouTube / Vimeo / Drive / OneDrive video link"
                     value={formData.resourceUrl ?? ""} onChange={handleInputChange} autoFocus {...fieldShieldProps} />
+                </div>
+
+                <div className={styles.videoSourceRow}>
+                  <span className={styles.videoSourceLabel}>Video Source</span>
+                  <div className={styles.videoSourcePills} role="group" aria-label="Video source type">
+                    {[
+                      { value: "youtube", label: "YouTube" },
+                      { value: "vimeo", label: "Vimeo" },
+                      { value: "drive", label: "Drive" },
+                    ].map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={`${styles.videoSourcePill} ${
+                          videoSourceType === option.value ? styles.videoSourcePillActive : ""
+                        }`}
+                        onClick={() => setVideoSourceType(option.value as "youtube" | "vimeo" | "drive")}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
                 <p className={styles.videoModeNote}>
                   Sirf video link save hoga. Koi video file server/database me store ya download nahi hogi.
                 </p>
                 <p className={styles.videoModeWarning}>
-                  YouTube unlisted videos play ho jati hain. Private videos YouTube policy ki wajah se embed nahi chalti.
+                  YouTube unlisted videos play ho jati hain. Drive/OneDrive ke liye embeddable ya accessible link chahiye hota hai.
                 </p>
+
+                {formData.resourceUrl && detectedVideoType && !isVideoSourceMatched ? (
+                  <p className={styles.videoModeError}>
+                    Selected source {videoSourceType} hai, but pasted link {normalizedDetectedVideoType} detect ho raha hai.
+                  </p>
+                ) : null}
+
+                {formData.resourceUrl && detectedVideoType && isVideoSourceMatched ? (
+                  <p
+                    className={styles.videoModeNote}
+                    style={{ color: videoPublicCheck.status === "public" ? "#16a34a" : "var(--text-secondary)" }}
+                  >
+                    {videoPublicCheck.status === "checking"
+                      ? videoPublicCheck.message
+                      : videoPublicCheck.message || "Video must be public before posting."}
+                  </p>
+                ) : null}
 
                 {videoEmbedUrl ? (
                   <div className={styles.videoEmbedPreviewWrap}>
                     <div className={styles.videoEmbedPreview}>
-                      <iframe
-                        src={videoEmbedUrl}
-                        title="Video Preview"
-                        loading="lazy"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                      />
+                      {videoPreviewKind === "video" ? (
+                        <video
+                          src={videoEmbedUrl}
+                          controls
+                          preload="metadata"
+                          className={styles.videoEmbedTag}
+                        />
+                      ) : (
+                        <iframe
+                          src={videoEmbedUrl}
+                          title="Video Preview"
+                          loading="lazy"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                        />
+                      )}
                     </div>
                   </div>
                 ) : formData.resourceUrl ? (
                   <p className={styles.videoModeError}>
-                    Valid YouTube/Vimeo link detect nahi hua.
+                    Valid video link detect nahi hua. Supported: YouTube, Vimeo, Google Drive, OneDrive.
                   </p>
                 ) : null}
               </div>

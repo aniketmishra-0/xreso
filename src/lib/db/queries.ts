@@ -583,7 +583,7 @@ export async function createVideo(videoData: {
   authorId: string;
   authorCredit: string;
   videoUrl: string;
-  videoType: "youtube" | "vimeo" | "drive";
+  videoType: "youtube" | "vimeo" | "drive" | "onedrive";
   videoId: string;
   thumbnailUrl: string;
   channelName?: string;

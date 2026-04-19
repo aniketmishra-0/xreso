@@ -151,7 +151,7 @@
 /* Responsive */
 @media (max-width: 1024px) {
   .videosPage {
-    padding: 24px 16px;
+    padding: calc(var(--nav-height) + 14px) 16px 28px;
   }
 
   .header {
@@ -165,7 +165,7 @@
 
 @media (max-width: 768px) {
   .videosPage {
-    padding: 20px 12px;
+    padding: calc(var(--nav-height) + 12px) 12px 24px;
   }
 
   .title {

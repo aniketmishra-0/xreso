@@ -19,6 +19,7 @@ interface VideoCardProps {
 function getVideoIcon(videoType: string): string {
   if (videoType === "youtube") return "▶️";
   if (videoType === "vimeo") return "🎬";
+  if (videoType === "onedrive") return "☁️";
   return "🎥";
 }
 

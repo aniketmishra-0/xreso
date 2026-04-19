@@ -88,7 +88,7 @@ export const videos = sqliteTable("videos", {
     .references(() => users.id),
   authorCredit: text("author_credit").notNull(),
   videoUrl: text("video_url").notNull(),
-  videoType: text("video_type", { enum: ["youtube", "vimeo", "drive"] })
+  videoType: text("video_type", { enum: ["youtube", "vimeo", "drive", "onedrive"] })
     .notNull()
     .default("youtube"),
   videoId: text("video_id").notNull(),

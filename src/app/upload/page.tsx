@@ -345,10 +345,11 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     };
   }, []);
 
-  const closeFromGesture = useCallback(() => {
+  const closeFromGesture = useCallback((fromOffset?: number) => {
+    const baseOffset = fromOffset ?? swipeOffsetY;
     const exitOffset = Math.max(
       typeof window !== "undefined" ? window.innerHeight : 700,
-      swipeOffsetY + 260
+      baseOffset + 260
     );
 
     swipeEnabledRef.current = false;
@@ -404,10 +405,25 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     }
     event.stopPropagation();
 
-    const maxDrag = Math.min(window.innerHeight * 0.72, 540);
+    const closeThreshold = Math.min(window.innerHeight * 0.26, 220);
+    const forceCloseDistance = Math.min(window.innerHeight * 0.58, 460);
+    const maxDrag = Math.min(window.innerHeight * 0.95, 820);
     const nextOffset = Math.max(0, Math.min(deltaY, maxDrag));
     touchLastYRef.current = touch.clientY;
     touchLastTimeRef.current = performance.now();
+
+    if (nextOffset >= forceCloseDistance) {
+      closeFromGesture(nextOffset);
+      return;
+    }
+
+    if (nextOffset >= closeThreshold && deltaY > 0) {
+      // Keep following the finger, but with a lower resistance after threshold for smoother feel.
+      const easedOffset = closeThreshold + (nextOffset - closeThreshold) * 0.92;
+      setSwipeOffsetY(easedOffset);
+      return;
+    }
+
     setSwipeOffsetY(nextOffset);
   };
 
@@ -418,7 +434,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     const dragDistance = Math.max(0, touchLastYRef.current - touchStartYRef.current);
     const dragDuration = Math.max(1, now - touchStartTimeRef.current);
     const releaseVelocity = dragDistance / dragDuration;
-    const closeThreshold = Math.min(window.innerHeight * 0.4, 300);
+    const closeThreshold = Math.min(window.innerHeight * 0.26, 220);
     const shouldClose =
       swipeOffsetY > closeThreshold ||
       (swipeOffsetY > 42 && releaseVelocity > 0.9);

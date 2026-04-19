@@ -439,7 +439,7 @@ function TrackNotesContent() {
         ) : (
           <div className={styles.resourceGrid} style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "24px" }}>
             {resources.map((resource) => {
-              const cardHref = `/api/advanced-tracks/resource/${resource.id}`;
+              const cardHref = `/note/${resource.id}`;
 
               return (
                 <NoteCard

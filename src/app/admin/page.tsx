@@ -1190,7 +1190,7 @@ export default function AdminPage() {
                   ) : (
                     <div className={styles.table}>
                       {advResources.map((resource) => {
-                        const href = `/api/advanced-tracks/resource/${resource.id}`;
+                        const href = `/note/${resource.id}`;
                         return (
                           <article key={resource.id} className={styles.row}>
                             <div className={styles.rowMain}>

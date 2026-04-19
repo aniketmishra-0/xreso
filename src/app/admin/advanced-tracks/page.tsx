@@ -265,7 +265,7 @@ export default function AdvancedTracksAdminPage() {
           ) : (
             <div className={styles.resourceList}>
               {resources.map((resource) => {
-                const resourceHref = `/api/advanced-tracks/resource/${resource.id}`;
+                const resourceHref = `/note/${resource.id}`;
 
                 return (
                   <article key={resource.id} className={styles.resourceRow}>

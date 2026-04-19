@@ -265,9 +265,7 @@ export default function AdvancedTracksAdminPage() {
           ) : (
             <div className={styles.resourceList}>
               {resources.map((resource) => {
-                const resourceHref = resource.content_url.startsWith("onedrive://")
-                  ? `/api/advanced-tracks/resource/${resource.id}`
-                  : resource.content_url;
+                const resourceHref = `/api/advanced-tracks/resource/${resource.id}`;
 
                 return (
                   <article key={resource.id} className={styles.resourceRow}>
@@ -298,14 +296,9 @@ export default function AdvancedTracksAdminPage() {
                     </div>
 
                     <div className={styles.resourceActions}>
-                      <a
-                        href={resourceHref}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-ghost btn-sm"
-                      >
+                      <Link href={resourceHref} className="btn btn-ghost btn-sm">
                         Open
-                      </a>
+                      </Link>
                       {resource.status === "pending" && (
                         <button
                           className="btn btn-secondary btn-sm"

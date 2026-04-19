@@ -20,6 +20,21 @@ interface AdminNote {
   thumbnail_url: string;
 }
 
+interface AdminVideo {
+  id: string;
+  title: string;
+  status: string;
+  featured: number;
+  view_count: number;
+  created_at: string;
+  category_name: string;
+  author_name: string;
+  author_email: string;
+  thumbnail_url: string;
+  video_type: string;
+  video_id: string;
+}
+
 interface Stats {
   totalNotes: number;
   approvedNotes: number;
@@ -69,7 +84,7 @@ interface AdvResource {
   id: string;
   title: string;
   summary: string;
-  resource_type: "link" | "pdf" | "doc" | "video";
+  resource_type: "link" | "pdf" | "doc" | "video" | "image";
   content_url: string;
   premium_only: number;
   featured: number;
@@ -100,6 +115,11 @@ const getNoteThumbnail = (note: AdminNote) =>
     ? `/api/og?title=${encodeURIComponent(note.title)}&category=${encodeURIComponent(note.category_name)}&v=3`
     : note.thumbnail_url;
 
+const getVideoThumbnail = (video: AdminVideo) =>
+  !video.thumbnail_url || video.thumbnail_url.includes("placeholder")
+    ? `/api/og?title=${encodeURIComponent(video.title)}&category=${encodeURIComponent(video.category_name || "Video")}&v=3`
+    : video.thumbnail_url;
+
 const formatBytes = (value: number) => {
   if (value <= 0) return "0 B";
   const units = ["B", "KB", "MB", "GB"];
@@ -119,12 +139,14 @@ export default function AdminPage() {
 
   const [stats, setStats] = useState<Stats | null>(null);
   const [notes, setNotes] = useState<AdminNote[]>([]);
+  const [videos, setVideos] = useState<AdminVideo[]>([]);
   const [storage, setStorage] = useState<StorageStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterValue>("all");
   const [query, setQuery] = useState("");
   const [activeAction, setActiveAction] = useState<string | null>(null);
+  const [activeVideoAction, setActiveVideoAction] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [storageError, setStorageError] = useState("");
   const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
@@ -174,9 +196,10 @@ export default function AdminPage() {
     setStorageError("");
 
     try {
-      const [statsRes, notesRes, storageRes] = await Promise.all([
+      const [statsRes, notesRes, videosRes, storageRes] = await Promise.all([
         fetch("/api/admin/stats", { cache: "no-store" }),
         fetch("/api/admin/notes", { cache: "no-store" }),
+        fetch("/api/admin/videos", { cache: "no-store" }),
         fetch("/api/admin/storage-status", { cache: "no-store" }),
       ]);
 
@@ -186,9 +209,11 @@ export default function AdminPage() {
 
       const statsPayload = await statsRes.json();
       const notesPayload = await notesRes.json();
+      const videosPayload = videosRes.ok ? await videosRes.json() : { videos: [] };
 
       setStats(statsPayload.stats ?? null);
       setNotes(notesPayload.notes ?? []);
+      setVideos(videosPayload.videos ?? []);
 
       if (storageRes.ok) {
         const storagePayload = (await storageRes.json()) as { storage?: StorageStatus };
@@ -525,6 +550,16 @@ export default function AdminPage() {
     [notes],
   );
 
+  const videoStatusCount = useMemo(
+    () => ({
+      all: videos.length,
+      pending: videos.filter((video) => video.status === "pending").length,
+      approved: videos.filter((video) => video.status === "approved").length,
+      rejected: videos.filter((video) => video.status === "rejected").length,
+    }),
+    [videos],
+  );
+
   const filteredNotes = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
 
@@ -568,6 +603,80 @@ export default function AdminPage() {
 
   const isNoteLocked = (noteId: string) =>
     activeAction ? activeAction.startsWith(`${noteId}:`) : false;
+
+  const isVideoActionBusy = (videoId: string, action: string) =>
+    activeVideoAction === `${videoId}:${action}`;
+
+  const isVideoLocked = (videoId: string) =>
+    activeVideoAction ? activeVideoAction.startsWith(`${videoId}:`) : false;
+
+  const handleVideoAction = async (
+    videoId: string,
+    action: "approve" | "reject" | "feature",
+    featured?: boolean,
+  ) => {
+    const actionKey = `${videoId}:${action}`;
+    setActiveVideoAction(actionKey);
+    setError("");
+
+    try {
+      const res = await fetch("/api/admin/videos", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId, action, featured }),
+      });
+
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error || "Video action failed");
+      }
+
+      await loadAdminData(true);
+    } catch (videoActionError) {
+      if (videoActionError instanceof Error) {
+        setError(videoActionError.message);
+      } else {
+        setError("Video action failed. Please try again.");
+      }
+    } finally {
+      setActiveVideoAction(null);
+    }
+  };
+
+  const handleVideoDelete = async (videoId: string, title: string) => {
+    const confirmed = window.confirm(
+      `Delete video "${title}" permanently?\n\nThis will remove the video record from moderation and library.`,
+    );
+
+    if (!confirmed) return;
+
+    const actionKey = `${videoId}:delete`;
+    setActiveVideoAction(actionKey);
+    setError("");
+
+    try {
+      const res = await fetch("/api/admin/videos", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ videoId }),
+      });
+
+      if (!res.ok) {
+        const payload = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error || "Video delete failed");
+      }
+
+      await loadAdminData(true);
+    } catch (videoDeleteError) {
+      if (videoDeleteError instanceof Error) {
+        setError(videoDeleteError.message);
+      } else {
+        setError("Video delete failed. Please try again.");
+      }
+    } finally {
+      setActiveVideoAction(null);
+    }
+  };
 
   const isAdvActionBusy = (resourceId: string, action: "approve" | "reject" | "feature" | "delete") => {
     if (!activeAdvAction) return false;
@@ -916,6 +1025,88 @@ export default function AdminPage() {
                       )}
                     </div>
                   )}
+                </div>
+
+                <div className={styles.panel} style={{ marginTop: "var(--space-xl)" }}>
+                  <div className={styles.controlRow}>
+                    <h3 className={styles.adminTabSubtitle} style={{ margin: 0 }}>Video Submissions</h3>
+                    <div className={styles.controlActions}>
+                      <span className={styles.metaPill}>All: {videoStatusCount.all}</span>
+                      <span className={styles.metaPill}>Pending: {videoStatusCount.pending}</span>
+                    </div>
+                  </div>
+
+                  <div className={styles.table}>
+                    {videos.map((video) => {
+                      const statusClass =
+                        video.status === "approved"
+                          ? styles.statusApproved
+                          : video.status === "pending"
+                            ? styles.statusPending
+                            : styles.statusRejected;
+
+                      return (
+                        <article key={video.id} className={styles.row}>
+                          <div className={styles.rowMain}>
+                            <div
+                              className={styles.rowThumb}
+                              style={{ backgroundImage: `url(${getVideoThumbnail(video)})` }}
+                            />
+                            <div className={styles.rowInfo}>
+                              <h3 className={styles.rowTitle}>{video.title}</h3>
+                              <div className={styles.rowMeta}>
+                                <span className={styles.metaPill}>{video.category_name || "Video"}</span>
+                                <span>{new Date(video.created_at).toLocaleDateString()}</span>
+                                <span>{video.view_count} views</span>
+                                <span>{(video.video_type || "video").toUpperCase()}</span>
+                              </div>
+                              <div className={styles.rowAuthor}>
+                                <span className={styles.rowAuthorAvatar}>
+                                  {(video.author_name || "U").charAt(0).toUpperCase()}
+                                </span>
+                                <div className={styles.rowAuthorText}>
+                                  <span className={styles.rowAuthorName}>{video.author_name || "Unknown author"}</span>
+                                  <span className={styles.rowAuthorEmail}>{video.author_email || "No email available"}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div className={styles.rowSide}>
+                            <div className={styles.rowBadges}>
+                              <span className={`${styles.statusBadge} ${statusClass}`}>
+                                {getStatusLabel(video.status)}
+                              </span>
+                              {Boolean(video.featured) && (
+                                <span className={styles.featuredBadge}>Featured</span>
+                              )}
+                            </div>
+                            <div className={styles.rowActions}>
+                              {video.status === "pending" && (
+                                <>
+                                  <button className={`btn btn-sm ${styles.approveBtn}`} onClick={() => void handleVideoAction(video.id, "approve")} disabled={isVideoLocked(video.id)}>
+                                    {isVideoActionBusy(video.id, "approve") ? "Approving..." : "Approve"}
+                                  </button>
+                                  <button className={`btn btn-sm ${styles.rejectBtn}`} onClick={() => void handleVideoAction(video.id, "reject")} disabled={isVideoLocked(video.id)}>
+                                    {isVideoActionBusy(video.id, "reject") ? "Rejecting..." : "Reject"}
+                                  </button>
+                                </>
+                              )}
+                              <button className={`btn btn-sm ${styles.featureBtn}`} onClick={() => void handleVideoAction(video.id, "feature", !video.featured)} disabled={isVideoLocked(video.id)}>
+                                {isVideoActionBusy(video.id, "feature") ? "Updating..." : video.featured ? "Unfeature" : "Feature"}
+                              </button>
+                              <Link href={`/videos/${video.id}`} className="btn btn-sm btn-ghost">Open</Link>
+                              <button className={`btn btn-sm ${styles.deleteBtn}`} onClick={() => void handleVideoDelete(video.id, video.title)} disabled={isVideoLocked(video.id)}>
+                                {isVideoActionBusy(video.id, "delete") ? "Deleting..." : "Delete"}
+                              </button>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                    {videos.length === 0 && (
+                      <div className={styles.empty}>No video submissions yet.</div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

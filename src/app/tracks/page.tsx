@@ -99,17 +99,11 @@ export default async function TracksHomePage() {
   const latestFeaturedResource = featuredResources[0];
 
   const buildResourceHref = (resource: {
+    id: string;
     trackSlug: string;
     topicSlug: string | null;
   }) => {
-    const params = new URLSearchParams();
-    params.set("track", resource.trackSlug);
-
-    if (resource.topicSlug) {
-      params.set("topic", resource.topicSlug);
-    }
-
-    return `/tracks/notes?${params.toString()}`;
+    return `/note/${resource.id}?mode=advanced`;
   };
 
   return (

@@ -16,13 +16,17 @@ export default function Navbar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Use initialState function to avoid hydration mismatch
-  const [mounted, setMounted] = useState(() => typeof window !== "undefined");
+  // Keep first server/client render identical; enable theme-dependent UI only after mount.
+  const [mounted, setMounted] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [headerHidden, setHeaderHidden] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
@@ -143,25 +147,46 @@ export default function Navbar() {
 
   const modeAwareSecondary =
     browseMode === "advanced"
-      ? { href: "/tracks/categories", label: "Categories" }
-      : { href: "/categories", label: "Categories" };
+      ? { href: "/tracks/categories", label: "Category" }
+      : { href: "/categories", label: "Category" };
 
   const modeAwareBrowse =
     browseMode === "advanced"
       ? { href: "/tracks/library", label: "Browse" }
       : { href: "/browse", label: "Browse" };
 
+  const modeAwareHome =
+    browseMode === "advanced" ? "/tracks" : "/";
+
   const uploadHref =
     browseMode === "advanced" ? "/upload?mode=advanced" : "/upload?mode=programming";
 
-  const navItems = useMemo(
+  const navItemsBeforeMode = useMemo(
     () => [
+      { id: "home", href: modeAwareHome, label: "Home" },
       { id: "browse", href: modeAwareBrowse.href, label: "Browse" },
       { id: "secondary", href: modeAwareSecondary.href, label: modeAwareSecondary.label },
+    ],
+    [modeAwareHome, modeAwareBrowse.href, modeAwareSecondary.href, modeAwareSecondary.label],
+  );
+
+  const navItemsAfterMode = useMemo(
+    () => [
+      { id: "videos", href: "/videos", label: "Video" },
       { id: "about", href: "/about", label: "About" },
     ],
-    [modeAwareBrowse.href, modeAwareSecondary.href, modeAwareSecondary.label],
+    [],
   );
+
+  const isItemActive = (href: string) => {
+    if (href === "/") return pathname === "/";
+    
+    // For home-like paths (e.g., /tracks in advanced mode), only match exactly
+    // For other paths (e.g., /browse, /categories), match exactly or with a trailing slash
+    if (pathname === href) return true;
+    if (pathname.startsWith(href + "/")) return true;
+    return false;
+  };
 
   const handleHomeLogoClick = (event: MouseEvent<HTMLAnchorElement>) => {
     setMobileMenuOpen(false);
@@ -172,7 +197,8 @@ export default function Navbar() {
 
     if (event.defaultPrevented || isModifiedClick) return;
 
-    if (pathname === "/") {
+    const homeHref = browseMode === "advanced" ? "/tracks" : "/";
+    if (pathname === homeHref) {
       event.preventDefault();
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     }
@@ -186,17 +212,17 @@ export default function Navbar() {
       className={`${styles.header} ${scrolled ? styles.scrolled : ""} ${headerHidden ? styles.headerHidden : ""}`}
     >
       <nav className={styles.nav}>
-        <Link href="/" className={styles.logo} id="nav-logo" onClick={handleHomeLogoClick}>
+        <Link href={modeAwareHome} className={styles.logo} id="nav-logo" onClick={handleHomeLogoClick}>
           <span className={styles.logoText}>xreso</span>
         </Link>
 
         <div className={styles.navLinks}>
-          {navItems.map((item) => (
+          {navItemsBeforeMode.map((item) => (
             <Link
               key={item.id}
               href={item.href}
               id={`nav-${item.id}`}
-              className={`${styles.navLink} ${pathname.startsWith(item.href) ? styles.navLinkActive : ""}`}
+              className={`${styles.navLink} ${isItemActive(item.href) ? styles.navLinkActive : ""}`}
             >
               {item.label}
             </Link>
@@ -220,6 +246,17 @@ export default function Navbar() {
               Advanced
             </Link>
           </div>
+
+          {navItemsAfterMode.map((item) => (
+            <Link
+              key={item.id}
+              href={item.href}
+              id={`nav-${item.id}`}
+              className={`${styles.navLink} ${isItemActive(item.href) ? styles.navLinkActive : ""}`}
+            >
+              {item.label}
+            </Link>
+          ))}
 
 
         </div>
@@ -328,7 +365,7 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {navItems.map((item) => (
+          {[...navItemsBeforeMode, ...navItemsAfterMode].map((item) => (
             <Link
               key={`mobile-${item.id}`}
               href={item.href}

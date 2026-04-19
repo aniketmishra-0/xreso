@@ -40,11 +40,11 @@ function buildContentSecurityPolicy() {
     "script-src " + scriptSrc.join(" ") + " https://cdnjs.cloudflare.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com",
-    "img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.amazonaws.com https://avatars.githubusercontent.com https://lh3.googleusercontent.com",
+    "img-src 'self' data: blob: https://*.r2.cloudflarestorage.com https://*.amazonaws.com https://avatars.githubusercontent.com https://lh3.googleusercontent.com https://img.youtube.com https://i.ytimg.com https://i.vimeocdn.com",
     "media-src 'self' blob: https://*.r2.cloudflarestorage.com https://*.amazonaws.com",
     "worker-src 'self' blob:",
     "connect-src " + connectSrc.join(" "),
-    "frame-src 'self' https://drive.google.com https://docs.google.com",
+    "frame-src 'self' https://drive.google.com https://docs.google.com https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
   ];
 
   if (isProduction) {
@@ -75,6 +75,18 @@ const nextConfig: NextConfig = {
       {
         protocol: "https",
         hostname: "lh3.googleusercontent.com", // Google OAuth avatars
+      },
+      {
+        protocol: "https",
+        hostname: "img.youtube.com",
+      },
+      {
+        protocol: "https",
+        hostname: "i.ytimg.com",
+      },
+      {
+        protocol: "https",
+        hostname: "i.vimeocdn.com",
       },
     ],
   },

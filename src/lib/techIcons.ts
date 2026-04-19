@@ -62,6 +62,7 @@ export const CATEGORY_CATALOG = [
   { slug: "data-structures", name: "Data Structures", description: "DSA and data structures", color: "#4ADE80", bg: "rgba(74, 222, 128, 0.12)" },
   { slug: "algorithms", name: "Algorithms", description: "Algorithm design & analysis", color: "#F472B6", bg: "rgba(244, 114, 182, 0.12)" },
   { slug: "devops", name: "DevOps", description: "DevOps, CI/CD, & infrastructure", color: "#06B6D4", bg: "rgba(6, 182, 212, 0.12)" },
+  { slug: "linux", name: "Linux", description: "Linux, shell scripting & system administration", color: "#FCC624", bg: "rgba(252, 198, 36, 0.12)" },
   { slug: "other", name: "Other", description: "Miscellaneous notes", color: "#9B8FC2", bg: "rgba(155, 143, 194, 0.12)" },
 ] as const;
 

@@ -29,7 +29,7 @@ interface AdvancedResource {
   id: string;
   title: string;
   summary: string;
-  resourceType: "link" | "pdf" | "doc" | "video";
+  resourceType: "link" | "pdf" | "doc" | "video" | "image";
   contentUrl: string | null;
   accessLocked: boolean;
   thumbnailUrl: string | null;

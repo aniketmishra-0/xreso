@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     const offset = (page - 1) * limit;
 
     let query = `
-      SELECT n.*, c.name as category_name, c.slug as category_slug, u.name as author_name,
+      SELECT n.*, c.name as category_name, c.slug as category_slug, COALESCE(u.name, n.author_credit, 'Anonymous') as author_name,
         GROUP_CONCAT(DISTINCT t.name) as tag_names
       FROM notes n
       LEFT JOIN categories c ON n.category_id = c.id

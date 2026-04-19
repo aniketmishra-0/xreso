@@ -9,7 +9,7 @@ interface Resource {
   id: string;
   title: string;
   summary: string;
-  resource_type: "link" | "pdf" | "doc" | "video";
+  resource_type: "link" | "pdf" | "doc" | "video" | "image";
   content_url: string;
   premium_only: number;
   featured: number;

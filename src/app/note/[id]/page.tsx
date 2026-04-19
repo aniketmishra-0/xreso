@@ -338,6 +338,7 @@ export default function NoteDetailPage() {
   const isPreviewableMedia = isImage || isVideo || isAudio;
   const ogFallbackUrl = `/api/og?title=${encodeURIComponent(note.title)}&category=${encodeURIComponent(note.category)}&v=4`;
   const hasUsableThumbnail = !!note.thumbnailUrl && !isSyntheticPlaceholderUrl(note.thumbnailUrl);
+  const hasTags = Array.isArray(note.tags) && note.tags.length > 0;
   const imageSourceUrl =
     !imageLoadFailed && note.fileUrl && !isSyntheticPlaceholderUrl(note.fileUrl)
       ? note.fileUrl
@@ -595,16 +596,18 @@ export default function NoteDetailPage() {
             </div>
 
             {/* Tags */}
-            <div className={styles.sideSection}>
-              <h3 className={styles.sideSectionTitle}>Tags</h3>
-              <div className={styles.tagsList}>
-                {note.tags.map((tag) => (
-                  <Link key={tag} href={`/browse?tag=${tag}`} className={styles.tagChip}>
-                    #{tag}
-                  </Link>
-                ))}
+            {hasTags ? (
+              <div className={styles.sideSection}>
+                <h3 className={styles.sideSectionTitle}>Tags</h3>
+                <div className={styles.tagsList}>
+                  {note.tags.map((tag) => (
+                    <Link key={tag} href={`/browse?tag=${tag}`} className={styles.tagChip}>
+                      #{tag}
+                    </Link>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : null}
 
             {/* License */}
             <div className={styles.sideSection}>

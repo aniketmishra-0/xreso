@@ -51,6 +51,9 @@ function isStorageConfigError(error: unknown): boolean {
 
 let ensureDriveColumnPromise: Promise<void> | null = null;
 const ONE_DRIVE_UPLOAD_MAX_ATTEMPTS = 4;
+const ANONYMOUS_USER_ID = "anonymous-uploader";
+const ANONYMOUS_USER_EMAIL = "anonymous@xreso.local";
+const ANONYMOUS_USER_NAME = "Anonymous";
 
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -90,6 +93,21 @@ function ensureDir(targetDir: string) {
   if (!fs.existsSync(targetDir)) {
     fs.mkdirSync(targetDir, { recursive: true });
   }
+}
+
+function getImageMimeTypeFromUrl(url: string): string | null {
+  try {
+    const pathname = new URL(url).pathname.toLowerCase();
+    if (pathname.endsWith(".png")) return "image/png";
+    if (pathname.endsWith(".jpg") || pathname.endsWith(".jpeg")) return "image/jpeg";
+    if (pathname.endsWith(".webp")) return "image/webp";
+    if (pathname.endsWith(".gif")) return "image/gif";
+    if (pathname.endsWith(".avif")) return "image/avif";
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 async function isAutoApproveEnabled(client: Client): Promise<boolean> {
@@ -255,6 +273,39 @@ async function ensureUserRecord(client: Client, sessionUser: { id?: string; emai
   return sessionUser.id;
 }
 
+async function ensureAnonymousUserRecord(client: Client): Promise<string> {
+  const byId = await client.execute({
+    sql: "SELECT id FROM users WHERE id = ?",
+    args: [ANONYMOUS_USER_ID],
+  });
+  if (byId.rows.length > 0) return ANONYMOUS_USER_ID;
+
+  const byEmail = await client.execute({
+    sql: "SELECT id FROM users WHERE email = ?",
+    args: [ANONYMOUS_USER_EMAIL],
+  });
+  if (byEmail.rows.length > 0) return String(byEmail.rows[0].id);
+
+  await client.execute({
+    sql: "INSERT OR IGNORE INTO users (id, name, email, role) VALUES (?, ?, ?, ?)",
+    args: [ANONYMOUS_USER_ID, ANONYMOUS_USER_NAME, ANONYMOUS_USER_EMAIL, "user"],
+  });
+
+  return ANONYMOUS_USER_ID;
+}
+
+async function resolveAuthorId(
+  client: Client,
+  sessionUser?: { id?: string; email?: string | null; name?: string | null } | null
+): Promise<string> {
+  if (sessionUser?.id) {
+    const userId = await ensureUserRecord(client, sessionUser);
+    if (userId) return userId;
+  }
+
+  return ensureAnonymousUserRecord(client);
+}
+
 async function insertUploadedFileNote(
   client: Client,
   data: {
@@ -350,7 +401,7 @@ export async function POST(req: NextRequest) {
     const client = getClient();
     await ensureDriveItemColumn(client);
     const session = await auth();
-    if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const sessionUser = session?.user;
 
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
@@ -366,22 +417,39 @@ export async function POST(req: NextRequest) {
 
     const autoApprove = await isAutoApproveEnabled(client);
     const initialStatus = autoApprove ? "approved" : "pending";
+    const normalizedAuthorCredit = (authorCredit || sessionUser?.name || ANONYMOUS_USER_NAME).trim() || ANONYMOUS_USER_NAME;
+    const authorId = await resolveAuthorId(client, sessionUser);
 
     if (uploadMode === "link") {
-      if (!title || !description || !category || !authorCredit || !resourceUrl) {
+      if (!title || !description || !category || !resourceUrl) {
         return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
       }
 
       const noteId = uuidv4();
-      const authorId = await ensureUserRecord(client, session.user);
-      if (!authorId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
       const categoryId = await resolveCategoryId(client, category);
       if (!categoryId) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
 
+      const imageMimeType = getImageMimeTypeFromUrl(resourceUrl);
+
       await client.execute({
         sql: `INSERT INTO notes (id, title, description, category_id, author_id, author_credit, thumbnail_url, file_url, file_name, file_type, file_size_bytes, source_url, license_type, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        args: [noteId, title, description, categoryId, authorId, authorCredit, "", resourceUrl, "", "link", 0, resourceUrl, licenseType || "CC-BY-4.0", initialStatus]
+        args: [
+          noteId,
+          title,
+          description,
+          categoryId,
+          authorId,
+          normalizedAuthorCredit,
+          imageMimeType ? resourceUrl : "",
+          resourceUrl,
+          "",
+          imageMimeType || "link",
+          0,
+          resourceUrl,
+          licenseType || "CC-BY-4.0",
+          initialStatus,
+        ]
       });
 
       if (autoApprove) {
@@ -393,8 +461,8 @@ export async function POST(req: NextRequest) {
       try {
         await appendLinkToExcel({
           noteId, title, description, category,
-          link: resourceUrl, author: session.user.name || authorCredit,
-          authorEmail: session.user.email || "", tags: tags || "", license: licenseType || "CC-BY-4.0",
+          link: resourceUrl, author: sessionUser?.name || normalizedAuthorCredit,
+          authorEmail: sessionUser?.email || "", tags: tags || "", license: licenseType || "CC-BY-4.0",
         });
       } catch (error) {
         console.error("[Excel] append failed:", error);
@@ -403,7 +471,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, noteId, message: "Resource shared successfully!" });
     }
 
-    if (!file || !title || !description || !category || !authorCredit) {
+    if (!file || !title || !description || !category) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
@@ -431,9 +499,6 @@ export async function POST(req: NextRequest) {
     const fileUrl = `/api/files/${noteId}`; // Do not rely on local /uploads/ URL
     const thumbnailUrl = (await createLocalThumbnail(noteId, fileName, fileBuffer, file.type)) || fileUrl;
 
-    const authorId = await ensureUserRecord(client, session.user);
-    if (!authorId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
     const categoryId = await resolveCategoryId(client, category);
     if (!categoryId) return NextResponse.json({ error: "Invalid category" }, { status: 400 });
 
@@ -443,7 +508,7 @@ export async function POST(req: NextRequest) {
       description,
       categoryId,
       authorId,
-      authorCredit,
+      authorCredit: normalizedAuthorCredit,
       thumbnailUrl,
       fileUrl,
       fileName: file.name,
@@ -462,7 +527,7 @@ export async function POST(req: NextRequest) {
 
     const stableFileUrl = `${req.nextUrl.origin}/api/files/${noteId}`;
     try {
-      await appendLinkToExcel({ noteId, title, description, category, link: stableFileUrl, author: session.user.name || authorCredit, authorEmail: session.user.email || "", tags: tags || "", license: licenseType || "CC-BY-4.0" });
+      await appendLinkToExcel({ noteId, title, description, category, link: stableFileUrl, author: sessionUser?.name || normalizedAuthorCredit, authorEmail: sessionUser?.email || "", tags: tags || "", license: licenseType || "CC-BY-4.0" });
     } catch (error) {
       console.error("[Excel] append failed for file upload:", error);
     }

@@ -17,10 +17,13 @@ const ADVANCED_UPLOAD_DIR = path.join(os.tmpdir(), "xreso_advanced_uploads");
 const LEGACY_ADVANCED_UPLOAD_DIR = path.join(process.cwd(), "public", "uploads", "advanced");
 const ADVANCED_MAX_FILE_SIZE = 100 * 1024 * 1024;
 const ONE_DRIVE_UPLOAD_MAX_ATTEMPTS = 4;
+const ANONYMOUS_USER_ID = "anonymous-uploader";
+const ANONYMOUS_USER_EMAIL = "anonymous@xreso.local";
+const ANONYMOUS_USER_NAME = "Anonymous";
 
 export const maxDuration = 300;
 
-type ResourceType = "link" | "pdf" | "doc" | "video";
+type ResourceType = "link" | "pdf" | "doc" | "video" | "image";
 type UpdateAction = "approve" | "reject" | "archive" | "feature" | "unfeature";
 
 function getClient(): Client {
@@ -77,7 +80,7 @@ function parseStatus(
 }
 
 function parseResourceType(value: unknown): ResourceType {
-  if (value === "pdf" || value === "doc" || value === "video") {
+  if (value === "pdf" || value === "doc" || value === "video" || value === "image") {
     return value;
   }
   return "link";
@@ -119,6 +122,10 @@ function inferResourceTypeFromFile(file: File): Exclude<ResourceType, "link"> | 
 
   if (mimeType.startsWith("video/") || ["mp4", "webm", "mov", "m4v"].includes(extension)) {
     return "video";
+  }
+
+  if (mimeType.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "gif", "avif"].includes(extension)) {
+    return "image";
   }
 
   return null;
@@ -271,6 +278,81 @@ async function requireAdminSession() {
   return { session, client: getClient() };
 }
 
+async function ensureUserRecord(
+  client: Client,
+  sessionUser: { id?: string; email?: string | null; name?: string | null }
+) {
+  if (!sessionUser.id) return null;
+
+  const existing = await client.execute({
+    sql: "SELECT id FROM users WHERE id = ?",
+    args: [sessionUser.id],
+  });
+  if (existing.rows.length > 0) return sessionUser.id;
+
+  const email = sessionUser.email || "";
+  const byEmail = await client.execute({
+    sql: "SELECT id FROM users WHERE email = ?",
+    args: [email],
+  });
+  if (byEmail.rows.length > 0) {
+    return String(byEmail.rows[0].id);
+  }
+
+  await client.execute({
+    sql: "INSERT OR IGNORE INTO users (id, name, email, role) VALUES (?, ?, ?, ?)",
+    args: [sessionUser.id, sessionUser.name || "User", email, "user"],
+  });
+
+  return sessionUser.id;
+}
+
+async function ensureAnonymousUserRecord(client: Client): Promise<string> {
+  const byId = await client.execute({
+    sql: "SELECT id FROM users WHERE id = ?",
+    args: [ANONYMOUS_USER_ID],
+  });
+  if (byId.rows.length > 0) return ANONYMOUS_USER_ID;
+
+  const byEmail = await client.execute({
+    sql: "SELECT id FROM users WHERE email = ?",
+    args: [ANONYMOUS_USER_EMAIL],
+  });
+  if (byEmail.rows.length > 0) return String(byEmail.rows[0].id);
+
+  await client.execute({
+    sql: "INSERT OR IGNORE INTO users (id, name, email, role) VALUES (?, ?, ?, ?)",
+    args: [ANONYMOUS_USER_ID, ANONYMOUS_USER_NAME, ANONYMOUS_USER_EMAIL, "user"],
+  });
+
+  return ANONYMOUS_USER_ID;
+}
+
+async function resolveUploaderIdentity(client: Client) {
+  const session = await auth();
+  const sessionUser = session?.user as
+    | { id?: string; name?: string | null; email?: string | null }
+    | undefined;
+
+  if (sessionUser?.id) {
+    const userId = await ensureUserRecord(client, sessionUser);
+    if (userId) {
+      return {
+        authorId: userId,
+        authorName: sessionUser.name || ANONYMOUS_USER_NAME,
+        authorEmail: sessionUser.email || "",
+      };
+    }
+  }
+
+  const anonymousId = await ensureAnonymousUserRecord(client);
+  return {
+    authorId: anonymousId,
+    authorName: ANONYMOUS_USER_NAME,
+    authorEmail: "",
+  };
+}
+
 export async function GET() {
   const admin = await requireAdminSession();
   if ("error" in admin) return admin.error;
@@ -341,15 +423,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const admin = await requireAdminSession();
-  if ("error" in admin) return admin.error;
-
-  const { session, client } = admin;
-  const authorId = session.user?.id;
-
-  if (!authorId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const client = getClient();
+  const uploader = await resolveUploaderIdentity(client);
+  const authorId = uploader.authorId;
 
   let uploadedFilePath: string | null = null;
 
@@ -458,7 +534,7 @@ export async function POST(req: NextRequest) {
       const inferredType = inferResourceTypeFromFile(uploadedFile);
       if (!inferredType) {
         return NextResponse.json(
-          { error: "Invalid file type. Allowed: PDF, DOC, DOCX, MP4, WEBM." },
+          { error: "Invalid file type. Allowed: PDF, DOC, DOCX, MP4, WEBM, PNG, JPG, JPEG, WEBP." },
           { status: 400 }
         );
       }
@@ -519,7 +595,13 @@ export async function POST(req: NextRequest) {
 
     if (uploadedFile) {
       const fallbackExtension =
-        resourceType === "pdf" ? "pdf" : resourceType === "video" ? "mp4" : "doc";
+        resourceType === "pdf"
+          ? "pdf"
+          : resourceType === "video"
+            ? "mp4"
+            : resourceType === "image"
+              ? "png"
+              : "doc";
       const extension = getSafeFileExtension(uploadedFile.name, fallbackExtension);
       const fileName = `${resourceId}.${extension}`;
       const fileBuffer = Buffer.from(await uploadedFile.arrayBuffer());
@@ -610,8 +692,8 @@ export async function POST(req: NextRequest) {
         description: summary,
         category: excelCategory,
         link: excelLink,
-        author: session.user.name || "Admin",
-        authorEmail: session.user.email || "",
+        author: uploader.authorName,
+        authorEmail: uploader.authorEmail,
         tags: tags.join(", "),
         license: licenseType,
         status,

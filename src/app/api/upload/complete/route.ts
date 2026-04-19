@@ -18,6 +18,10 @@ import { v4 as uuidv4 } from "uuid";
 
 export const dynamic = "force-dynamic";
 
+const ANONYMOUS_USER_ID = "anonymous-uploader";
+const ANONYMOUS_USER_EMAIL = "anonymous@xreso.local";
+const ANONYMOUS_USER_NAME = "Anonymous";
+
 const CATEGORY_ALIASES: Record<string, string> = {
   c: "c-cpp",
   cpp: "c-cpp",
@@ -139,6 +143,39 @@ async function ensureUserRecord(
   return sessionUser.id;
 }
 
+async function ensureAnonymousUserRecord(client: Client): Promise<string> {
+  const byId = await client.execute({
+    sql: "SELECT id FROM users WHERE id = ?",
+    args: [ANONYMOUS_USER_ID],
+  });
+  if (byId.rows.length > 0) return ANONYMOUS_USER_ID;
+
+  const byEmail = await client.execute({
+    sql: "SELECT id FROM users WHERE email = ?",
+    args: [ANONYMOUS_USER_EMAIL],
+  });
+  if (byEmail.rows.length > 0) return String(byEmail.rows[0].id);
+
+  await client.execute({
+    sql: "INSERT OR IGNORE INTO users (id, name, email, role) VALUES (?, ?, ?, ?)",
+    args: [ANONYMOUS_USER_ID, ANONYMOUS_USER_NAME, ANONYMOUS_USER_EMAIL, "user"],
+  });
+
+  return ANONYMOUS_USER_ID;
+}
+
+async function resolveAuthorId(
+  client: Client,
+  sessionUser?: { id?: string; email?: string | null; name?: string | null } | null
+): Promise<string> {
+  if (sessionUser?.id) {
+    const userId = await ensureUserRecord(client, sessionUser);
+    if (userId) return userId;
+  }
+
+  return ensureAnonymousUserRecord(client);
+}
+
 async function insertTags(client: Client, noteId: string, tags: string) {
   const tagList = tags
     .split(",")
@@ -165,9 +202,7 @@ async function insertTags(client: Client, noteId: string, tags: string) {
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const sessionUser = session?.user;
 
     const body = await req.json();
     const {
@@ -196,7 +231,7 @@ export async function POST(req: NextRequest) {
       fileSize?: number;
     };
 
-    if (!driveItemId || !title || !description || !category || !authorCredit) {
+    if (!driveItemId || !title || !description || !category) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -205,11 +240,11 @@ export async function POST(req: NextRequest) {
 
     const client = getClient();
     const noteId = uuidv4();
+    const normalizedAuthorCredit =
+      (authorCredit || sessionUser?.name || ANONYMOUS_USER_NAME).trim() ||
+      ANONYMOUS_USER_NAME;
 
-    const authorId = await ensureUserRecord(client, session.user);
-    if (!authorId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authorId = await resolveAuthorId(client, sessionUser);
 
     const categoryId = await resolveCategoryId(client, category);
     if (!categoryId) {
@@ -238,7 +273,7 @@ export async function POST(req: NextRequest) {
           description,
           categoryId,
           authorId,
-          authorCredit,
+          normalizedAuthorCredit,
           thumbnailUrl,
           fileUrl,
           fileName || "file",
@@ -271,7 +306,7 @@ export async function POST(req: NextRequest) {
             description,
             categoryId,
             authorId,
-            authorCredit,
+            normalizedAuthorCredit,
             thumbnailUrl,
             fileUrl,
             fileName || "file",
@@ -301,8 +336,8 @@ export async function POST(req: NextRequest) {
         description,
         category,
         link: stableFileUrl,
-        author: session.user.name || authorCredit,
-        authorEmail: session.user.email || "",
+        author: sessionUser?.name || normalizedAuthorCredit,
+        authorEmail: sessionUser?.email || "",
         tags: tags || "",
         license: licenseType || "CC-BY-4.0",
       });

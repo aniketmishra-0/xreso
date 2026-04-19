@@ -420,3 +420,290 @@ export async function incrementViewCount(noteId: string) {
     // silently fail
   }
 }
+
+// ─── VIDEO QUERIES ────────────────────────────────────
+
+export async function getApprovedVideos(
+  limit = 12,
+  offset = 0,
+  categoryId?: number,
+  searchQuery?: string,
+  sortBy: "newest" | "popular" = "newest"
+) {
+  try {
+    const client = getClient();
+
+    try {
+      await client.execute({
+        sql: "ALTER TABLE videos ADD COLUMN channel_name text",
+        args: [],
+      });
+    } catch {
+      // Column already exists in migrated databases.
+    }
+
+    try {
+      await client.execute({
+        sql: "ALTER TABLE videos ADD COLUMN channel_url text",
+        args: [],
+      });
+    } catch {
+      // Column already exists in migrated databases.
+    }
+
+    let sql = `
+      SELECT 
+        v.id, v.title, v.description, v.thumbnail_url, v.video_type, v.video_id,
+        v.view_count, v.created_at, v.author_credit, v.author_id,
+        c.name as category_name, c.slug as category_slug,
+        u.name as author_name
+      FROM videos v
+      LEFT JOIN categories c ON v.category_id = c.id
+      LEFT JOIN users u ON v.author_id = u.id
+      WHERE v.status = 'approved'
+    `;
+
+    const args: any[] = [];
+
+    if (categoryId) {
+      sql += ` AND v.category_id = ?`;
+      args.push(categoryId);
+    }
+
+    if (searchQuery) {
+      sql += ` AND (v.title LIKE ? OR v.description LIKE ?)`;
+      const searchTerm = `%${searchQuery}%`;
+      args.push(searchTerm, searchTerm);
+    }
+
+    sql +=
+      sortBy === "popular"
+        ? ` ORDER BY v.view_count DESC, v.created_at DESC`
+        : ` ORDER BY v.created_at DESC`;
+
+    sql += ` LIMIT ? OFFSET ?`;
+    args.push(limit, offset);
+
+    const result = await client.execute({
+      sql,
+      args,
+    });
+
+    return result.rows.map((r) => ({
+      id: r.id as string,
+      title: r.title as string,
+      description: r.description as string,
+      category: r.category_name as string,
+      categorySlug: r.category_slug as string,
+      author: r.author_name as string,
+      authorId: r.author_id as string,
+      thumbnailUrl: r.thumbnail_url as string,
+      videoType: r.video_type as string,
+      videoId: r.video_id as string,
+      viewCount: Number(r.view_count) || 0,
+      createdAt: r.created_at as string,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getVideoById(id: string) {
+  try {
+    const client = getClient();
+    try {
+      await client.execute({
+        sql: "ALTER TABLE videos ADD COLUMN channel_name text",
+        args: [],
+      });
+    } catch {
+      // Column already exists in migrated databases.
+    }
+
+    try {
+      await client.execute({
+        sql: "ALTER TABLE videos ADD COLUMN channel_url text",
+        args: [],
+      });
+    } catch {
+      // Column already exists in migrated databases.
+    }
+
+    const result = await client.execute({
+      sql: `
+        SELECT 
+          v.*, 
+          c.name as category_name, c.slug as category_slug,
+          u.name as author_name
+        FROM videos v
+        LEFT JOIN categories c ON v.category_id = c.id
+        LEFT JOIN users u ON v.author_id = u.id
+        WHERE v.id = ?
+      `,
+      args: [id],
+    });
+
+    if (result.rows.length === 0) return null;
+
+    const row = result.rows[0];
+    return {
+      id: row.id as string,
+      title: row.title as string,
+      description: row.description as string,
+      categoryId: Number(row.category_id),
+      category: row.category_name as string,
+      categorySlug: row.category_slug as string,
+      authorId: row.author_id as string,
+      authorCredit: row.author_credit as string,
+      authorName: row.author_name as string,
+      videoUrl: row.video_url as string,
+      videoType: row.video_type as string,
+      videoId: row.video_id as string,
+      thumbnailUrl: row.thumbnail_url as string,
+      channelName: row.channel_name as string,
+      channelUrl: row.channel_url as string,
+      duration: row.duration as string,
+      licenseType: row.license_type as string,
+      status: row.status as string,
+      featured: Boolean(row.featured),
+      viewCount: Number(row.view_count) || 0,
+      createdAt: row.created_at as string,
+      updatedAt: row.updated_at as string,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function createVideo(videoData: {
+  id: string;
+  title: string;
+  description: string;
+  categoryId: number;
+  authorId: string;
+  authorCredit: string;
+  videoUrl: string;
+  videoType: "youtube" | "vimeo";
+  videoId: string;
+  thumbnailUrl: string;
+  channelName?: string;
+  channelUrl?: string;
+  licenseType?: string;
+}) {
+  try {
+    const client = getClient();
+    try {
+      await client.execute({
+        sql: "ALTER TABLE videos ADD COLUMN channel_name text",
+        args: [],
+      });
+    } catch {
+      // Column already exists in migrated databases.
+    }
+
+    try {
+      await client.execute({
+        sql: "ALTER TABLE videos ADD COLUMN channel_url text",
+        args: [],
+      });
+    } catch {
+      // Column already exists in migrated databases.
+    }
+
+    await client.execute({
+      sql: `
+        INSERT INTO videos (
+          id, title, description, category_id, author_id, author_credit,
+          video_url, video_type, video_id, thumbnail_url, channel_name, channel_url, license_type, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      args: [
+        videoData.id,
+        videoData.title,
+        videoData.description,
+        videoData.categoryId,
+        videoData.authorId,
+        videoData.authorCredit,
+        videoData.videoUrl,
+        videoData.videoType,
+        videoData.videoId,
+        videoData.thumbnailUrl,
+        videoData.channelName?.trim() || null,
+        videoData.channelUrl?.trim() || null,
+        videoData.licenseType || "CC-BY-4.0",
+        "approved",
+      ],
+    });
+
+    return true;
+  } catch (error) {
+    console.error("createVideo failed:", error);
+    return false;
+  }
+}
+
+export async function incrementVideoViewCount(videoId: string) {
+  try {
+    const client = getClient();
+    await client.execute({
+      sql: "UPDATE videos SET view_count = view_count + 1 WHERE id = ?",
+      args: [videoId],
+    });
+  } catch {
+    // silently fail
+  }
+}
+
+export async function getTrendingVideos(limit = 6) {
+  try {
+    const client = getClient();
+    const result = await client.execute({
+      sql: `
+        SELECT 
+          v.id, v.title, v.thumbnail_url, v.video_type, v.video_id,
+          v.view_count, v.created_at, v.author_credit,
+          c.name as category_name, c.slug as category_slug
+        FROM videos v
+        LEFT JOIN categories c ON v.category_id = c.id
+        WHERE v.status = 'approved'
+        ORDER BY v.view_count DESC, v.created_at DESC
+        LIMIT ?
+      `,
+      args: [limit],
+    });
+
+    return result.rows.map((r) => ({
+      id: r.id as string,
+      title: r.title as string,
+      category: r.category_name as string,
+      categorySlug: r.category_slug as string,
+      thumbnailUrl: r.thumbnail_url as string,
+      videoType: r.video_type as string,
+      videoId: r.video_id as string,
+      viewCount: Number(r.view_count) || 0,
+      authorCredit: r.author_credit as string,
+      createdAt: r.created_at as string,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function countApprovedVideos(categoryId?: number) {
+  try {
+    const client = getClient();
+
+    let sql = "SELECT COUNT(*) as count FROM videos WHERE status = 'approved'";
+    const args: any[] = [];
+
+    if (categoryId) {
+      sql += " AND category_id = ?";
+      args.push(categoryId);
+    }
+
+    const result = await client.execute({ sql, args });
+    return Number(result.rows[0]?.count || 0);
+  } catch {
+    return 0;
+  }
+}

@@ -46,7 +46,7 @@ const WORKBOOK_CONFIG = {
     key: "community",
     label: "Community",
     primarySheet: "Community Links",
-    expectedSheets: ["Community Links", "Registered Users", "User Photos"],
+    expectedSheets: ["Community Links", "video_content", "Registered Users", "User Photos"],
     target: COMMUNITY_WORKBOOK,
   },
   advanced: {
@@ -105,6 +105,22 @@ const HEADERS = [
   { header: "Tags", key: "tags", width: 30 },
   { header: "License", key: "license", width: 18 },
   { header: "Note ID", key: "noteId", width: 38 },
+  { header: "Status", key: "status", width: 12 },
+  { header: "Author Email", key: "authorEmail", width: 36 },
+];
+
+const VIDEO_CONTENT_HEADERS = [
+  { header: "Date", key: "date", width: 18 },
+  { header: "Title", key: "title", width: 35 },
+  { header: "Category", key: "category", width: 18 },
+  { header: "Video URL", key: "videoUrl", width: 55 },
+  { header: "Platform", key: "platform", width: 14 },
+  { header: "Video ID", key: "videoId", width: 24 },
+  { header: "Author Name", key: "author", width: 22 },
+  { header: "Description", key: "description", width: 45 },
+  { header: "Tags", key: "tags", width: 30 },
+  { header: "License", key: "license", width: 18 },
+  { header: "Video Note ID", key: "noteId", width: 38 },
   { header: "Status", key: "status", width: 12 },
   { header: "Author Email", key: "authorEmail", width: 36 },
 ];
@@ -433,6 +449,10 @@ function applyAdvancedSheetSchema(sheet: ExcelJS.Worksheet) {
   applySheetSchema(sheet, HEADERS, "0EA5E9");
 }
 
+function applyVideoContentSheetSchema(sheet: ExcelJS.Worksheet) {
+  applySheetSchema(sheet, VIDEO_CONTENT_HEADERS, "EC4899");
+}
+
 function applyUserSheetSchema(sheet: ExcelJS.Worksheet) {
   applySheetSchema(sheet, USER_HEADERS, "10B981");
 }
@@ -464,6 +484,17 @@ function ensureWorksheet(
     workbook.addWorksheet(name, { properties: { tabColor: { argb: tabColor } } });
   schema(sheet);
   return sheet;
+}
+
+function moveWorksheetToFront(workbook: ExcelJS.Workbook, sheetName: string) {
+  const model = workbook.model;
+  if (!model || !Array.isArray(model.worksheets)) return;
+
+  const currentIndex = model.worksheets.findIndex((sheet) => sheet?.name === sheetName);
+  if (currentIndex <= 0) return;
+
+  const [target] = model.worksheets.splice(currentIndex, 1);
+  model.worksheets.unshift(target);
 }
 
 function cellValueToText(value: ExcelJS.CellValue | null | undefined): string {
@@ -506,6 +537,33 @@ function formatExcelStatus(status?: string) {
   const normalized = typeof status === "string" ? status.trim().toLowerCase() : "";
   if (!normalized) return "Pending";
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function getVideoMeta(url: string): { platform: string; videoId: string } {
+  if (!url) return { platform: "Unknown", videoId: "" };
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { platform: "Unknown", videoId: "" };
+  }
+
+  const host = parsed.hostname.toLowerCase();
+  if (host.includes("youtube.com") || host.includes("youtu.be")) {
+    const byQuery = parsed.searchParams.get("v");
+    if (byQuery) return { platform: "YouTube", videoId: byQuery };
+
+    const byPath = parsed.pathname.split("/").filter(Boolean).pop() || "";
+    return { platform: "YouTube", videoId: byPath };
+  }
+
+  if (host.includes("vimeo.com")) {
+    const byPath = parsed.pathname.split("/").filter(Boolean).pop() || "";
+    return { platform: "Vimeo", videoId: byPath };
+  }
+
+  return { platform: detectLinkType(url), videoId: "" };
 }
 
 async function loadExistingWorkbookBuffer(
@@ -650,6 +708,86 @@ export async function appendAdvancedLinkToExcel(data: ExcelLinkRow): Promise<voi
     );
   } catch (error) {
     console.error("[Excel] Failed to append advanced upload:", error);
+  }
+}
+
+export async function appendVideoContentToExcel(data: ExcelLinkRow): Promise<void> {
+  try {
+    const { isOneDriveConfigured } = await import("@/lib/onedrive");
+    const useOneDrive = isOneDriveConfigured();
+    const existingBuffer = await loadExistingWorkbookBuffer(COMMUNITY_WORKBOOK, useOneDrive);
+    const workbook = await loadOrCreateWorkbook(existingBuffer);
+    const sheet = ensureWorksheet(
+      workbook,
+      "video_content",
+      "EC4899",
+      applyVideoContentSheetSchema
+    );
+
+    const now = new Date().toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Asia/Kolkata",
+    });
+
+    const categoryName = CATEGORY_MAP[data.category] || data.category || "Other";
+    const { platform, videoId } = getVideoMeta(data.link);
+
+    const newRow = sheet.insertRow(2, {
+      date: now,
+      title: data.title,
+      category: categoryName,
+      videoUrl: data.link,
+      platform,
+      videoId,
+      author: data.author,
+      description: data.description,
+      tags: data.tags,
+      license: data.license,
+      noteId: data.noteId,
+      status: formatExcelStatus(data.status),
+      authorEmail: data.authorEmail || "",
+    });
+
+    const videoUrlCell = newRow.getCell("videoUrl");
+    videoUrlCell.value = {
+      text: data.link,
+      hyperlink: data.link,
+    } as ExcelJS.CellHyperlinkValue;
+    videoUrlCell.font = { color: { argb: "0563C1" }, underline: true };
+
+    if (newRow.number % 2 === 0) {
+      newRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FDF2F8" },
+      };
+    }
+
+    // Keep video_content visible and first for fast admin access.
+    moveWorksheetToFront(workbook, "video_content");
+    workbook.views = [
+      {
+        x: 0,
+        y: 0,
+        width: 19200,
+        height: 10800,
+        firstSheet: 0,
+        activeTab: 0,
+        visibility: "visible",
+      },
+    ];
+
+    const outputBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    await saveWorkbook(
+      COMMUNITY_WORKBOOK,
+      useOneDrive,
+      outputBuffer,
+      "video_content row appended",
+      "video_content sync deferred"
+    );
+  } catch (error) {
+    console.error("[Excel] Failed to append video content:", error);
   }
 }
 

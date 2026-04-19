@@ -75,6 +75,45 @@ export const notes = sqliteTable("notes", {
     .default(sql`(datetime('now'))`),
 });
 
+// ─── Videos ────────────────────────────────────────────
+export const videos = sqliteTable("videos", {
+  id: text("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  categoryId: integer("category_id")
+    .notNull()
+    .references(() => categories.id),
+  authorId: text("author_id")
+    .notNull()
+    .references(() => users.id),
+  authorCredit: text("author_credit").notNull(),
+  videoUrl: text("video_url").notNull(),
+  videoType: text("video_type", { enum: ["youtube", "vimeo"] })
+    .notNull()
+    .default("youtube"),
+  videoId: text("video_id").notNull(),
+  thumbnailUrl: text("thumbnail_url"),
+  duration: text("duration"),
+  licenseType: text("license_type")
+    .notNull()
+    .default("CC-BY-4.0"),
+  status: text("status", {
+    enum: ["pending", "approved", "rejected"],
+  })
+    .notNull()
+    .default("pending"),
+  featured: integer("featured", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  viewCount: integer("view_count").notNull().default(0),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+  updatedAt: text("updated_at")
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 // ─── Tags ─────────────────────────────────────────────
 export const tags = sqliteTable("tags", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -192,7 +231,7 @@ export const advancedTrackResources = sqliteTable("advanced_track_resources", {
   title: text("title").notNull(),
   summary: text("summary").notNull(),
   resourceType: text("resource_type", {
-    enum: ["link", "pdf", "doc", "video"],
+    enum: ["link", "pdf", "doc", "video", "image"],
   })
     .notNull()
     .default("link"),
@@ -234,6 +273,8 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Note = typeof notes.$inferSelect;
 export type NewNote = typeof notes.$inferInsert;
+export type Video = typeof videos.$inferSelect;
+export type NewVideo = typeof videos.$inferInsert;
 export type Category = typeof categories.$inferSelect;
 export type Tag = typeof tags.$inferSelect;
 export type Bookmark = typeof bookmarks.$inferSelect;

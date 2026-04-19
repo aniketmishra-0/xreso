@@ -15,6 +15,13 @@
       "when": 1776235386232,
       "tag": "0001_flat_prodigy",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1776240000000,
+      "tag": "0002_add_videos_table",
+      "breakpoints": true
     }
   ]
 }

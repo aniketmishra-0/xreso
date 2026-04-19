@@ -19,6 +19,20 @@ function getClient() {
     authToken: process.env.TURSO_AUTH_TOKEN,
   });
 }
+function getImageMimeTypeFromUrl(url: string): string | null {
+  try {
+    const pathname = new URL(url).pathname.toLowerCase();
+    if (pathname.endsWith(".png")) return "image/png";
+    if (pathname.endsWith(".jpg") || pathname.endsWith(".jpeg")) return "image/jpeg";
+    if (pathname.endsWith(".webp")) return "image/webp";
+    if (pathname.endsWith(".gif")) return "image/gif";
+    if (pathname.endsWith(".avif")) return "image/avif";
+  } catch {
+    return null;
+  }
+
+  return null;
+}
 
 function resolvePublicPathFromUploadsUrl(fileUrl: string): string | null {
   if (!fileUrl.startsWith("/uploads/")) return null;
@@ -60,7 +74,7 @@ export async function GET(
 
     const result = await client.execute({
       sql: `SELECT n.*, c.name as category_name, c.slug as category_slug,
-             u.name as author_name, u.avatar as author_avatar, u.bio as author_bio
+            COALESCE(u.name, n.author_credit, 'Anonymous') as author_name, u.avatar as author_avatar, u.bio as author_bio
       FROM notes n
       LEFT JOIN categories c ON n.category_id = c.id
       LEFT JOIN users u ON n.author_id = u.id
@@ -117,7 +131,6 @@ export async function GET(
             resolvedFileSizeBytes = fs.statSync(filePath).size;
           }
         }
-
         if (
           resolvedFileSizeBytes <= 0 &&
           (fileUrl.startsWith("http://") || fileUrl.startsWith("https://"))
@@ -207,7 +220,12 @@ export async function GET(
 
     let resolvedFileSizeBytes = 0;
     let resolvedFileName = `${String(advancedRow.title || "resource")}.${resourceType}`;
-    let resolvedFileType = resourceType === "pdf" ? "application/pdf" : "link";
+    let resolvedFileType =
+      resourceType === "pdf"
+        ? "application/pdf"
+        : resourceType === "image"
+          ? "image/png"
+          : "link";
 
     if (contentUrl.startsWith("onedrive://")) {
       const driveItemId = contentUrl.replace("onedrive://", "").trim();
@@ -228,6 +246,12 @@ export async function GET(
       }
     } else if (isDirectLink) {
       resolvedFileSizeBytes = await getContentLengthFromUrl(contentUrl);
+      if (resourceType === "link") {
+        const directImageMimeType = getImageMimeTypeFromUrl(contentUrl);
+        if (directImageMimeType) {
+          resolvedFileType = directImageMimeType;
+        }
+      }
     }
 
     const advancedFileUrl =

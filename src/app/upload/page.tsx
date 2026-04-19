@@ -3,14 +3,40 @@
 import Image from "next/image";
 import { Suspense, useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CATEGORY_CATALOG } from "@/lib/techIcons";
+import {
+  detectVideoType,
+  extractVideoId,
+  getYouTubeEmbedUrl,
+  getVimeoEmbedUrl,
+} from "@/lib/video-utils";
 import styles from "./page.module.css";
 
+function getImageMimeTypeFromUrl(url: string): string | null {
+  if (!url) return null;
+
+  let pathname = "";
+  try {
+    pathname = new URL(url).pathname.toLowerCase();
+  } catch {
+    return null;
+  }
+
+  if (pathname.endsWith(".png")) return "image/png";
+  if (pathname.endsWith(".jpg") || pathname.endsWith(".jpeg")) return "image/jpeg";
+  if (pathname.endsWith(".webp")) return "image/webp";
+  if (pathname.endsWith(".gif")) return "image/gif";
+  if (pathname.endsWith(".avif")) return "image/avif";
+
+  return null;
+}
+
 /* ── Link type helper ─────────────────────── */
-function detectLinkType(url: string): { label: string; icon: string } {
+function detectLinkType(url: string, treatAsImage = false): { label: string; icon: string } {
   if (!url) return { label: "Resource Link", icon: "🔗" };
+  if (treatAsImage || getImageMimeTypeFromUrl(url)) return { label: "Image Link", icon: "🖼️" };
   if (url.includes("drive.google.com") || url.includes("docs.google.com")) return { label: "Google Drive", icon: "📁" };
   if (url.includes("github.com")) return { label: "GitHub", icon: "🐙" };
   if (url.includes("youtube.com") || url.includes("youtu.be")) return { label: "YouTube", icon: "▶️" };
@@ -49,6 +75,8 @@ const INITIAL_FORM_DATA = {
   advancedTrackSlug: "",
   advancedTopicSlug: "",
   tags: "",
+  channelName: "",
+  channelUrl: "",
   authorCredit: "",
   resourceUrl: "",
   sourceUrl: "",
@@ -133,7 +161,7 @@ async function parseJsonSafely(response: Response): Promise<Record<string, unkno
   }
 }
 
-function inferAdvancedResourceTypeFromFile(file: File): "pdf" | "doc" | "video" | null {
+function inferAdvancedResourceTypeFromFile(file: File): "pdf" | "doc" | "video" | "image" | null {
   const mimeType = file.type.toLowerCase();
   const extension = file.name.split(".").pop()?.toLowerCase() || "";
 
@@ -148,6 +176,9 @@ function inferAdvancedResourceTypeFromFile(file: File): "pdf" | "doc" | "video" 
   }
   if (mimeType.startsWith("video/") || ["mp4", "webm", "mov", "m4v"].includes(extension)) {
     return "video";
+  }
+  if (mimeType.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "gif", "avif"].includes(extension)) {
+    return "image";
   }
   return null;
 }
@@ -237,7 +268,7 @@ interface PreviewProps {
   onClose: () => void;
   resourceTier: "standard" | "advanced";
   advancedTracks: AdvancedTrack[];
-  mode: "file" | "link";
+  mode: "file" | "link" | "video";
   fileObjectUrl: string;
   formData: {
     title: string; description: string; category: string;
@@ -245,11 +276,13 @@ interface PreviewProps {
     tags: string; authorCredit: string; resourceUrl: string; licenseType: string;
   };
   session: { user?: { name?: string | null } } | null;
+  hasLinkImagePreview: boolean;
+  onLinkImagePreviewError: () => void;
 }
 
-function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, fileObjectUrl, formData, session }: PreviewProps) {
+function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, fileObjectUrl, formData, session, hasLinkImagePreview, onLinkImagePreviewError }: PreviewProps) {
   const tagList = formData.tags ? formData.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
-  const authorName = formData.authorCredit || session?.user?.name || "You";
+  const authorName = formData.authorCredit || session?.user?.name || "Anonymous";
   const selectedTrack = advancedTracks.find((track) => track.slug === formData.advancedTrackSlug);
   const catLabel =
     resourceTier === "advanced"
@@ -257,7 +290,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
       : CATEGORY_LABELS[formData.category] || formData.category || "Category";
   const catBadge = resourceTier === "advanced" ? "badge-blue" : CATEGORY_BADGE[formData.category] || "";
   const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  const linkMeta = detectLinkType(formData.resourceUrl);
+  const linkMeta = detectLinkType(formData.resourceUrl, hasLinkImagePreview);
 
   const hasContent = formData.title || formData.description || fileObjectUrl || formData.resourceUrl;
 
@@ -312,10 +345,21 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
                         />
                       ) : mode === "link" && formData.resourceUrl ? (
                         <div className={styles.previewCardLinkThumb}>
-                          <span className={styles.previewCardLinkIcon}>{linkMeta.icon}</span>
-                        <span className={styles.previewCardLinkLabel}>{linkMeta.label}</span>
-                      </div>
-                    ) : (
+                          {hasLinkImagePreview ? (
+                            <img
+                              src={formData.resourceUrl}
+                              alt="Link preview"
+                              className={styles.previewCardLinkImage}
+                              onError={onLinkImagePreviewError}
+                            />
+                          ) : (
+                            <>
+                              <span className={styles.previewCardLinkIcon}>{linkMeta.icon}</span>
+                              <span className={styles.previewCardLinkLabel}>{linkMeta.label}</span>
+                            </>
+                          )}
+                        </div>
+                      ) : (
                       <div className={styles.previewCardPlaceholderThumb}>
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                       </div>
@@ -386,13 +430,30 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
                 )}
 
                 {mode === "link" && formData.resourceUrl && (
-                  <div className={styles.previewResourceCard}>
-                    <span className={styles.previewResourceIcon}>{linkMeta.icon}</span>
-                    <div className={styles.previewResourceInfo}>
-                      <span className={styles.previewResourceLabel}>{linkMeta.label}</span>
-                      <span className={styles.previewResourceOpen}>Open Resource →</span>
+                  <div className={styles.previewResourceCardWrap}>
+                    {hasLinkImagePreview ? (
+                      <div className={styles.previewViewer}>
+                        <div className={styles.previewViewerMedia}>
+                          <img
+                            src={formData.resourceUrl}
+                            alt="Linked resource preview"
+                            className={styles.previewViewerLinkedImage}
+                            onError={onLinkImagePreviewError}
+                          />
+                        </div>
+                        <div className={styles.previewViewerBar}>
+                          <span className={styles.previewViewerHint}>Image URL preview</span>
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className={styles.previewResourceCard}>
+                      <span className={styles.previewResourceIcon}>{linkMeta.icon}</span>
+                      <div className={styles.previewResourceInfo}>
+                        <span className={styles.previewResourceLabel}>{linkMeta.label}</span>
+                        <span className={styles.previewResourceOpen}>Open Resource →</span>
+                      </div>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                     </div>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                   </div>
                 )}
 
@@ -451,18 +512,15 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
 ──────────────────────────────────────────────────────────── */
 function UploadPageContent() {
   const { data: session } = useSession();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionUser = session?.user as { name?: string | null; role?: string } | undefined;
   const sessionName = sessionUser?.name ?? "";
-  const userRole = sessionUser?.role;
-  const canAccessAdvancedUpload = userRole === "admin" || userRole === "moderator";
   const preferredResourceTier: "standard" | "advanced" =
     searchParams.get("mode") === "advanced" ? "advanced" : "standard";
 
   const [resourceTier, setResourceTier] = useState<"standard" | "advanced">(preferredResourceTier);
-  const [uploadMode, setUploadMode] = useState<"file" | "link">("file");
+  const [uploadMode, setUploadMode] = useState<"file" | "link" | "video">("file");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [mobilePicker, setMobilePicker] = useState<MobilePickerState | null>(null);
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
@@ -477,6 +535,9 @@ function UploadPageContent() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; noteId?: string } | null>(null);
+  const [linkImagePreviewFailed, setLinkImagePreviewFailed] = useState(false);
+  const [detectedLinkContentType, setDetectedLinkContentType] = useState("");
+  const [showVideoTagsInput, setShowVideoTagsInput] = useState(false);
   const [customShareTemplates, setCustomShareTemplates] = useState<Record<string, string>>({});
 
   // Fetch custom share templates from admin settings
@@ -494,23 +555,26 @@ function UploadPageContent() {
   );
   const selectedAdvancedTopics = selectedAdvancedTrack?.topics ?? [];
   const hasSelectedCategory =
-    resourceTier === "advanced" ? Boolean(formData.advancedTrackSlug) : Boolean(formData.category);
-  const submitBlockedByRole = resourceTier === "advanced" && !canAccessAdvancedUpload;
+    uploadMode === "video"
+      ? true
+      : resourceTier === "advanced"
+        ? Boolean(formData.advancedTrackSlug)
+        : Boolean(formData.category);
   const fileAccept =
     resourceTier === "advanced"
-      ? ".pdf,.doc,.docx,.mp4,.webm"
+      ? ".pdf,.doc,.docx,.mp4,.webm,.png,.jpg,.jpeg,.webp,.gif,.avif"
       : ".png,.jpg,.jpeg,.webp,.pdf";
   const fileHint =
     resourceTier === "advanced"
-      ? "Supports PDF, DOC, DOCX, MP4, WEBM • Max 100 MB"
+      ? "Supports PDF, DOC, DOCX, MP4, WEBM, PNG, JPG, WEBP • Max 100 MB"
       : "Supports PNG, JPG, WEBP, PDF • Max 100 MB";
   const allChecked = checks.ownership && checks.license && checks.tos;
   const hasSelectedContent = uploadMode === "file" ? Boolean(file) : Boolean(formData.resourceUrl);
   const canSubmit =
-    allChecked &&
-    !!session?.user &&
+    (uploadMode === "video" || allChecked) &&
     !uploading &&
-    !submitBlockedByRole &&
+    Boolean(formData.title.trim()) &&
+    Boolean(formData.description.trim()) &&
     hasSelectedCategory &&
     hasSelectedContent;
   const selectedResourceSection =
@@ -519,6 +583,20 @@ function UploadPageContent() {
   const shouldShowFloatingPreview = Boolean(
     formData.title || formData.description || hasSelectedContent
   );
+  const extensionImageMimeType = getImageMimeTypeFromUrl(formData.resourceUrl);
+  const isDetectedImageLink = detectedLinkContentType.startsWith("image/");
+  const hasLinkImagePreview =
+    (Boolean(extensionImageMimeType) || isDetectedImageLink) && !linkImagePreviewFailed;
+  const detectedVideoType =
+    uploadMode === "video" ? detectVideoType(formData.resourceUrl) : null;
+  const detectedVideoId =
+    detectedVideoType ? extractVideoId(formData.resourceUrl, detectedVideoType) : null;
+  const videoEmbedUrl =
+    detectedVideoType && detectedVideoId
+      ? detectedVideoType === "youtube"
+        ? getYouTubeEmbedUrl(detectedVideoId)
+        : getVimeoEmbedUrl(detectedVideoId)
+      : "";
   const fieldShieldProps = {
     translate: "no",
     autoComplete: "off",
@@ -555,10 +633,10 @@ function UploadPageContent() {
   }, [preferredResourceTier]);
 
   useEffect(() => {
-    if (!sessionName) return;
-
     setFormData((current) => (
-      current.authorCredit ? current : { ...current, authorCredit: sessionName }
+      current.authorCredit
+        ? current
+        : { ...current, authorCredit: sessionName || "Anonymous" }
     ));
   }, [sessionName]);
 
@@ -636,6 +714,78 @@ function UploadPageContent() {
       document.removeEventListener("keydown", handleEscape);
     };
   }, [mobilePicker]);
+
+  useEffect(() => {
+    setLinkImagePreviewFailed(false);
+  }, [formData.resourceUrl]);
+
+  useEffect(() => {
+    if (uploadMode !== "video") return;
+    setResourceTier("standard");
+  }, [uploadMode]);
+
+  useEffect(() => {
+    if (uploadMode !== "video") {
+      setShowVideoTagsInput(false);
+    }
+  }, [uploadMode]);
+
+  useEffect(() => {
+    if (uploadMode !== "link") {
+      setDetectedLinkContentType("");
+      return;
+    }
+
+    const resourceUrl = formData.resourceUrl.trim();
+    if (!resourceUrl) {
+      setDetectedLinkContentType("");
+      return;
+    }
+
+    let parsed: URL;
+    try {
+      parsed = new URL(resourceUrl);
+    } catch {
+      setDetectedLinkContentType("");
+      return;
+    }
+
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      setDetectedLinkContentType("");
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const detectContentType = async () => {
+      try {
+        const response = await fetch("/api/upload/link-metadata", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: resourceUrl }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          setDetectedLinkContentType("");
+          return;
+        }
+
+        const payload = (await response.json()) as { contentType?: string };
+        setDetectedLinkContentType(payload.contentType || "");
+      } catch {
+        if (!controller.signal.aborted) {
+          setDetectedLinkContentType("");
+        }
+      }
+    };
+
+    void detectContentType();
+
+    return () => {
+      controller.abort();
+    };
+  }, [formData.resourceUrl, uploadMode]);
 
   const updateFormField = useCallback(
     (name: keyof typeof INITIAL_FORM_DATA, value: string) => {
@@ -791,19 +941,10 @@ function UploadPageContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!session?.user) { router.push("/login"); return; }
     setUploading(true); setUploadResult(null);
 
     try {
       if (resourceTier === "advanced") {
-        if (!canAccessAdvancedUpload) {
-          setUploadResult({
-            success: false,
-            message: `${SPECIALIZED_RESOURCE_LABEL} submissions are available only for admin or moderator accounts right now.`,
-          });
-          return;
-        }
-
         if (!formData.advancedTrackSlug) {
           setUploadResult({
             success: false,
@@ -820,7 +961,7 @@ function UploadPageContent() {
           return;
         }
 
-        if (uploadMode === "link" && !formData.resourceUrl) {
+        if (uploadMode !== "file" && !formData.resourceUrl) {
           setUploadResult({
             success: false,
             message: `Provide a resource URL for ${SPECIALIZED_RESOURCE_LABEL}.`,
@@ -829,14 +970,14 @@ function UploadPageContent() {
         }
 
         let advancedContentUrl = formData.resourceUrl;
-        let advancedResourceType: "link" | "pdf" | "doc" | "video" = "link";
+        let advancedResourceType: "link" | "pdf" | "doc" | "video" | "image" = "link";
 
         if (uploadMode === "file" && file) {
           const inferredResourceType = inferAdvancedResourceTypeFromFile(file);
           if (!inferredResourceType) {
             setUploadResult({
               success: false,
-              message: "Invalid file type. Allowed: PDF, DOC, DOCX, MP4, WEBM.",
+              message: "Invalid file type. Allowed: PDF, DOC, DOCX, MP4, WEBM, PNG, JPG, JPEG, WEBP.",
             });
             return;
           }
@@ -922,6 +1063,17 @@ function UploadPageContent() {
           advancedResourceType = inferredResourceType;
         }
 
+        if (uploadMode === "video") {
+          if (!detectedVideoType || !detectedVideoId) {
+            setUploadResult({
+              success: false,
+              message: "Invalid video link. Use YouTube (youtube.com/youtu.be) or Vimeo.",
+            });
+            return;
+          }
+          advancedResourceType = "video";
+        }
+
         const res = await fetch("/api/admin/advanced-tracks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -966,6 +1118,50 @@ function UploadPageContent() {
         return;
       }
 
+      if (uploadMode === "video") {
+        if (!formData.resourceUrl.trim()) {
+          setUploadResult({
+            success: false,
+            message: "Please paste a YouTube or Vimeo video link.",
+          });
+          return;
+        }
+
+        if (!detectedVideoType || !detectedVideoId) {
+          setUploadResult({
+            success: false,
+            message: "Invalid video link. Use YouTube (youtube.com/youtu.be) or Vimeo.",
+          });
+          return;
+        }
+
+        const res = await fetch("/api/videos/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: formData.title,
+            description: formData.description,
+            category: formData.category || "other",
+            videoUrl: formData.resourceUrl,
+            channelName: formData.channelName,
+            channelUrl: formData.channelUrl,
+            tags: formData.tags,
+            licenseType: formData.licenseType,
+          }),
+        });
+
+        const data = await parseJsonSafely(res);
+        setUploadResult({
+          success: res.ok,
+          message:
+            readStringField(data?.message) ||
+            readStringField(data?.error) ||
+            `Video link save failed (HTTP ${res.status})`,
+          noteId: readStringField(data?.videoId),
+        });
+        return;
+      }
+
       if (uploadMode === "link" || !file) {
         // Link uploads or missing file — use the original small API
         const body = new FormData();
@@ -974,7 +1170,7 @@ function UploadPageContent() {
         body.append("description", formData.description);
         body.append("category", formData.category);
         body.append("tags", formData.tags);
-        body.append("authorCredit", formData.authorCredit || sessionName);
+        body.append("authorCredit", formData.authorCredit || sessionName || "Anonymous");
         body.append("sourceUrl", formData.resourceUrl || formData.sourceUrl);
         body.append("resourceUrl", formData.resourceUrl);
         body.append("licenseType", formData.licenseType);
@@ -1057,7 +1253,7 @@ function UploadPageContent() {
             description: formData.description,
             category: formData.category,
             tags: formData.tags,
-            authorCredit: formData.authorCredit || sessionName,
+            authorCredit: formData.authorCredit || sessionName || "Anonymous",
             sourceUrl: formData.resourceUrl || formData.sourceUrl,
             licenseType: formData.licenseType,
             fileName: file.name,
@@ -1085,20 +1281,24 @@ function UploadPageContent() {
     setUploadResult(null); removeFile();
     setResourceTier(preferredResourceTier);
     setUploadMode("file");
-    setFormData({ ...INITIAL_FORM_DATA, authorCredit: sessionName });
+    setDetectedLinkContentType("");
+    setFormData({ ...INITIAL_FORM_DATA, authorCredit: sessionName || "Anonymous" });
     setChecks({ ownership: false, license: false, tos: false });
     setPreviewOpen(false);
   };
 
   const browseHref = preferredResourceTier === "advanced" ? "/tracks" : "/browse";
 
-  const linkMeta = detectLinkType(formData.resourceUrl);
+  const linkMeta = detectLinkType(formData.resourceUrl, hasLinkImagePreview);
 
   // ── Success screen ────────────────────────
   if (uploadResult?.success) {
+    const baseOrigin = typeof window !== "undefined" ? window.location.origin : "";
+    const successPath = uploadMode === "video" ? "/videos" : "/note";
+    const fallbackPath = uploadMode === "video" ? "/videos" : "/browse";
     const noteUrl = uploadResult.noteId
-      ? `${typeof window !== "undefined" ? window.location.origin : ""}/note/${uploadResult.noteId}`
-      : `${typeof window !== "undefined" ? window.location.origin : ""}/browse`;
+      ? `${baseOrigin}${successPath}/${uploadResult.noteId}`
+      : `${baseOrigin}${fallbackPath}`;
 
     const shareTitle = formData.title || "a resource";
     const categoryLabel = formData.category
@@ -1205,6 +1405,8 @@ function UploadPageContent() {
         fileObjectUrl={fileObjectUrl}
         formData={formData}
         session={session}
+        hasLinkImagePreview={hasLinkImagePreview}
+        onLinkImagePreviewError={() => setLinkImagePreviewFailed(true)}
       />
       <MobilePickerSheet
         picker={mobilePicker}
@@ -1238,7 +1440,7 @@ function UploadPageContent() {
           </p>
           {!session?.user && (
             <div className={styles.authNotice}>
-              <Link href="/login" className="btn btn-primary btn-sm">Sign in to share</Link>
+              <span>You are sharing as Anonymous. Sign in only if you want profile credit.</span>
             </div>
           )}
         </div>
@@ -1279,6 +1481,15 @@ function UploadPageContent() {
                 <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
               </svg>
               Share a Link
+            </button>
+            <button type="button" id="mode-video-btn"
+              className={`${styles.modeBtn} ${uploadMode === "video" ? styles.modeBtnActive : ""}`}
+              onClick={() => setUploadMode("video")}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="23 7 16 12 23 17 23 7"/>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+              </svg>
+              Add Video Link
             </button>
           </div>
 
@@ -1363,7 +1574,7 @@ function UploadPageContent() {
                   </button>
                 )}
               </div>
-            ) : (
+            ) : uploadMode === "link" ? (
               <div key="mode-link">
                 <h2 className={styles.sectionTitle}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1383,22 +1594,79 @@ function UploadPageContent() {
                 {formData.resourceUrl && (
                   <div className={styles.linkPreview}>
                     <span className={styles.linkPreviewIcon}>{linkMeta.icon}</span>
+                    {hasLinkImagePreview ? (
+                      <div className={styles.linkPreviewThumbWrap}>
+                        <img
+                          src={formData.resourceUrl}
+                          alt="Image link preview"
+                          className={styles.linkPreviewThumb}
+                          onError={() => setLinkImagePreviewFailed(true)}
+                        />
+                      </div>
+                    ) : null}
                     <div className={styles.linkPreviewInfo}>
                       <span className={styles.linkPreviewLabel}>{linkMeta.label}</span>
                       <a href={formData.resourceUrl} target="_blank" rel="noopener noreferrer" className={styles.linkPreviewUrl}>
                         {formData.resourceUrl}
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                       </a>
+                      {(Boolean(extensionImageMimeType) || isDetectedImageLink) && linkImagePreviewFailed && (
+                        <span className={styles.linkPreviewError}>
+                          Image preview could not load. You can still share this link.
+                        </span>
+                      )}
                     </div>
                   </div>
                 )}
 
                 <div className={styles.linkExamples}>
-                  <span className={styles.linkExamplesLabel}>Accepted sources:</span>
+                  <span className={styles.linkExamplesLabel}>Example sources (any valid URL works):</span>
                   {["📁 Google Drive", "🐙 GitHub", "▶️ YouTube", "📝 Notion", "📦 Dropbox", "✍️ Dev.to / Medium"].map(ex => (
                     <span key={ex} className={styles.linkExampleChip}>{ex}</span>
                   ))}
                 </div>
+              </div>
+            ) : (
+              <div key="mode-video">
+                <h2 className={styles.sectionTitle}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="23 7 16 12 23 17 23 7"/>
+                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
+                  </svg>
+                  Embedded Video Link
+                </h2>
+
+                <div className={styles.linkInputWrap}>
+                  <span className={styles.linkIcon}>🎥</span>
+                  <input type="url" name="resourceUrl" id="videoUrl" className={styles.linkInput}
+                    placeholder="Paste YouTube / Vimeo link (watch/embed/short)"
+                    value={formData.resourceUrl ?? ""} onChange={handleInputChange} autoFocus {...fieldShieldProps} />
+                </div>
+
+                <p className={styles.videoModeNote}>
+                  Sirf video link save hoga. Koi video file server/database me store ya download nahi hogi.
+                </p>
+                <p className={styles.videoModeWarning}>
+                  YouTube unlisted videos play ho jati hain. Private videos YouTube policy ki wajah se embed nahi chalti.
+                </p>
+
+                {videoEmbedUrl ? (
+                  <div className={styles.videoEmbedPreviewWrap}>
+                    <div className={styles.videoEmbedPreview}>
+                      <iframe
+                        src={videoEmbedUrl}
+                        title="Video Preview"
+                        loading="lazy"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                      />
+                    </div>
+                  </div>
+                ) : formData.resourceUrl ? (
+                  <p className={styles.videoModeError}>
+                    Valid YouTube/Vimeo link detect nahi hua.
+                  </p>
+                ) : null}
               </div>
             )}
           </div>
@@ -1413,7 +1681,10 @@ function UploadPageContent() {
               Details
             </h2>
 
-            <div className={styles.detailsToggleBlock}>
+            <div
+              className={uploadMode === "video" ? styles.fieldSetHidden : styles.detailsToggleBlock}
+              aria-hidden={uploadMode === "video"}
+            >
               <p className={styles.detailsToggleLabel}>Choose Resource Section</p>
               <div className={styles.resourceChoiceRow}>
                 {RESOURCE_SECTION_OPTIONS.map((option) => {
@@ -1481,11 +1752,6 @@ function UploadPageContent() {
                   ? "Best for cloud tools, backend architecture, system design case studies, and API engineering resources."
                   : "Best for language notes, frameworks, coding interview prep, and general programming resources."}
               </p>
-              {resourceTier === "advanced" && !canAccessAdvancedUpload && (
-                <p className={styles.detailsWarning}>
-                  You can browse these categories now, but submitting here currently requires an admin or moderator account.
-                </p>
-              )}
             </div>
 
             <div className={styles.fieldGrid}>
@@ -1504,9 +1770,11 @@ function UploadPageContent() {
 
               <div
                 className={`${styles.fieldConditionalGroup} ${
-                  resourceTier === "standard" ? "" : styles.fieldSetHidden
+                  resourceTier === "standard" && uploadMode !== "video"
+                    ? ""
+                    : styles.fieldSetHidden
                 }`}
-                aria-hidden={resourceTier !== "standard"}
+                aria-hidden={resourceTier !== "standard" || uploadMode === "video"}
               >
                 <div className="input-group">
                   <label htmlFor="category" className="input-label">Programming Language / Topic <span className={styles.required}>*</span></label>
@@ -1523,8 +1791,8 @@ function UploadPageContent() {
                     className={`input ${styles.desktopSelect}`}
                     value={formData.category ?? ""}
                     onChange={handleInputChange}
-                    required={resourceTier === "standard"}
-                    disabled={resourceTier !== "standard"}
+                    required={resourceTier === "standard" && uploadMode !== "video"}
+                    disabled={resourceTier !== "standard" || uploadMode === "video"}
                     {...fieldShieldProps}
                   >
                     <option value="">Select a programming topic</option>
@@ -1537,9 +1805,11 @@ function UploadPageContent() {
 
               <div
                 className={`${styles.fieldConditionalGroup} ${
-                  resourceTier === "advanced" ? "" : styles.fieldSetHidden
+                  resourceTier === "advanced" && uploadMode !== "video"
+                    ? ""
+                    : styles.fieldSetHidden
                 }`}
-                aria-hidden={resourceTier !== "advanced"}
+                aria-hidden={resourceTier !== "advanced" || uploadMode === "video"}
               >
                 <div className="input-group">
                     <label htmlFor="advancedTrackSlug" className="input-label">{SPECIALIZED_RESOURCE_LABEL} Category <span className={styles.required}>*</span></label>
@@ -1616,19 +1886,68 @@ function UploadPageContent() {
                   </div>
 
               </div>
+              {uploadMode !== "video" ? (
+                <div className="input-group">
+                  <label htmlFor="tags" className="input-label">Tags <span className={styles.optional}>(optional)</span></label>
+                  <input type="text" id="tags" name="tags" className="input"
+                    placeholder="e.g., joins, subqueries, optimization"
+                    value={formData.tags ?? ""} onChange={handleInputChange} {...fieldShieldProps} />
+                  <span className={styles.fieldHint}>Skip if not needed</span>
+                </div>
+              ) : showVideoTagsInput || Boolean(formData.tags?.trim()) ? (
+                <div className="input-group">
+                  <label htmlFor="tags" className="input-label">Tags <span className={styles.optional}>(optional)</span></label>
+                  <input type="text" id="tags" name="tags" className="input"
+                    placeholder="e.g., dsa, recursion, sorting"
+                    value={formData.tags ?? ""} onChange={handleInputChange} {...fieldShieldProps} />
+                </div>
+              ) : (
+                <div className="input-group">
+                  <button
+                    type="button"
+                    className={`btn btn-secondary btn-sm ${styles.videoAddTagsBtn}`}
+                    onClick={() => setShowVideoTagsInput(true)}
+                  >
+                    + Add Tags (Optional)
+                  </button>
+                </div>
+              )}
 
-              <div className="input-group">
-                <label htmlFor="tags" className="input-label">Tags</label>
-                <input type="text" id="tags" name="tags" className="input"
-                  placeholder="e.g., joins, subqueries, optimization"
-                  value={formData.tags ?? ""} onChange={handleInputChange} {...fieldShieldProps} />
-                <span className={styles.fieldHint}>Separate tags with commas</span>
-              </div>
+              {uploadMode === "video" && (
+                <>
+                  <div className="input-group">
+                    <label htmlFor="channelName" className="input-label">Channel Name <span className={styles.optional}>(optional)</span></label>
+                    <input
+                      type="text"
+                      id="channelName"
+                      name="channelName"
+                      className="input"
+                      placeholder="e.g., CodeWithAniket"
+                      value={formData.channelName ?? ""}
+                      onChange={handleInputChange}
+                      {...fieldShieldProps}
+                    />
+                  </div>
+                  <div className={`input-group ${styles.fullWidth}`}>
+                    <label htmlFor="channelUrl" className="input-label">Channel Link for Subscribe <span className={styles.optional}>(optional)</span></label>
+                    <input
+                      type="url"
+                      id="channelUrl"
+                      name="channelUrl"
+                      className="input"
+                      placeholder="https://youtube.com/@yourchannel"
+                      value={formData.channelUrl ?? ""}
+                      onChange={handleInputChange}
+                      {...fieldShieldProps}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
           {/* ── Author ──────────────────────── */}
-          <div className={styles.section}>
+          <div className={uploadMode === "video" ? styles.fieldSetHidden : styles.section}>
             <h2 className={styles.sectionTitle}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
@@ -1640,7 +1959,7 @@ function UploadPageContent() {
                 <label htmlFor="authorCredit" className="input-label">Your Name / Handle <span className={styles.required}>*</span></label>
                 <input type="text" id="authorCredit" name="authorCredit" className="input"
                   placeholder={sessionName || "Your name or pen name"}
-                  value={formData.authorCredit ?? ""} onChange={handleInputChange} required {...fieldShieldProps} />
+                  value={formData.authorCredit ?? ""} onChange={handleInputChange} required={uploadMode !== "video"} disabled={uploadMode === "video"} {...fieldShieldProps} />
               </div>
               <div
                 className={uploadMode === "file" ? "" : styles.fieldSetHidden}
@@ -1672,7 +1991,7 @@ function UploadPageContent() {
           </div>
 
           {/* ── Legal ───────────────────────── */}
-          <div className={styles.section}>
+          <div className={uploadMode === "video" ? styles.fieldSetHidden : styles.section}>
             <h2 className={styles.sectionTitle}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -1717,25 +2036,23 @@ function UploadPageContent() {
                   <>
                     {uploadMode === "link"
                       ? <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                      : uploadMode === "video"
+                        ? <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
                       : <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     }
-                    {resourceTier === "advanced"
-                      ? `Submit ${SPECIALIZED_RESOURCE_LABEL} Resource`
-                      : uploadMode === "file"
-                        ? "Upload Notes"
-                        : "Share Resource"}
+                    {uploadMode === "video" ? "Publish Video Link" : "Upload Notes"}
                   </>
                 )}
               </button>
             </div>
             <p className={styles.submitHint}>
               {resourceTier === "advanced"
-                ? submitBlockedByRole
-                  ? `${SPECIALIZED_RESOURCE_LABEL} submissions are currently restricted to admin and moderator roles.`
-                  : `This entry will be saved under ${SPECIALIZED_RESOURCE_LABEL} and queued for moderation.`
+                ? `This entry will be saved under ${SPECIALIZED_RESOURCE_LABEL} and queued for moderation.`
                 : uploadMode === "file"
                   ? "Your notes will be reviewed before being published."
-                  : "Your link will be reviewed and shared with the community."}
+                  : uploadMode === "video"
+                    ? "Only embeddable link metadata is saved. Video file is never uploaded to our server."
+                    : "Your link will be reviewed and shared with the community."}
             </p>
           </div>
         </form>

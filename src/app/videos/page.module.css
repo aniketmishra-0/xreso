@@ -30,25 +30,6 @@
   margin: 0;
 }
 
-.uploadBtn {
-  white-space: nowrap;
-  align-self: flex-start;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 10px 16px;
-  font-size: 14px;
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(120deg, #7c3aed 0%, #f97316 100%);
-  box-shadow: 0 10px 26px rgba(124, 58, 237, 0.28);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.uploadBtn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 30px rgba(124, 58, 237, 0.35);
-}
-
 .uploadSection {
   margin-bottom: 32px;
   padding: 24px;
@@ -173,7 +154,11 @@
   gap: 10px;
   overflow-x: auto;
   padding-bottom: 2px;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+}
+
+.filterPills::-webkit-scrollbar {
+  display: none;
 }
 
 .filterPill,
@@ -451,6 +436,7 @@
   }
 
   .searchBtn {
+    flex-shrink: 0;
     min-width: 96px;
   }
 

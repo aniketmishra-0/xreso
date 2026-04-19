@@ -854,7 +854,7 @@ export async function appendAdminActionToExcel(data: {
   noteId: string;
   noteTitle: string;
   category: string;
-  action: "approved" | "rejected" | "featured" | "deleted";
+  action: "approved" | "rejected" | "featured" | "deleted" | "unpublished";
   previousStatus: string;
   newStatus: string;
   featured: boolean;

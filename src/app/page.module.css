@@ -460,17 +460,6 @@
   z-index: 2;
 }
 
-.toggleBtnActive::after {
-  content: "";
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 6px;
-  height: 3px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--primary), var(--accent-orange));
-}
-
 .sectionHeader {
   display: flex;
   align-items: flex-end;

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import VideoCard from "@/components/VideoCard/VideoCard";
 import VideoPlayer from "@/components/VideoPlayer/VideoPlayer";
 import styles from "./page.module.css";
@@ -67,7 +66,6 @@ function getDisplayAuthor(author: string | undefined): string {
 }
 
 function VideoPageContent() {
-  const { status } = useSession();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -159,15 +157,6 @@ function VideoPageContent() {
       return next;
     });
   }, []);
-
-  const openUploadPage = useCallback(() => {
-    if (status === "unauthenticated") {
-      const callbackUrl = encodeURIComponent("/upload");
-      router.push(`/login?callbackUrl=${callbackUrl}&reason=upload_login_required`);
-      return;
-    }
-    router.push("/upload");
-  }, [router, status]);
 
   // Fetch videos
   const fetchVideos = useCallback(async () => {
@@ -279,9 +268,6 @@ function VideoPageContent() {
             Watch educational videos on programming, web development, and more
           </p>
         </div>
-        <button type="button" className={styles.uploadBtn} onClick={openUploadPage}>
-          Upload Video
-        </button>
       </div>
 
       {/* Filters */}

@@ -1,7 +1,23 @@
+@font-face {
+  font-family: "Lota Grotesque";
+  src: url("https://bb.agency/wp-content/themes/bb-agency/assets/fonts/LotaGrotesque-Regular.woff2?v=2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Lota Grotesque";
+  src: url("https://bb.agency/wp-content/themes/bb-agency/assets/fonts/LotaGrotesque-SemiBold.woff2?v=2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
 .page {
   min-height: calc(100vh - var(--nav-height));
   padding: calc(var(--nav-height) + 24px) var(--space-lg) var(--space-2xl);
-  max-width: 1200px;
+  max-width: 1240px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -10,63 +26,334 @@
 
 .hero {
   position: relative;
-  border: 1px solid var(--border-secondary);
-  border-radius: var(--radius-xl);
-  padding: clamp(22px, 3vw, 34px);
   overflow: hidden;
+  min-height: clamp(560px, 72vh, 760px);
+  padding: clamp(24px, 4vw, 48px);
+  border-radius: calc(var(--radius-xl) + 6px);
+  border: 1px solid color-mix(in srgb, #3a3a3a 70%, transparent);
   background:
-    radial-gradient(circle at 92% 14%, color-mix(in srgb, var(--accent-orange) 28%, transparent), transparent 44%),
-    radial-gradient(circle at 10% 20%, color-mix(in srgb, var(--primary) 24%, transparent), transparent 40%),
-    linear-gradient(120deg, color-mix(in srgb, var(--bg-surface) 86%, transparent), color-mix(in srgb, var(--bg-elevated) 88%, transparent));
+    radial-gradient(circle at 75% 12%, rgba(249, 115, 22, 0.2), transparent 37%),
+    radial-gradient(circle at 16% 20%, rgba(139, 92, 246, 0.32), transparent 45%),
+    linear-gradient(168deg, #151129, #0e0b1d 56%, #0a0715);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(22px, 3vw, 34px);
+  font-family: "Lota Grotesque", var(--font-sans);
+  isolation: isolate;
+  transition: border-color var(--transition-base), box-shadow var(--transition-base), background var(--transition-base);
+}
+
+.hero::before,
+.hero::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.hero::before {
+  width: 440px;
+  height: 440px;
+  right: -130px;
+  top: -140px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-orange) 24%, transparent), transparent 65%);
+}
+
+.hero::after {
+  width: 380px;
+  height: 380px;
+  left: -160px;
+  bottom: -160px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--primary) 26%, transparent), transparent 66%);
+}
+
+.heroBackdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.1), transparent 36%),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.03)),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 96px);
+  opacity: 0.92;
+}
+
+.heroVisualLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.visualOrb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(1px);
+  opacity: 0.48;
+}
+
+.visualOrbPrimary {
+  width: 180px;
+  height: 180px;
+  right: 10%;
+  top: 14%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--primary-light) 48%, transparent), transparent 72%);
+}
+
+.visualOrbAccent {
+  width: 140px;
+  height: 140px;
+  left: 12%;
+  bottom: 18%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--accent-orange) 52%, transparent), transparent 72%);
+}
+
+.visualBeam {
+  position: absolute;
+  left: 50%;
+  top: 54%;
+  width: min(560px, 70%);
+  height: 1px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 52%, #ffffff), transparent);
+  opacity: 0.42;
+}
+
+.heroContent {
+  position: relative;
+  z-index: 1;
+  max-width: 900px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  animation: riseIn 0.6s ease both;
+}
+
+.heroBadgeRow {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.heroBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 6px 12px;
+  color: rgba(255, 255, 255, 0.84);
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
 }
 
 .eyebrow {
   margin: 0;
   font-size: 11px;
-  letter-spacing: 0.13em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
-  font-weight: 700;
+  color: rgba(255, 255, 255, 0.66);
+  font-weight: 600;
 }
 
 .title {
-  margin: 10px 0 10px;
-  font-size: clamp(1.8rem, 4.8vw, 2.8rem);
-  line-height: 1.08;
+  margin: 0;
+  max-width: 10ch;
+  font-size: clamp(2.55rem, 6.4vw, 5.5rem);
+  line-height: 0.9;
+  letter-spacing: -0.04em;
+  font-weight: 600;
+  color: #f8f8ff;
+  text-wrap: balance;
+  text-shadow: 0 14px 30px rgba(0, 0, 0, 0.26);
+}
+
+.titleAccent {
+  color: color-mix(in srgb, var(--accent-orange) 78%, #f8f8ff);
+  text-shadow: 0 10px 24px rgba(249, 115, 22, 0.35);
+}
+
+.heroLead {
+  margin: 2px 0 0;
+  font-size: clamp(1.04rem, 1.95vw, 1.5rem);
+  color: rgba(255, 255, 255, 0.86);
+  line-height: 1.3;
 }
 
 .subtitle {
   margin: 0;
-  max-width: 66ch;
-  color: var(--text-secondary);
-  line-height: var(--leading-relaxed);
+  max-width: 52ch;
+  font-size: clamp(1rem, 1.45vw, 1.2rem);
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.55;
 }
 
-.heroStats {
-  margin-top: var(--space-md);
+.heroCapabilityWrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: clamp(15px, 2vw, 20px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: calc(var(--radius-lg) + 4px);
+  background: rgba(6, 5, 12, 0.52);
+  backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: border-color var(--transition-base), background-color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.heroCapabilityTop {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
   gap: 10px;
 }
 
+.heroMiniGraph {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 24px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.heroMiniBar {
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-orange) 70%, #ffffff), color-mix(in srgb, var(--primary) 70%, #ffffff));
+}
+
+.heroMiniBar:nth-child(1) {
+  height: 28%;
+}
+
+.heroMiniBar:nth-child(2) {
+  height: 62%;
+}
+
+.heroMiniBar:nth-child(3) {
+  height: 44%;
+}
+
+.heroMiniBar:nth-child(4) {
+  height: 84%;
+}
+
+.heroCapabilityHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.heroCapabilityLabel {
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.heroCapabilityLine {
+  flex: 1;
+  border-top: 1px dashed rgba(255, 255, 255, 0.26);
+}
+
+.heroFlowRow,
+.heroLaneRow {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.heroFlowPill {
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 8px 15px;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.heroFlowPill:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.56);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.heroLanePill {
+  --tone: var(--primary);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  border: 1px solid color-mix(in srgb, var(--tone) 56%, rgba(255, 255, 255, 0.18));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tone) 16%, rgba(255, 255, 255, 0.04));
+  padding: 8px 14px;
+  color: color-mix(in srgb, var(--tone) 76%, #f2f2ff);
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.heroLanePill:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--tone) 74%, rgba(255, 255, 255, 0.2));
+  background: color-mix(in srgb, var(--tone) 22%, rgba(255, 255, 255, 0.04));
+}
+
+.heroStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 2px;
+}
+
 .statCard {
-  border: 1px solid color-mix(in srgb, var(--border-secondary) 75%, transparent);
-  border-radius: var(--radius-md);
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--bg-surface) 78%, transparent);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 11px;
+  padding: 11px 13px;
+  background: rgba(255, 255, 255, 0.06);
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.statCard:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.24);
 }
 
 .statValue {
   margin: 0;
+  color: #fcfcff;
   font-size: 1rem;
   font-weight: 700;
-  color: var(--text-primary);
 }
 
 .statLabel {
-  margin: 4px 0 0;
-  font-size: 12px;
-  color: var(--text-tertiary);
+  margin: 3px 0 0;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .graphSection {
@@ -82,12 +369,12 @@
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 86% 16%, color-mix(in srgb, var(--accent-orange) 18%, transparent), transparent 42%),
-    radial-gradient(circle at 12% 84%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 44%),
-    repeating-linear-gradient(90deg, color-mix(in srgb, var(--border-secondary) 42%, transparent) 0 1px, transparent 1px 72px),
-    repeating-linear-gradient(0deg, color-mix(in srgb, var(--border-secondary) 30%, transparent) 0 1px, transparent 1px 72px),
+    radial-gradient(circle at 84% 14%, color-mix(in srgb, var(--accent-orange) 15%, transparent), transparent 42%),
+    radial-gradient(circle at 12% 86%, color-mix(in srgb, var(--primary) 17%, transparent), transparent 44%),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--border-secondary) 35%, transparent) 0 1px, transparent 1px 72px),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--border-secondary) 26%, transparent) 0 1px, transparent 1px 72px),
     color-mix(in srgb, var(--bg-surface) 90%, transparent);
-  opacity: 0.8;
+  opacity: 0.82;
   pointer-events: none;
   z-index: -1;
 }
@@ -98,7 +385,7 @@
 
 .graphTitle {
   margin: 0;
-  font-size: clamp(1.2rem, 2.5vw, 1.5rem);
+  font-size: clamp(1.22rem, 2.5vw, 1.56rem);
 }
 
 .graphSubtitle {
@@ -119,7 +406,7 @@
   --tone: var(--primary);
 
   position: relative;
-  border: 1px solid color-mix(in srgb, var(--border-secondary) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--border-secondary) 90%, transparent);
   border-top: 2px solid color-mix(in srgb, var(--tone) 58%, transparent);
   border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--bg-surface) 86%, transparent);
@@ -143,9 +430,9 @@
 }
 
 .card:hover {
-  transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--tone) 58%, var(--border-secondary));
-  box-shadow: 0 10px 26px -18px color-mix(in srgb, var(--tone) 55%, transparent);
+  transform: translateY(-4px);
+  border-color: color-mix(in srgb, var(--tone) 60%, var(--border-secondary));
+  box-shadow: 0 12px 28px -18px color-mix(in srgb, var(--tone) 55%, transparent);
 }
 
 .toneLibrary {
@@ -255,8 +542,150 @@
 }
 
 .flowPill:not(:last-child)::after {
-  content: "→";
+  content: "->";
   color: var(--text-tertiary);
+}
+
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-theme="light"] .hero {
+  border: 1px solid color-mix(in srgb, var(--primary) 26%, var(--border-primary));
+  background:
+    radial-gradient(circle at 76% 12%, color-mix(in srgb, var(--accent-orange) 26%, transparent), transparent 36%),
+    radial-gradient(circle at 14% 20%, color-mix(in srgb, var(--primary) 24%, transparent), transparent 42%),
+    linear-gradient(168deg, #fffaf4, #f9f6ff 54%, #f2eeff);
+  box-shadow: 0 20px 42px -34px color-mix(in srgb, var(--primary) 42%, transparent);
+}
+
+[data-theme="light"] .visualOrb {
+  opacity: 0.34;
+}
+
+[data-theme="light"] .visualBeam {
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--primary) 38%, var(--accent-orange) 20%), transparent);
+  opacity: 0.28;
+}
+
+[data-theme="light"] .heroBackdrop {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.9), transparent 35%),
+    linear-gradient(0deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.26)),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--primary) 10%, transparent) 0 1px, transparent 1px 96px);
+  opacity: 0.88;
+}
+
+[data-theme="light"] .eyebrow {
+  color: color-mix(in srgb, var(--text-secondary) 84%, var(--primary));
+}
+
+[data-theme="light"] .title {
+  color: color-mix(in srgb, var(--text-primary) 94%, #241741);
+  text-shadow: none;
+}
+
+[data-theme="light"] .titleAccent {
+  color: color-mix(in srgb, var(--accent-orange-dark) 72%, var(--accent-orange));
+  text-shadow: none;
+}
+
+[data-theme="light"] .heroLead {
+  color: color-mix(in srgb, var(--text-primary) 86%, #2a1f49);
+}
+
+[data-theme="light"] .subtitle {
+  color: color-mix(in srgb, var(--text-secondary) 92%, #3d3260);
+}
+
+[data-theme="light"] .heroCapabilityWrap {
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border-primary));
+  background: color-mix(in srgb, #ffffff 78%, var(--bg-surface));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 12px 26px -20px color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+[data-theme="light"] .heroBadge {
+  border-color: color-mix(in srgb, var(--primary) 24%, var(--border-primary));
+  background: color-mix(in srgb, #ffffff 78%, var(--bg-elevated));
+  color: color-mix(in srgb, var(--text-secondary) 88%, var(--primary-dark));
+}
+
+[data-theme="light"] .heroCapabilityLabel {
+  color: color-mix(in srgb, var(--text-secondary) 88%, var(--primary));
+}
+
+[data-theme="light"] .heroCapabilityLine {
+  border-top-color: color-mix(in srgb, var(--primary) 24%, var(--border-secondary));
+}
+
+[data-theme="light"] .heroFlowPill {
+  border: 1px solid color-mix(in srgb, var(--primary) 32%, var(--border-primary));
+  background: color-mix(in srgb, #ffffff 68%, var(--bg-elevated));
+  color: color-mix(in srgb, var(--text-primary) 86%, var(--primary-dark));
+}
+
+[data-theme="light"] .heroMiniGraph {
+  border-color: color-mix(in srgb, var(--primary) 20%, var(--border-primary));
+  background: color-mix(in srgb, #ffffff 72%, var(--bg-elevated));
+}
+
+[data-theme="light"] .heroFlowPill:hover {
+  border-color: color-mix(in srgb, var(--primary) 58%, var(--border-primary));
+  background: color-mix(in srgb, var(--primary) 12%, #ffffff);
+}
+
+[data-theme="light"] .heroLanePill {
+  border-color: color-mix(in srgb, var(--tone) 42%, var(--border-primary));
+  background: color-mix(in srgb, var(--tone) 12%, #ffffff);
+}
+
+[data-theme="light"] .heroLanePill:hover {
+  border-color: color-mix(in srgb, var(--tone) 62%, var(--border-primary));
+  background: color-mix(in srgb, var(--tone) 20%, #ffffff);
+}
+
+[data-theme="light"] .statCard {
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--border-primary));
+  background: color-mix(in srgb, #ffffff 76%, var(--bg-elevated));
+}
+
+[data-theme="light"] .statCard:hover {
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--border-primary));
+}
+
+[data-theme="light"] .statValue {
+  color: color-mix(in srgb, var(--text-primary) 92%, #261948);
+}
+
+[data-theme="light"] .statLabel {
+  color: color-mix(in srgb, var(--text-tertiary) 86%, var(--primary-dark));
+}
+
+@media (max-width: 1080px) {
+  .hero {
+    min-height: 500px;
+  }
+
+  .title {
+    max-width: 100%;
+  }
+
+  .heroCapabilityTop {
+    grid-template-columns: 1fr auto;
+  }
+
+  .heroFlowRow,
+  .heroLaneRow {
+    justify-content: center;
+  }
 }
 
 @media (max-width: 980px) {
@@ -265,7 +694,25 @@
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 760px) {
+  .hero {
+    min-height: auto;
+    padding: 22px 16px;
+  }
+
+  .heroFlowRow,
+  .heroLaneRow {
+    justify-content: flex-start;
+  }
+
+  .heroCapabilityTop {
+    grid-template-columns: 1fr;
+  }
+
+  .heroMiniGraph {
+    display: none;
+  }
+
   .heroStats {
     grid-template-columns: 1fr;
   }
@@ -286,6 +733,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .heroContent,
+  .card {
+    animation: none;
+  }
+
   .card,
   .cardCta {
     transition: none;

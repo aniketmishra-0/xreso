@@ -173,7 +173,7 @@ function LoginPageContent() {
   };
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${styles.authPage}`}>
       <div className={styles.container}>
         <div className={styles.card}>
           <div className={styles.header}>
@@ -377,7 +377,7 @@ function LoginPageContent() {
 
 function LoginPageFallback() {
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${styles.authPage}`}>
       <div className={styles.container}>
         <div className={styles.card} aria-busy="true" style={{ minHeight: 520 }} />
       </div>

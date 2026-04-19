@@ -78,6 +78,9 @@ const HUB_STATS = [
 ];
 
 const FLOW_STEPS = ["Browse", "Watch", "Practice", "Contribute"];
+const HERO_VISUAL_BADGES = ["Curated Paths", "Community Driven", "Fast Practice"];
+
+const HERO_PREVIEW_ITEMS = HUB_ITEMS.slice(0, 4);
 
 const TONE_CLASS_MAP: Record<HubTone, string> = {
 	library: styles.toneLibrary,
@@ -92,18 +95,86 @@ export default function HomeHubPage() {
 	return (
 		<section className={styles.page}>
 			<div className={styles.hero}>
-				<p className={styles.eyebrow}>HOME HUB</p>
-				<h1 className={styles.title}>Welcome to xreso</h1>
-				<p className={styles.subtitle}>
-					Your central graph for library discovery, curated learning, MCQ practice, and open contributions.
-				</p>
-				<div className={styles.heroStats}>
-					{HUB_STATS.map((stat) => (
-						<div key={stat.label} className={styles.statCard}>
-							<p className={styles.statValue}>{stat.value}</p>
-							<p className={styles.statLabel}>{stat.label}</p>
+				<div className={styles.heroBackdrop} aria-hidden="true" />
+				<div className={styles.heroVisualLayer} aria-hidden="true">
+					<span className={`${styles.visualOrb} ${styles.visualOrbPrimary}`} />
+					<span className={`${styles.visualOrb} ${styles.visualOrbAccent}`} />
+					<span className={styles.visualBeam} />
+				</div>
+
+				<div className={styles.heroContent}>
+					<p className={styles.eyebrow}>HOME HUB</p>
+					<h1 className={styles.title}>
+						Welcome to <span className={styles.titleAccent}>xreso</span>
+					</h1>
+					<p className={styles.heroLead}>Structured to help you discover and build.</p>
+					<p className={styles.subtitle}>
+						Your central graph for library discovery, curated learning, MCQ practice, and open
+						contributions.
+					</p>
+					<div className={styles.heroBadgeRow}>
+						{HERO_VISUAL_BADGES.map((badge) => (
+							<span key={badge} className={styles.heroBadge}>
+								{badge}
+							</span>
+						))}
+					</div>
+				</div>
+
+				<div className={styles.heroCapabilityWrap}>
+					<div className={styles.heroCapabilityTop}>
+						<div className={styles.heroCapabilityHead}>
+							<span className={styles.heroCapabilityLabel}>Capabilities</span>
+							<span className={styles.heroCapabilityLine} />
 						</div>
-					))}
+
+						<div className={styles.heroFlowRow} aria-label="Suggested learning flow">
+							{FLOW_STEPS.map((step) => (
+								<span key={step} className={styles.heroFlowPill}>
+									{step}
+								</span>
+							))}
+						</div>
+
+						<div className={styles.heroMiniGraph} aria-hidden="true">
+							<span className={styles.heroMiniBar} />
+							<span className={styles.heroMiniBar} />
+							<span className={styles.heroMiniBar} />
+							<span className={styles.heroMiniBar} />
+						</div>
+					</div>
+
+					<div className={styles.heroLaneRow} aria-label="Primary home hub nodes">
+						{HERO_PREVIEW_ITEMS.map((item) => (
+							item.cta === "Contribute" ? (
+								<ContributeCtaLink
+									key={item.title}
+									href={item.href}
+									className={`${styles.heroLanePill} ${TONE_CLASS_MAP[item.tone]}`}
+									source="home-hub-hero-pill"
+								>
+									{item.title}
+								</ContributeCtaLink>
+							) : (
+								<Link
+									key={item.title}
+									href={item.href}
+									className={`${styles.heroLanePill} ${TONE_CLASS_MAP[item.tone]}`}
+								>
+									{item.title}
+								</Link>
+							)
+						))}
+					</div>
+
+					<div className={styles.heroStats}>
+						{HUB_STATS.map((stat) => (
+							<div key={stat.label} className={styles.statCard}>
+								<p className={styles.statValue}>{stat.value}</p>
+								<p className={styles.statLabel}>{stat.label}</p>
+							</div>
+						))}
+					</div>
 				</div>
 			</div>
 

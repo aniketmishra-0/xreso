@@ -24,7 +24,7 @@ export default function ContactPage() {
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>General Support</h2>
             <p>
-              For account issues, login trouble, broken links, and upload errors.
+              For account issues, login trouble, broken links, and contribution errors.
             </p>
             <p>
               Email: <a href="mailto:xresoinc@gmail.com" className={styles.link}>xresoinc@gmail.com</a>

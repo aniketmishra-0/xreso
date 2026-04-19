@@ -33,7 +33,7 @@ export default function FloatingQuickNav({ hidden = false }: FloatingQuickNavPro
     return () => document.removeEventListener("pointerdown", handleOutsideClick);
   }, []);
 
-  const isTracksOptionActive = pathname === "/" || pathname === "/tracks" || pathname.startsWith("/tracks/");
+  const isTracksOptionActive = pathname === "/tracks" || pathname.startsWith("/tracks/");
 
   return (
     <div
@@ -74,7 +74,7 @@ export default function FloatingQuickNav({ hidden = false }: FloatingQuickNavPro
             <div className={styles.trackMenuPopover} role="menu" aria-label="Tracks options">
               <Link
                 href="/"
-                className={`${styles.trackMenuItem} ${pathname === "/" ? styles.trackMenuItemActive : ""}`}
+                className={`${styles.trackMenuItem} ${isRouteActive(pathname, "/") ? styles.trackMenuItemActive : ""}`}
                 role="menuitem"
                 onClick={() => setTracksMenuOpen(false)}
               >

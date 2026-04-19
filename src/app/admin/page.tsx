@@ -740,7 +740,7 @@ export default function AdminPage() {
           <div className={styles.denied}>
             <h2>Access Denied</h2>
             <p>You need admin privileges to access this page.</p>
-            <Link href="/" className="btn btn-primary">Go Home</Link>
+            <Link href="/home" className="btn btn-primary">Go Home</Link>
           </div>
         </div>
       </div>

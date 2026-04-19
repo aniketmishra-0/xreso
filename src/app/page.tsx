@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import ContributeCtaLink from "@/components/ContributeCtaLink";
 import {
   getTrendingNotes,
   getCategories,
@@ -152,9 +153,14 @@ export default async function Home() {
                 Explore Library
                 <span className={styles.arrow}>→</span>
               </Link>
-              <Link href="/upload" id="hero-upload-btn" className={`btn btn-secondary btn-lg`}>
+              <ContributeCtaLink
+                href="/upload?mode=programming&focus=contribute"
+                id="hero-upload-btn"
+                className={`btn btn-secondary btn-lg`}
+                source="hero-cta"
+              >
                 Contribute Notes
-              </Link>
+              </ContributeCtaLink>
             </div>
 
             {/* Search */}
@@ -418,13 +424,18 @@ export default async function Home() {
             <div className={styles.ctaGlowRight} />
             <h2 className={styles.ctaTitle}>Got notes worth sharing?</h2>
             <p className={styles.ctaSubtitle}>
-              Upload your handwritten programming notes and help thousands of developers learn.
+              Contribute your handwritten programming notes and help thousands of developers learn.
               You keep your copyright — we amplify your reach.
             </p>
             <div className={styles.ctaActions}>
-              <Link href="/upload" id="cta-upload-btn" className="btn btn-primary btn-lg">
+              <ContributeCtaLink
+                href="/upload?mode=programming&focus=contribute"
+                id="cta-upload-btn"
+                className="btn btn-primary btn-lg"
+                source="cta-section"
+              >
                 Start Contributing
-              </Link>
+              </ContributeCtaLink>
               <Link href="/terms" id="cta-learn-btn" className="btn btn-secondary btn-lg">
                 Learn about our ToS
               </Link>

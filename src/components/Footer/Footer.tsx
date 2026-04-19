@@ -1,10 +1,11 @@
 import Link from "next/link";
+import ContributeCtaLink from "@/components/ContributeCtaLink";
 import styles from "./Footer.module.css";
 
 export default function Footer() {
-  const uploadHref = "/upload";
+  const uploadHref = "/upload?mode=programming&focus=contribute";
   const githubRepoUrl = "https://github.com/aniketmishra-0/xreso";
-  const xUrl = "https://x.com";
+  const xUrl = "https://x.com/xresoinc";
   const linkedInUrl = "https://www.linkedin.com/company/xreso/";
 
   return (
@@ -13,7 +14,7 @@ export default function Footer() {
         <div className={styles.grid}>
           {/* Brand Column */}
           <div className={styles.brandCol}>
-            <Link href="/" className={styles.logo}>
+            <Link href="/home" className={styles.logo}>
               <span className={styles.logoText}>xreso</span>
             </Link>
             <p className={styles.brandDesc}>
@@ -66,7 +67,9 @@ export default function Footer() {
             <Link href="/browse" className={styles.footerLink}>Browse Notes</Link>
             <Link href="/categories" className={styles.footerLink}>Categories</Link>
             <Link href="/tracks/library" className={styles.footerLink}>Cloud Native Tracks</Link>
-            <Link href={uploadHref} className={styles.footerLink}>Upload Notes</Link>
+            <ContributeCtaLink href={uploadHref} className={styles.footerLink} source="footer-platform-link">
+              Contribute Notes
+            </ContributeCtaLink>
             <Link href="/about" className={styles.footerLink}>About Us</Link>
           </div>
 

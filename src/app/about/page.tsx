@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getAboutMilestoneStats } from "@/lib/db/queries";
+import ContributeCtaLink from "@/components/ContributeCtaLink";
 import styles from "./page.module.css";
 
 const TEAM_MEMBERS = [
@@ -59,7 +60,7 @@ const getSingularLabel = (value: number, singular: string, plural: string) =>
 
 export default async function AboutPage() {
   const stats = await getAboutMilestoneStats();
-  const uploadHref = "/upload";
+  const uploadHref = "/upload?mode=programming&focus=contribute";
 
   const milestones = [
     {
@@ -166,9 +167,9 @@ export default async function AboutPage() {
               Join our growing community of developers sharing knowledge.
             </p>
             <div className={styles.ctaActions}>
-              <Link href={uploadHref} className="btn btn-primary btn-lg">
-                Upload Notes
-              </Link>
+              <ContributeCtaLink href={uploadHref} className="btn btn-primary btn-lg" source="about-cta">
+                Contribute Notes
+              </ContributeCtaLink>
               <Link href="/browse" className="btn btn-secondary btn-lg">
                 Browse Notes
               </Link>

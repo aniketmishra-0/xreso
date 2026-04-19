@@ -33,10 +33,10 @@ export default function LicensesPage() {
           </section>
 
           <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>User-uploaded resources</h2>
+            <h2 className={styles.sectionTitle}>User-contributed resources</h2>
             <p>
               Contributors retain ownership of their content. Reuse rights depend
-              on the license selected by the contributor during upload (for
+              on the license selected by the contributor during contribution (for
               example CC-BY, CC-BY-SA, or similar).
             </p>
           </section>

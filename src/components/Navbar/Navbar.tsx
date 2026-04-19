@@ -7,13 +7,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import FloatingQuickNav from "@/components/FloatingQuickNav/FloatingQuickNav";
+import { trackContributeClick } from "@/lib/contribute-tracking";
 import styles from "./Navbar.module.css";
 
 type BrowseMode = "programming" | "advanced";
 
 export default function Navbar() {
   const { data: session } = useSession();
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -24,12 +25,25 @@ export default function Navbar() {
   const [profileAvatar, setProfileAvatar] = useState<string | null>(null);
   const [loginPromptOpen, setLoginPromptOpen] = useState(false);
   const [loginPromptContext, setLoginPromptContext] = useState<"upload" | "contribute">("upload");
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+
+  const isUploadRoute = pathname === "/upload";
+  const focusParam = searchParams.get("focus");
+  const isContributeFocusFlow = isUploadRoute && focusParam === "contribute" && isMobileViewport;
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
 
     const handleScroll = () => {
       const currentY = window.scrollY;
+
+      if (isContributeFocusFlow) {
+        setScrolled(true);
+        setHeaderHidden(true);
+        lastScrollY = currentY;
+        return;
+      }
+
       setScrolled(currentY > 14);
 
       if (mobileMenuOpen) {
@@ -49,9 +63,10 @@ export default function Navbar() {
       lastScrollY = currentY;
     };
 
+    handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [mobileMenuOpen]);
+  }, [mobileMenuOpen, isContributeFocusFlow]);
 
   useEffect(() => {
     const closeUserMenu = () => setUserMenuOpen(false);
@@ -64,11 +79,14 @@ export default function Navbar() {
 
   useEffect(() => {
     const handleResize = () => {
+      setIsMobileViewport(window.innerWidth <= 768);
+
       if (window.innerWidth > 860) {
         setMobileMenuOpen(false);
       }
     };
 
+    handleResize();
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
@@ -155,7 +173,22 @@ export default function Navbar() {
   const browseMode: BrowseMode = pathname.startsWith("/tracks")
     ? "advanced"
     : browseModeFromQuery || "programming";
-  const isHomeHubRoute = pathname === "/home";
+  const modeQuery = searchParams.get("mode");
+  const isHomeHubRoute = pathname === "/home" || pathname.startsWith("/home/");
+  const isAdvancedContextRoute =
+    !isHomeHubRoute &&
+    (pathname.startsWith("/tracks") || (pathname === "/upload" && modeQuery === "advanced"));
+  const isCoreCodeContextRoute =
+    !isHomeHubRoute &&
+    (pathname === "/" ||
+      pathname === "/browse" ||
+      pathname.startsWith("/browse/") ||
+      pathname === "/categories" ||
+      pathname.startsWith("/categories/") ||
+      pathname === "/mcq" ||
+      pathname.startsWith("/mcq/") ||
+      pathname.startsWith("/note/") ||
+      (pathname === "/upload" && modeQuery !== "advanced"));
   const isNoteDetailRoute = pathname.startsWith("/note/");
   const isTrackNotesRoute = pathname.startsWith("/tracks/notes");
   const isVideoDetailRoute = pathname.startsWith("/videos/") && pathname !== "/videos";
@@ -168,6 +201,7 @@ export default function Navbar() {
   const shouldHideFloatingQuickNav =
     headerHidden ||
     mobileMenuOpen ||
+    isUploadRoute ||
     isNoteDetailRoute ||
     isTrackNotesRoute ||
     isVideoDetailRoute ||
@@ -178,8 +212,8 @@ export default function Navbar() {
     isProfileRoute ||
     isAdminRoute;
 
-  const isDark = theme === "dark";
-  const themeLabel = isDark ? "Light" : theme === "light" ? "Dark" : "Theme";
+  const isDark = resolvedTheme === "dark";
+  const themeLabel = isDark ? "Light" : "Dark";
   const isAuthenticated = Boolean(session?.user);
   const userRole = (session?.user as { role?: string } | undefined)?.role;
   const resolvedAvatar = profileAvatar || session?.user?.image || null;
@@ -197,25 +231,23 @@ export default function Navbar() {
   const modeAwareHome = browseMode === "advanced" ? "/home?mode=advanced" : "/home";
 
   const uploadHref = browseMode === "advanced" ? "/upload?mode=advanced" : "/upload?mode=programming";
-  const mobileQuickUploadHref =
-    browseMode === "advanced"
-      ? "/upload?mode=advanced#resource-section"
-      : "/upload?mode=programming#upload-drop-zone";
-  const navUploadHref = uploadHref;
+  const contributeHref = `${uploadHref}&focus=contribute`;
+  const mobileQuickUploadHref = contributeHref;
+  const navUploadHref = contributeHref;
   const navMobileQuickUploadHref = mobileQuickUploadHref;
   const loginPromptCallbackPath =
-    loginPromptContext === "contribute" ? mobileQuickUploadHref : uploadHref;
+    loginPromptContext === "contribute" ? mobileQuickUploadHref : contributeHref;
   const loginPromptHref =
     `/login?callbackUrl=${encodeURIComponent(loginPromptCallbackPath)}&reason=upload_login_required`;
   const loginPromptMessage =
     loginPromptContext === "contribute"
       ? "Please login first, then contribute your resource."
-      : "Please login first, then upload your notes.";
-  const mobileQuickUploadLabel = browseMode === "advanced" ? "Contribute" : "Upload";
+      : "Please login first, then contribute your notes.";
+  const mobileQuickUploadLabel = "Contribute";
   const mobileQuickUploadAriaLabel =
     browseMode === "advanced"
       ? "Contribute advanced resource"
-      : "Upload programming notes";
+      : "Contribute programming notes";
 
   const navItemsBeforeMode = useMemo(
     () => [
@@ -236,8 +268,7 @@ export default function Navbar() {
 
   const isItemActive = (href: string) => {
     const hrefPath = href.split("?")[0] || href;
-    if (hrefPath === "/") return pathname === "/";
-    
+
     // For home-like paths (e.g., /tracks in advanced mode), only match exactly
     // For other paths (e.g., /browse, /categories), match exactly or with a trailing slash
     if (pathname === hrefPath) return true;
@@ -280,11 +311,15 @@ export default function Navbar() {
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
+  const handleContributeClick = (source: string) => {
+    trackContributeClick(source);
+  };
+
   return (
     <>
       <header
         id="main-navbar"
-        className={`${styles.header} ${scrolled ? styles.scrolled : ""} ${headerHidden ? styles.headerHidden : ""}`}
+        className={`${styles.header} ${scrolled ? styles.scrolled : ""} ${headerHidden ? styles.headerHidden : ""} ${isContributeFocusFlow ? styles.headerContributeFocus : ""}`}
       >
       <nav className={styles.nav}>
         <Link href={modeAwareHome} className={styles.logo} id="nav-logo" onClick={handleHomeLogoClick}>
@@ -306,17 +341,17 @@ export default function Navbar() {
           <div className={styles.modeToggle} role="group" aria-label="Browse mode toggle">
             <Link
               href="/"
-              className={`${styles.modeToggleBtn} ${browseMode === "programming" && !isHomeHubRoute ? styles.modeToggleBtnActive : ""}`}
+              className={`${styles.modeToggleBtn} ${isCoreCodeContextRoute ? styles.modeToggleBtnActive : ""}`}
               onClick={closeMobileMenu}
-              aria-current={browseMode === "programming" && !isHomeHubRoute ? "page" : undefined}
+              aria-current={isCoreCodeContextRoute ? "page" : undefined}
             >
               Core Code
             </Link>
             <Link
               href="/tracks"
-              className={`${styles.modeToggleBtn} ${browseMode === "advanced" ? styles.modeToggleBtnActive : ""}`}
+              className={`${styles.modeToggleBtn} ${isAdvancedContextRoute ? styles.modeToggleBtnActive : ""}`}
               onClick={closeMobileMenu}
-              aria-current={browseMode === "advanced" ? "page" : undefined}
+              aria-current={isAdvancedContextRoute ? "page" : undefined}
             >
               Deep Tech
             </Link>
@@ -339,11 +374,19 @@ export default function Navbar() {
         <div className={styles.navActions}>
           <Link
             href={navUploadHref}
-            className={`btn btn-primary btn-sm ${styles.uploadBtn}`}
+            className={styles.mobileQuickUpload}
             id="nav-upload"
-            onClick={(event) => handleProtectedActionClick(event, "upload")}
+            data-track="contribute-click"
+            data-source="navbar"
+            onClick={(event) => {
+              handleContributeClick("navbar");
+              handleProtectedActionClick(event, "contribute");
+            }}
           >
-            Upload
+            <span className={styles.mobileQuickUploadIcon} aria-hidden="true">
+              {"</>"}
+            </span>
+            <span className={styles.mobileQuickUploadLabel}>Contribute</span>
           </Link>
 
           {isAuthenticated ? (
@@ -401,7 +444,7 @@ export default function Navbar() {
                   </button>
                   <button
                     className={styles.dropdownItem}
-                    onClick={() => signOut({ callbackUrl: "/" })}
+                    onClick={() => signOut({ callbackUrl: "/home" })}
                   >
                     Sign Out
                   </button>
@@ -420,7 +463,10 @@ export default function Navbar() {
             href={navMobileQuickUploadHref}
             className={styles.mobileQuickUpload}
             id="nav-mobile-upload"
+            data-track="contribute-click"
+            data-source="navbar-mobile-quick"
             onClick={(event) => {
+              handleContributeClick("navbar-mobile-quick");
               handleProtectedActionClick(event, "contribute");
               if (isAuthenticated) {
                 closeMobileMenu();
@@ -452,14 +498,14 @@ export default function Navbar() {
           <div className={styles.modeToggle} role="group" aria-label="Browse mode toggle">
             <Link
               href="/"
-              className={`${styles.modeToggleBtn} ${browseMode === "programming" && !isHomeHubRoute ? styles.modeToggleBtnActive : ""}`}
+              className={`${styles.modeToggleBtn} ${isCoreCodeContextRoute ? styles.modeToggleBtnActive : ""}`}
               onClick={closeMobileMenu}
             >
               Core Code
             </Link>
             <Link
               href="/tracks"
-              className={`${styles.modeToggleBtn} ${browseMode === "advanced" ? styles.modeToggleBtnActive : ""}`}
+              className={`${styles.modeToggleBtn} ${isAdvancedContextRoute ? styles.modeToggleBtnActive : ""}`}
               onClick={closeMobileMenu}
             >
               Deep Tech
@@ -487,14 +533,17 @@ export default function Navbar() {
           <Link
             href={navUploadHref}
             className={`btn btn-primary ${styles.mobileUpload}`}
+            data-track="contribute-click"
+            data-source="navbar-mobile-menu"
             onClick={(event) => {
-              handleProtectedActionClick(event, "upload");
+              handleContributeClick("navbar-mobile-menu");
+              handleProtectedActionClick(event, "contribute");
               if (isAuthenticated) {
                 closeMobileMenu();
               }
             }}
           >
-            Upload Notes
+            Contribute Notes
           </Link>
 
           {isAuthenticated ? (

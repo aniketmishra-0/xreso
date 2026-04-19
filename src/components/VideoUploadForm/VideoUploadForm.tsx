@@ -210,7 +210,7 @@ export default function VideoUploadForm({
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.error || "Failed to upload video");
+        setError(data.error || "Failed to contribute video");
         return;
       }
 
@@ -424,7 +424,7 @@ export default function VideoUploadForm({
           disabled={!canSubmit}
           className={`btn btn-primary btn-lg ${styles.submitBtn}`}
         >
-          {uploading ? "Uploading..." : "Submit Video"}
+          {uploading ? "Contributing..." : "Submit Video"}
         </button>
       </form>
     </div>

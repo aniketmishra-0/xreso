@@ -4,12 +4,20 @@
   overflow-x: clip;
 }
 
+.pageContributeFocus {
+  padding-top: var(--nav-height);
+}
+
 /* ── Header ───────────────────────────────── */
 .header {
   position: relative;
   padding: var(--space-3xl) var(--space-lg) var(--space-2xl);
   text-align: center;
   overflow: hidden;
+}
+
+.headerContributeFocus {
+  display: block;
 }
 
 .headerBg {
@@ -979,6 +987,18 @@
 
 /* ── Responsive ───────────────────────────── */
 @media (max-width: 768px) {
+  .pageContributeFocus {
+    padding-top: 0;
+  }
+
+  .headerContributeFocus {
+    display: none;
+  }
+
+  .pageContributeFocus .formContainer {
+    padding-top: 12px;
+  }
+
   .formContainer {
     padding: var(--space-lg) 12px;
   }

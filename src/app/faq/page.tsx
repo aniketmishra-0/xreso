@@ -30,7 +30,7 @@ export default function FaqPage() {
       </section>
 
       <section className={styles.actions}>
-        <Link href="/" className="btn btn-primary">
+        <Link href="/home" className="btn btn-primary">
           Back to Home
         </Link>
         <a

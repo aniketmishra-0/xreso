@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { trackContributeClick } from "@/lib/contribute-tracking";
 import styles from "./page.module.css";
 
 interface UserNote {
@@ -507,8 +508,16 @@ export default function ProfilePage() {
           <div className={styles.notesList}>
             {userNotes.length === 0 ? (
               <div className={styles.empty}>
-                <p>You haven&apos;t uploaded any notes yet.</p>
-                <Link href="/upload" className="btn btn-primary">Upload Your First Note</Link>
+                <p>You haven&apos;t contributed any notes yet.</p>
+                <Link
+                  href="/upload?mode=programming&focus=contribute"
+                  className="btn btn-primary"
+                  data-track="contribute-click"
+                  data-source="profile-empty-state"
+                  onClick={() => trackContributeClick("profile-empty-state")}
+                >
+                  Contribute Your First Note
+                </Link>
               </div>
             ) : (
               userNotes.map(note => (

@@ -23,7 +23,7 @@ export default function TermsPage() {
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>2. User Accounts</h2>
             <p>
-              To upload content, you must create an account. You are responsible
+              To contribute content, you must create an account. You are responsible
               for maintaining the confidentiality of your account credentials and
               for all activities under your account.
             </p>
@@ -36,19 +36,19 @@ export default function TermsPage() {
             <div className={styles.highlight}>
               <h3>You Retain Your Copyright</h3>
               <p>
-                When you upload content to xreso, <strong>you retain full
+                When you contribute content to xreso, <strong>you retain full
                 copyright ownership</strong> of your work. We do not claim
                 ownership of any content you submit.
               </p>
             </div>
             <p>
-              By uploading, you grant xreso a non-exclusive, worldwide,
+              By contributing, you grant xreso a non-exclusive, worldwide,
               royalty-free license to host, display, distribute, and make
               available your content on the Platform. This license is solely for
               the purpose of operating and promoting xreso.
             </p>
             <p>
-              You may choose a Creative Commons license for your uploads, which
+              You may choose a Creative Commons license for your contributions, which
               determines how other users may use your content beyond the
               Platform.
             </p>
@@ -56,7 +56,7 @@ export default function TermsPage() {
 
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>4. Content Guidelines</h2>
-            <p>You agree not to upload content that:</p>
+            <p>You agree not to contribute content that:</p>
             <ul>
               <li>Infringes on the copyright or intellectual property of others</li>
               <li>Contains malicious code, spam, or misleading information</li>
@@ -71,7 +71,7 @@ export default function TermsPage() {
             <h2 className={styles.sectionTitle}>5. DMCA & Copyright Claims</h2>
             <p>
               We respect intellectual property rights. If you believe your
-              copyrighted work has been uploaded without permission, you may file
+              copyrighted work has been contributed without permission, you may file
               a DMCA takedown notice. We will investigate and remove infringing
               content promptly.
             </p>
@@ -87,7 +87,7 @@ export default function TermsPage() {
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>6. Content Moderation</h2>
             <p>
-              All uploaded content goes through a moderation process before being
+              All contributed content goes through a moderation process before being
               made publicly available. We reserve the right to remove any content
               that violates these terms or our community guidelines.
             </p>

@@ -14,6 +14,7 @@ import {
   getYouTubeEmbedUrl,
   getVimeoEmbedUrl,
 } from "@/lib/video-utils";
+import { trackContributeClick } from "@/lib/contribute-tracking";
 import styles from "./page.module.css";
 
 function getImageMimeTypeFromUrl(url: string): string | null {
@@ -344,6 +345,8 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
 
   const hasContent = formData.title || formData.description || filePreviewUrl || fileName || formData.resourceUrl;
 
+  // Reset transient drawer state whenever the preview closes.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) {
       if (closeTimerRef.current) {
@@ -358,6 +361,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
       maxSwipeOffsetRef.current = 0;
     }
   }, [open]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     return () => {
@@ -714,7 +718,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
                   <div className={styles.previewViewerFileCard}>
                     <span className={styles.previewViewerFileBadge}>File Attached</span>
                     <p className={styles.previewViewerFileName}>{fileName}</p>
-                    <p className={styles.previewViewerFileHint}>Preview is unavailable for this format, but upload will still work.</p>
+                    <p className={styles.previewViewerFileHint}>Preview is unavailable for this format, but your contribution will still work.</p>
                   </div>
                 )}
 
@@ -844,12 +848,13 @@ function UploadPageContent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionUser = session?.user as { name?: string | null; role?: string } | undefined;
   const sessionName = sessionUser?.name ?? "";
+  const isContributeFocusMode = searchParams.get("focus") === "contribute";
   const preferredResourceTier: "standard" | "advanced" =
     searchParams.get("mode") === "advanced" ? "advanced" : "standard";
   const uploadLoginCallbackPath =
     preferredResourceTier === "advanced"
-      ? "/upload?mode=advanced"
-      : "/upload?mode=programming";
+      ? "/upload?mode=advanced&focus=contribute"
+      : "/upload?mode=programming&focus=contribute";
   const loginToContributeHref =
     `/login?callbackUrl=${encodeURIComponent(uploadLoginCallbackPath)}&reason=upload_login_required`;
 
@@ -1434,7 +1439,7 @@ function UploadPageContent() {
         if (uploadMode === "file" && !file) {
           setUploadResult({
             success: false,
-            message: `Choose a file to upload for ${SPECIALIZED_RESOURCE_LABEL}.`,
+            message: `Choose a file to contribute for ${SPECIALIZED_RESOURCE_LABEL}.`,
           });
           return;
         }
@@ -1477,7 +1482,7 @@ function UploadPageContent() {
               success: false,
               message:
                 readStringField(sessionData?.error) ||
-                "Failed to start advanced upload session",
+                "Failed to start advanced contribution session",
             });
             return;
           }
@@ -1487,7 +1492,7 @@ function UploadPageContent() {
           if (!uploadUrl) {
             setUploadResult({
               success: false,
-              message: "Upload session could not be initialized. Please try again.",
+              message: "Contribution session could not be initialized. Please try again.",
             });
             return;
           }
@@ -1515,7 +1520,7 @@ function UploadPageContent() {
             if (!chunkRes.ok && chunkRes.status !== 202) {
               setUploadResult({
                 success: false,
-                message: "Upload failed during file transfer. Please try again.",
+                message: "Contribution failed during file transfer. Please try again.",
               });
               return;
             }
@@ -1532,7 +1537,7 @@ function UploadPageContent() {
           if (!driveItemId) {
             setUploadResult({
               success: false,
-              message: "Upload completed but no file ID returned. Please try again.",
+              message: "Contribution completed but no file ID returned. Please try again.",
             });
             return;
           }
@@ -1574,8 +1579,8 @@ function UploadPageContent() {
         if (!res.ok) {
           const fallbackMessage =
             res.status === 413
-              ? `Advanced upload payload is too large. Keep files under ${MAX_ADVANCED_FILE_SIZE_MB} MB.`
-              : `${SPECIALIZED_RESOURCE_LABEL} upload failed`;
+              ? `Advanced contribution payload is too large. Keep files under ${MAX_ADVANCED_FILE_SIZE_MB} MB.`
+              : `${SPECIALIZED_RESOURCE_LABEL} contribution failed`;
           setUploadResult({
             success: false,
             message:
@@ -1667,7 +1672,7 @@ function UploadPageContent() {
 
         const res = await fetch("/api/upload", { method: "POST", body });
         const data = await res.json();
-        setUploadResult({ success: res.ok, message: data.message || data.error || "Upload failed", noteId: data.noteId });
+        setUploadResult({ success: res.ok, message: data.message || data.error || "Contribution failed", noteId: data.noteId });
       } else {
         // ── Direct browser → OneDrive upload (supports up to 100 MB) ──
         setUploadProgress(0);
@@ -1686,7 +1691,7 @@ function UploadPageContent() {
 
         if (!sessionRes.ok) {
           const errData = await sessionRes.json();
-          setUploadResult({ success: false, message: errData.error || "Failed to start upload session" });
+          setUploadResult({ success: false, message: errData.error || "Failed to start contribution session" });
           return;
         }
 
@@ -1713,7 +1718,7 @@ function UploadPageContent() {
           });
 
           if (!chunkRes.ok && chunkRes.status !== 202) {
-            setUploadResult({ success: false, message: "Upload failed during file transfer. Please try again." });
+            setUploadResult({ success: false, message: "Contribution failed during file transfer. Please try again." });
             return;
           }
 
@@ -1728,7 +1733,7 @@ function UploadPageContent() {
         }
 
         if (!driveItemId) {
-          setUploadResult({ success: false, message: "Upload completed but no file ID returned. Please try again." });
+          setUploadResult({ success: false, message: "Contribution completed but no file ID returned. Please try again." });
           return;
         }
 
@@ -1754,7 +1759,7 @@ function UploadPageContent() {
         const completeData = await completeRes.json();
         setUploadResult({
           success: completeRes.ok,
-          message: completeData.message || completeData.error || "Upload failed",
+          message: completeData.message || completeData.error || "Contribution failed",
           noteId: completeData.noteId,
         });
       }
@@ -1779,10 +1784,15 @@ function UploadPageContent() {
   const browseHref = preferredResourceTier === "advanced" ? "/tracks" : "/browse";
 
   const linkMeta = detectLinkType(formData.resourceUrl, hasLinkImagePreview);
+  const pageClassName = `${styles.page} ${isContributeFocusMode ? styles.pageContributeFocus : ""}`;
+
+  const handleContributeClick = (source: string) => {
+    trackContributeClick(source);
+  };
 
   if (status === "loading") {
     return (
-      <div className={styles.page}>
+      <div className={pageClassName}>
         <div className={styles.formContainer} aria-busy="true" style={{ minHeight: 560 }} />
       </div>
     );
@@ -1790,12 +1800,18 @@ function UploadPageContent() {
 
   if (status === "unauthenticated") {
     return (
-      <div className={styles.page}>
+      <div className={pageClassName}>
         <div className={styles.formContainer}>
           <div className={styles.errorBanner}>
             Login first, then contribute your resource.
           </div>
-          <Link href={loginToContributeHref} className="btn btn-primary btn-lg">
+          <Link
+            href={loginToContributeHref}
+            className="btn btn-primary btn-lg"
+            data-track="contribute-click"
+            data-source="upload-login-required"
+            onClick={() => handleContributeClick("upload-login-required")}
+          >
             Login First to Contribute
           </Link>
         </div>
@@ -1827,10 +1843,10 @@ function UploadPageContent() {
     };
 
     const defaultTemplates = {
-      x: `I just uploaded "${shareTitle}" on xreso 📚\n\nxreso is a free, open-source library where devs share notes, cheat sheets & learning resources — completely free.\n\n💡 No paywall. No sign-up wall. Just knowledge.\n\n${noteUrl}\n\n#xreso #${categoryLabel.replace(/\s+/g, "")} #LearnInPublic #100DaysOfCode`,
+      x: `I just contributed "${shareTitle}" on xreso 📚\n\nxreso is a free, open-source library where devs share notes, cheat sheets & learning resources — completely free.\n\n💡 No paywall. No sign-up wall. Just knowledge.\n\n${noteUrl}\n\n#xreso #${categoryLabel.replace(/\s+/g, "")} #LearnInPublic #100DaysOfCode`,
       linkedin: `🎓 Knowledge shared = Knowledge multiplied\n\nI just contributed "${shareTitle}" on xreso — a fully free, open-source platform built for developers who believe learning resources should be accessible to everyone.\n\nWhat is xreso?\n→ A community-driven library of programming notes, cheat sheets, and study resources\n→ 100% free — no premium tiers, no paywalls\n→ Open source — anyone can contribute\n→ Covering ${categoryLabel} and 20+ other topics\n\nIf you've ever wished for a single place to find quality ${categoryLabel} notes, this is it.\n\nCheck it out: ${noteUrl}\n\n#OpenSource #Programming #${categoryLabel.replace(/\s+/g, "")} #DevCommunity #Learning #xreso`,
       whatsapp: `Hey! 👋\n\nI just shared my ${categoryLabel} notes on this really cool platform called *xreso*\n\n📚 "${shareTitle}"\n\nIt's completely free and open source — anyone can access notes on 20+ programming topics without signing up.\n\nCheck it out: ${noteUrl}`,
-      telegram: `📚 Just uploaded "${shareTitle}" on xreso\n\n→ Free & open-source programming notes library\n→ No paywall, no sign-up required\n→ ${categoryLabel} + 20 other topics\n\n${noteUrl}`,
+      telegram: `📚 Just contributed "${shareTitle}" on xreso\n\n→ Free & open-source programming notes library\n→ No paywall, no sign-up required\n→ ${categoryLabel} + 20 other topics\n\n${noteUrl}`,
     };
 
     const shareTemplates = {
@@ -1859,7 +1875,7 @@ function UploadPageContent() {
     };
 
     return (
-      <div className={styles.page}>
+      <div className={pageClassName}>
         <div className={styles.formContainer}>
           <div className={styles.successCard}>
             <div className={styles.successIcon}>🎉</div>
@@ -1906,7 +1922,7 @@ function UploadPageContent() {
   }
 
   return (
-    <div className={styles.page}>
+    <div className={pageClassName}>
       {/* Live Preview Drawer */}
       <PreviewDrawer
         open={previewOpen}
@@ -1949,12 +1965,12 @@ function UploadPageContent() {
       )}
 
       {/* Header */}
-      <div className={styles.header}>
+      <div className={`${styles.header} ${isContributeFocusMode ? styles.headerContributeFocus : ""}`}>
         <div className={styles.headerBg} />
         <div className={styles.headerContent}>
           <h1 className={styles.title}>Share a Resource</h1>
           <p className={styles.subtitle}>
-            Upload your notes or share any community link — Google Drive, GitHub, YouTube, and more.
+            Contribute your notes or share any community link — Google Drive, GitHub, YouTube, and more.
           </p>
         </div>
       </div>
@@ -1980,11 +1996,16 @@ function UploadPageContent() {
           <div className={styles.modeToggle}>
             <button type="button" id="mode-file-btn"
               className={`${styles.modeBtn} ${uploadMode === "file" ? styles.modeBtnActive : ""}`}
-              onClick={() => setUploadMode("file")}>
+              data-track="contribute-click"
+              data-source="upload-mode-file"
+              onClick={() => {
+                handleContributeClick("upload-mode-file");
+                setUploadMode("file");
+              }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
-              Upload a File
+              Contribute a File
             </button>
             <button type="button" id="mode-link-btn"
               className={`${styles.modeBtn} ${uploadMode === "link" ? styles.modeBtnActive : ""}`}
@@ -2017,7 +2038,7 @@ function UploadPageContent() {
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
                   </svg>
-                  Upload File
+                  Contribute File
                 </h2>
 
                 <div
@@ -2581,9 +2602,14 @@ function UploadPageContent() {
               </button>
               <button type="submit"
                 className={`btn btn-primary btn-lg ${styles.submitBtn}`}
-                disabled={!canSubmit} id="submit-upload-btn">
+                disabled={!canSubmit}
+                id="submit-upload-btn"
+                data-track="contribute-click"
+                data-source="upload-submit"
+                onClick={() => handleContributeClick("upload-submit")}
+              >
                 {uploading ? (
-                  <><span className={styles.uploadingSpinner} />{uploadProgress > 0 ? `Uploading… ${uploadProgress}%` : "Submitting…"}</>
+                  <><span className={styles.uploadingSpinner} />{uploadProgress > 0 ? `Contributing… ${uploadProgress}%` : "Submitting…"}</>
                 ) : (
                   <>
                     {uploadMode === "link"
@@ -2592,7 +2618,7 @@ function UploadPageContent() {
                         ? <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
                       : <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                     }
-                    {uploadMode === "video" ? "Publish Video Link" : "Upload Notes"}
+                    {uploadMode === "video" ? "Publish Video Link" : "Contribute Notes"}
                   </>
                 )}
               </button>

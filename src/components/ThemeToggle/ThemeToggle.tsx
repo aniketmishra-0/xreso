@@ -4,8 +4,8 @@ import { useTheme } from "next-themes";
 import styles from "./ThemeToggle.module.css";
 
 export default function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  const isDark = theme === "dark";
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
 
   return (
     <button

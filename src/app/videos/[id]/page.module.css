@@ -2,13 +2,14 @@
   min-height: 100vh;
   max-width: 1320px;
   margin: 0 auto;
-  padding: 24px 16px 40px;
+  padding: calc(var(--nav-height) + 16px) 16px 40px;
 }
 
 .hero {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 20px;
   padding: 22px 24px;
   margin-bottom: 22px;
@@ -22,6 +23,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  flex: 1 1 420px;
   min-width: 0;
 }
 
@@ -37,6 +39,9 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(110px, 1fr));
   gap: 12px;
+  flex: 1 1 320px;
+  max-width: 520px;
+  margin-left: auto;
   min-width: 320px;
 }
 
@@ -93,6 +98,7 @@
   color: var(--color-text-primary);
   line-height: 1.15;
   letter-spacing: -0.03em;
+  overflow-wrap: anywhere;
 }
 
 .meta {

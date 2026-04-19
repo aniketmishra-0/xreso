@@ -3,37 +3,108 @@
   padding: calc(var(--nav-height) + 24px) var(--space-lg) var(--space-2xl);
   max-width: 1200px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
 }
 
 .hero {
+  position: relative;
   border: 1px solid var(--border-secondary);
   border-radius: var(--radius-xl);
-  padding: clamp(20px, 3vw, 34px);
+  padding: clamp(22px, 3vw, 34px);
+  overflow: hidden;
   background:
-    radial-gradient(circle at 80% 10%, color-mix(in srgb, var(--accent-orange) 18%, transparent), transparent 36%),
-    radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--primary) 20%, transparent), transparent 38%),
-    var(--bg-surface);
-  margin-bottom: var(--space-xl);
+    radial-gradient(circle at 92% 14%, color-mix(in srgb, var(--accent-orange) 28%, transparent), transparent 44%),
+    radial-gradient(circle at 10% 20%, color-mix(in srgb, var(--primary) 24%, transparent), transparent 40%),
+    linear-gradient(120deg, color-mix(in srgb, var(--bg-surface) 86%, transparent), color-mix(in srgb, var(--bg-elevated) 88%, transparent));
 }
 
 .eyebrow {
   margin: 0;
   font-size: 11px;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
   color: var(--text-tertiary);
   font-weight: 700;
 }
 
 .title {
-  margin: 10px 0 8px;
-  font-size: clamp(1.7rem, 4.5vw, 2.6rem);
-  line-height: 1.1;
+  margin: 10px 0 10px;
+  font-size: clamp(1.8rem, 4.8vw, 2.8rem);
+  line-height: 1.08;
 }
 
 .subtitle {
   margin: 0;
-  max-width: 64ch;
+  max-width: 66ch;
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+.heroStats {
+  margin-top: var(--space-md);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.statCard {
+  border: 1px solid color-mix(in srgb, var(--border-secondary) 75%, transparent);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--bg-surface) 78%, transparent);
+}
+
+.statValue {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.statLabel {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.graphSection {
+  position: relative;
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-xl);
+  padding: clamp(18px, 2.7vw, 24px);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.graphBackdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 86% 16%, color-mix(in srgb, var(--accent-orange) 18%, transparent), transparent 42%),
+    radial-gradient(circle at 12% 84%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 44%),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--border-secondary) 42%, transparent) 0 1px, transparent 1px 72px),
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--border-secondary) 30%, transparent) 0 1px, transparent 1px 72px),
+    color-mix(in srgb, var(--bg-surface) 90%, transparent);
+  opacity: 0.8;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.graphHeader {
+  margin-bottom: 14px;
+}
+
+.graphTitle {
+  margin: 0;
+  font-size: clamp(1.2rem, 2.5vw, 1.5rem);
+}
+
+.graphSubtitle {
+  margin: 8px 0 0;
+  max-width: 66ch;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
   line-height: var(--leading-relaxed);
 }
@@ -41,23 +112,95 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-md);
+  gap: 12px;
 }
 
 .card {
-  border: 1px solid var(--border-secondary);
+  --tone: var(--primary);
+
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--border-secondary) 92%, transparent);
+  border-top: 2px solid color-mix(in srgb, var(--tone) 58%, transparent);
   border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-surface) 84%, transparent);
-  padding: 18px;
+  background: color-mix(in srgb, var(--bg-surface) 86%, transparent);
+  padding: 15px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  min-height: 176px;
+  gap: 10px;
+  min-height: 190px;
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 8px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tone) 72%, transparent), transparent 70%);
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--tone) 58%, var(--border-secondary));
+  box-shadow: 0 10px 26px -18px color-mix(in srgb, var(--tone) 55%, transparent);
+}
+
+.toneLibrary {
+  --tone: color-mix(in srgb, var(--primary) 88%, #7fc8ff);
+}
+
+.toneVideo {
+  --tone: color-mix(in srgb, var(--accent-orange) 84%, #ffc270);
+}
+
+.toneMcq {
+  --tone: color-mix(in srgb, var(--primary-light) 78%, #8b7ef5);
+}
+
+.toneContribute {
+  --tone: color-mix(in srgb, var(--accent-orange) 55%, var(--primary) 45%);
+}
+
+.toneCategory {
+  --tone: color-mix(in srgb, var(--primary) 64%, #5dc8c8);
+}
+
+.toneAdvanced {
+  --tone: color-mix(in srgb, var(--accent-orange) 52%, #6c91ff);
+}
+
+.cardMeta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cardGroup {
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--tone) 44%, transparent);
+  background: color-mix(in srgb, var(--tone) 16%, transparent);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--tone) 78%, var(--text-primary));
+}
+
+.cardMetric {
+  font-size: 11px;
+  letter-spacing: 0.03em;
+  color: var(--text-tertiary);
+  font-weight: 700;
 }
 
 .cardTitle {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.08rem;
 }
 
 .cardDescription {
@@ -74,160 +217,61 @@
   justify-content: center;
   min-height: 36px;
   border-radius: var(--radius-md);
-  border: 1px solid var(--border-primary);
-  color: var(--text-primary);
+  border: 1px solid color-mix(in srgb, var(--tone) 52%, var(--border-primary));
+  color: color-mix(in srgb, var(--tone) 72%, var(--text-primary));
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
   transition: all var(--transition-fast);
-  background: color-mix(in srgb, var(--bg-elevated) 82%, transparent);
+  background: color-mix(in srgb, var(--bg-elevated) 84%, transparent);
 }
 
 .cardCta:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--tone) 82%, var(--border-primary));
 }
 
-.floatingToggleWrapper {
-  display: none;
+.flowRow {
+  margin-top: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-@keyframes floatingSlideUp {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, 30px) scale(0.95);
-  }
-
-  100% {
-    opacity: 1;
-    transform: translate(-50%, 0) scale(1);
-  }
-}
-
-.floatingToggle {
+.flowPill {
   display: inline-flex;
   align-items: center;
-  min-height: 60px;
-  background: color-mix(in srgb, var(--bg-surface) 70%, rgba(255, 255, 255, 0.3));
-  border: 1px solid color-mix(in srgb, var(--border-secondary) 50%, transparent);
-  border-radius: 100px;
-  padding: 4px;
-  backdrop-filter: blur(24px) saturate(150%);
-  -webkit-backdrop-filter: blur(24px) saturate(150%);
-  box-shadow: 0 4px 16px -4px rgba(0, 0, 0, 0.08);
-}
-
-.toggleBtn {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 52px;
-  padding: 8px 16px;
-  border-radius: 100px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  gap: 10px;
+  min-height: 32px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border-secondary) 88%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--text-secondary);
-  text-decoration: none;
-  transition: all 0.2s ease-out;
-  z-index: 1;
 }
 
-.toggleBtn:hover {
-  color: var(--text-primary);
-  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
-}
-
-.toggleBtnActive {
-  background: var(--bg-elevated);
-  color: var(--primary-light);
-  font-weight: 700;
-  box-shadow:
-    0 2px 8px -2px rgba(0, 0, 0, 0.12),
-    0 0 0 1px color-mix(in srgb, var(--border-primary) 80%, transparent);
-  pointer-events: none;
-  z-index: 2;
-}
-
-.trackMenu {
-  position: relative;
-}
-
-.trackMenuDetails {
-  position: relative;
-}
-
-.trackMenuSummary {
-  list-style: none;
-  cursor: pointer;
-}
-
-.trackMenuSummary::marker {
-  content: "";
-}
-
-.trackMenuSummary::-webkit-details-marker {
-  display: none;
-}
-
-.trackMenuDetails[open] .trackMenuSummary {
-  background: var(--bg-elevated);
-  color: var(--primary-light);
-  font-weight: 700;
-  box-shadow:
-    0 2px 8px -2px rgba(0, 0, 0, 0.12),
-    0 0 0 1px color-mix(in srgb, var(--border-primary) 80%, transparent);
-}
-
-.trackMenuPopover {
-  position: absolute;
-  left: 50%;
-  bottom: calc(100% + 10px);
-  transform: translateX(-50%);
-  min-width: 172px;
-  padding: 8px;
-  border-radius: 16px;
-  border: 1px solid color-mix(in srgb, var(--border-secondary) 65%, transparent);
-  background: color-mix(in srgb, var(--bg-surface) 88%, rgba(255, 255, 255, 0.22));
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: 0 12px 28px -12px rgba(0, 0, 0, 0.3);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  z-index: 8;
-}
-
-.trackMenuItem {
-  min-height: 38px;
-  padding: 8px 12px;
-  border-radius: 10px;
-  text-decoration: none;
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 700;
-  text-align: center;
-  background: color-mix(in srgb, var(--bg-elevated) 66%, transparent);
-  border: 1px solid transparent;
-  transition: all var(--transition-fast);
-}
-
-.trackMenuItem:hover {
-  color: var(--text-primary);
-  border-color: color-mix(in srgb, var(--border-primary) 70%, transparent);
-}
-
-.trackMenuItemActive {
-  color: var(--primary-light);
-  border-color: color-mix(in srgb, var(--border-primary) 80%, transparent);
-  background: color-mix(in srgb, var(--primary-subtle) 72%, var(--bg-elevated));
+.flowPill:not(:last-child)::after {
+  content: "→";
+  color: var(--text-tertiary);
 }
 
 @media (max-width: 980px) {
   .grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .heroStats {
+    grid-template-columns: 1fr;
+  }
+
+  .flowPill::after {
+    display: none;
   }
 }
 
@@ -239,16 +283,11 @@
   .grid {
     grid-template-columns: 1fr;
   }
+}
 
-  .floatingToggleWrapper {
-    display: flex;
-    position: fixed;
-    bottom: calc(env(safe-area-inset-bottom, 4px) + 8px);
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 100;
-    pointer-events: auto;
-    animation: floatingSlideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) backwards;
-    animation-delay: 0.2s;
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .cardCta {
+    transition: none;
   }
 }

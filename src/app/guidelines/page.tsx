@@ -25,16 +25,16 @@ export default function GuidelinesPage() {
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>1. Share useful, teachable resources</h2>
             <ul>
-              <li>Upload material that helps someone complete a learning step.</li>
+              <li>Contribute material that helps someone complete a learning step.</li>
               <li>Use clear titles and summaries so others can find content fast.</li>
-              <li>Avoid duplicate uploads when a stronger version already exists.</li>
+              <li>Avoid duplicate contributions when a stronger version already exists.</li>
             </ul>
           </section>
 
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>2. Respect ownership and attribution</h2>
             <ul>
-              <li>Upload only content you have rights to share.</li>
+              <li>Contribute only content you have rights to share.</li>
               <li>Include accurate author credit and source links when applicable.</li>
               <li>Choose an explicit license whenever possible.</li>
             </ul>
@@ -45,7 +45,7 @@ export default function GuidelinesPage() {
             <ul>
               <li>No malware, obfuscated downloads, phishing links, or deceptive redirects.</li>
               <li>No abusive, harassing, or discriminatory material.</li>
-              <li>No illegal content or uploads that violate privacy rights.</li>
+              <li>No illegal content or contributions that violate privacy rights.</li>
             </ul>
           </section>
 

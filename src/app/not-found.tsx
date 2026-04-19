@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ContributeCtaAnchor from "@/components/ContributeCtaAnchor";
 import styles from "./not-found.module.css";
 
 const GITHUB_ISSUES_URL = "https://github.com/aniketmishra-0/xreso/issues/new/choose";
@@ -32,17 +33,18 @@ export default function NotFound() {
         </div>
 
         <div className={styles.actions}>
-          <Link href="/" className="btn btn-primary">
+          <Link href="/home" className="btn btn-primary">
             Go to Home
           </Link>
-          <a
+          <ContributeCtaAnchor
             href={GITHUB_ISSUES_URL}
             target="_blank"
             rel="noopener noreferrer"
             className="btn btn-secondary"
+            source="not-found-report"
           >
             Report or Contribute
-          </a>
+          </ContributeCtaAnchor>
         </div>
 
         <p className={styles.meta}>

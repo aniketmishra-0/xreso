@@ -34,7 +34,7 @@ export default function PrivacyPage() {
           <section className={styles.section}>
             <h2 className={styles.sectionTitle}>How data is used</h2>
             <ul>
-              <li>Operate authentication, uploads, search, and recommendations.</li>
+              <li>Operate authentication, contributions, search, and recommendations.</li>
               <li>Moderate content quality and enforce community rules.</li>
               <li>Maintain audit trails for admin actions and account security.</li>
               <li>Improve reliability, performance, and product decisions.</li>

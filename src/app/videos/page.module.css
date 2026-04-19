@@ -382,7 +382,7 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.62);
   backdrop-filter: blur(3px);
-  z-index: 100;
+  z-index: 1600;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -392,35 +392,43 @@
 .modalPanel {
   width: min(960px, 100%);
   max-height: calc(100vh - 28px);
-  overflow: auto;
+  overflow: visible;
   border-radius: 16px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-secondary);
+  box-shadow: var(--shadow-xl);
   padding: 14px;
   position: relative;
+  color: var(--text-primary);
 }
 
 .modalClose {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 34px;
-  height: 34px;
+  top: -12px;
+  right: -12px;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
   border-radius: 999px;
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  font-size: 22px;
+  border: 1px solid var(--border-primary);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 20px;
   line-height: 1;
-  z-index: 2;
+  box-shadow: var(--shadow-md);
+  z-index: 8;
 }
 
 .modalMetaRow {
-  margin-top: 12px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-secondary);
   display: flex;
   justify-content: space-between;
   gap: 16px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .modalInfo {
@@ -430,24 +438,26 @@
 .modalTitle {
   margin: 0;
   font-size: 18px;
-  color: var(--color-text-primary);
+  color: var(--text-primary);
+  line-height: 1.3;
 }
 
 .modalAuthor {
   margin: 4px 0 0 0;
   font-size: 14px;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
 .modalActions {
   display: flex;
   align-items: center;
   gap: 10px;
+  margin-left: auto;
 }
 
 .modalViews {
   font-size: 13px;
-  color: var(--color-text-secondary);
+  color: var(--text-secondary);
 }
 
 .saveBtn,
@@ -462,9 +472,9 @@
 }
 
 .saveBtn {
-  border: 1px solid var(--color-border);
-  background: var(--color-bg-primary);
-  color: var(--color-text-primary);
+  border: 1px solid var(--border-secondary);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
 }
 
 .saveBtnActive {
@@ -476,7 +486,7 @@
 .saveCount {
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--bg-elevated) 74%, transparent);
 }
 
 .pagination {
@@ -664,6 +674,11 @@
   .modalPanel {
     padding: 12px;
     border-radius: 14px;
+  }
+
+  .modalClose {
+    top: 8px;
+    right: 8px;
   }
 
   .modalMetaRow {

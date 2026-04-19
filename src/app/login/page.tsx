@@ -177,7 +177,7 @@ function LoginPageContent() {
       <div className={styles.container}>
         <div className={styles.card}>
           <div className={styles.header}>
-            <Link href="/" className={styles.logoLink}>
+            <Link href="/home" className={styles.logoLink}>
               <span className={styles.logoText}>xreso</span>
             </Link>
             <p className={styles.eyebrow}>Account Access</p>
@@ -186,7 +186,7 @@ function LoginPageContent() {
             </h1>
             <p className={styles.subtitle}>
               {mode === "login"
-                ? "Sign in to upload, bookmark, and manage your notes"
+                ? "Sign in to contribute, bookmark, and manage your notes"
                 : "Join the community and start sharing your notes"}
             </p>
           </div>

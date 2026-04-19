@@ -7,8 +7,8 @@ export default function ThemeProviderWrapper({ children }: { children: ReactNode
   return (
     <ThemeProvider
       attribute="data-theme"
-      defaultTheme="dark"
-      enableSystem={false}
+      defaultTheme="system"
+      enableSystem
       themes={["dark", "light"]}
       disableTransitionOnChange
     >

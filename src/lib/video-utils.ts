@@ -232,7 +232,7 @@ export function extractVideoId(
  * Generate Google Drive embed URL from file ID
  */
 export function getGoogleDriveEmbedUrl(fileId: string): string {
-  return `https://drive.google.com/file/d/${fileId}/preview`;
+  return `https://drive.google.com/file/d/${fileId}/preview?rm=minimal`;
 }
 
 /**

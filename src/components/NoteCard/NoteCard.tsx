@@ -21,6 +21,10 @@ interface NoteCardProps {
   bookmarkCount: number;
   tags: string[];
   createdAt: string;
+  // Support custom href for external links or advanced resources
+  href?: string;
+  // For advanced resources: open link in new tab
+  external?: boolean;
 }
 
 /* ── Social Icons ── */
@@ -73,14 +77,24 @@ export default function NoteCard({
   bookmarkCount,
   tags,
   createdAt,
+  href,
+  external = false,
 }: NoteCardProps) {
   const hasSocials = authorGithub || authorLinkedin || authorTwitter || authorWebsite;
   const authorProfileUrl = authorId ? `/user/${authorId}` : "#";
   const effectiveCategorySlug = normalizeSlug(categorySlug || categoryColor || category);
+  
+  // Use custom href for advanced resources/external links, default to /note/[id]
+  const cardHref = href || `/note/${id}`;
 
   return (
     <article className={styles.noteCard} id={`note-card-${id}`}>
-      <Link href={`/note/${id}`} className={styles.cardHitbox} aria-label={`View ${title}`} />
+      <Link 
+        href={cardHref} 
+        className={styles.cardHitbox} 
+        aria-label={`View ${title}`}
+        {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      />
 
       <div className={styles.noteMedia}>
       {(() => {

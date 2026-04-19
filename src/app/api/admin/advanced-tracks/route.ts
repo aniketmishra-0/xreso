@@ -139,6 +139,19 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function isAutoApproveEnabled(client: Client): Promise<boolean> {
+  try {
+    const result = await client.execute({
+      sql: "SELECT value FROM settings WHERE key = 'auto_approve_enabled'",
+      args: [],
+    });
+    return result.rows.length > 0 && String(result.rows[0].value) === "true";
+  } catch {
+    // settings table may not exist yet
+    return false;
+  }
+}
+
 async function uploadToOneDriveWithRetry(params: {
   fileBuffer: Buffer;
   fileName: string;
@@ -414,7 +427,14 @@ export async function POST(req: NextRequest) {
     let resourceType = parseResourceType(payload.resourceType);
     const premiumOnly = parseBoolean(payload.premiumOnly, false);
     const featured = parseBoolean(payload.featured, false);
-    const status = parseStatus(payload.status);
+    let status = parseStatus(payload.status);
+    
+    // Auto-approve if setting is enabled (unless explicitly set to draft)
+    const autoApprove = await isAutoApproveEnabled(client);
+    if (autoApprove && status !== "draft") {
+      status = "approved";
+    }
+    
     const tags = parseTags(payload.tags);
 
     if (!title || !summary || !trackSlug) {

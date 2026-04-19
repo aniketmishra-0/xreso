@@ -78,8 +78,12 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ resourceId: string }> }
 ) {
+  let resourceId: string | undefined;
+  
   try {
-    const { resourceId } = await params;
+    const paramsData = await params;
+    resourceId = paramsData.resourceId;
+    
     if (!resourceId) {
       return NextResponse.json({ error: "resourceId is required" }, { status: 400 });
     }
@@ -160,6 +164,18 @@ export async function GET(
     return NextResponse.json({ error: "Unsupported resource URL" }, { status: 404 });
   } catch (error) {
     console.error("GET /api/advanced-tracks/resource/[resourceId] error:", error);
-    return NextResponse.json({ error: "Failed to serve advanced resource" }, { status: 500 });
+    
+    // Detailed error for debugging
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Error details:", {
+      message: errorMessage,
+      resourceId,
+      stack: error instanceof Error ? error.stack : undefined,
+    });
+    
+    return NextResponse.json(
+      { error: "Failed to serve advanced resource", details: errorMessage },
+      { status: 500 }
+    );
   }
 }

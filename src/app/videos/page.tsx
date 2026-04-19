@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import VideoCard from "@/components/VideoCard/VideoCard";
-import { CATEGORY_CATALOG } from "@/lib/techIcons";
 import styles from "./page.module.css";
 
 interface Video {
@@ -32,10 +31,6 @@ interface ListResponse {
   };
 }
 
-const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
-  CATEGORY_CATALOG.map((cat) => [cat.slug, cat.name])
-);
-
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest First" },
   { value: "popular", label: "Most Popular" },
@@ -49,12 +44,15 @@ function VideoPageContent() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [categories, setCategories] = useState<any[]>([]);
+  const [searchInput, setSearchInput] = useState("");
 
   const page = parseInt(searchParams.get("page") || "1");
-  const categoryId = searchParams.get("categoryId") || "";
   const searchQuery = searchParams.get("search") || "";
   const sortBy = (searchParams.get("sort") as "newest" | "popular") || "newest";
+
+  useEffect(() => {
+    setSearchInput(searchQuery);
+  }, [searchQuery]);
 
   const updateQueryParams = useCallback(
     (nextValues: Record<string, string>) => {
@@ -75,27 +73,6 @@ function VideoPageContent() {
     [pathname, router, searchParams]
   );
 
-  // Fetch categories
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await fetch("/api/categories?limit=50");
-        const data = await response.json();
-        const normalizedCategories = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.categories)
-            ? data.categories
-            : [];
-        setCategories(normalizedCategories);
-      } catch (err) {
-        console.error("Error fetching categories:", err);
-        setCategories([]);
-      }
-    };
-
-    fetchCategories();
-  }, []);
-
   // Fetch videos
   const fetchVideos = useCallback(async () => {
     setLoading(true);
@@ -105,7 +82,6 @@ function VideoPageContent() {
       const params = new URLSearchParams();
       params.set("page", String(page));
       params.set("limit", "12");
-      if (categoryId) params.set("categoryId", categoryId);
       if (searchQuery) params.set("search", searchQuery);
       params.set("sort", sortBy);
 
@@ -124,7 +100,7 @@ function VideoPageContent() {
     } finally {
       setLoading(false);
     }
-  }, [page, categoryId, searchQuery, sortBy]);
+  }, [page, searchQuery, sortBy]);
 
   useEffect(() => {
     fetchVideos();
@@ -144,20 +120,28 @@ function VideoPageContent() {
 
       {/* Filters */}
       <div className={styles.controls}>
-        <div className={styles.categoryControl}>
-          <label htmlFor="category">Category:</label>
-          <select
-            id="category"
-            value={categoryId}
-            onChange={(event) => updateQueryParams({ categoryId: event.target.value })}
+        <div className={styles.searchControl}>
+          <label htmlFor="video-search">Search:</label>
+          <input
+            id="video-search"
+            type="search"
+            value={searchInput}
+            placeholder="Search videos by title, description, or author"
+            onChange={(event) => setSearchInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                updateQueryParams({ search: searchInput.trim() });
+              }
+            }}
+          />
+          <button
+            type="button"
+            className={styles.searchBtn}
+            onClick={() => updateQueryParams({ search: searchInput.trim() })}
           >
-            <option value="">All Categories</option>
-            {categories.map((cat) => (
-              <option key={cat.id} value={String(cat.id)}>
-                {CATEGORY_LABELS[cat.slug] || cat.name}
-              </option>
-            ))}
-          </select>
+            Search
+          </button>
         </div>
 
         <div className={styles.sortControl}>

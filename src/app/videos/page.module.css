@@ -91,21 +91,21 @@
   gap: 8px;
 }
 
-.categoryControl {
+.searchControl {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
 .sortControl label,
-.categoryControl label {
+.searchControl label {
   font-size: 14px;
   font-weight: 500;
   color: var(--color-text-primary);
 }
 
 .sortControl select,
-.categoryControl select {
+.searchControl input {
   padding: 6px 10px;
   border: 1px solid var(--color-border);
   border-radius: 6px;
@@ -117,7 +117,27 @@
 }
 
 .sortControl select:hover,
-.categoryControl select:hover {
+.searchControl input:hover,
+.searchControl input:focus {
+  border-color: var(--color-primary);
+}
+
+.searchControl input {
+  min-width: 280px;
+}
+
+.searchBtn {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  transition: border-color 0.2s ease;
+}
+
+.searchBtn:hover {
   border-color: var(--color-primary);
 }
 
@@ -203,15 +223,19 @@
   }
 
   .sortControl,
-  .categoryControl {
+  .searchControl {
     width: 100%;
     flex-wrap: wrap;
   }
 
   .sortControl select,
-  .categoryControl select {
+  .searchControl input {
     flex: 1;
     min-width: 0;
+  }
+
+  .searchBtn {
+    width: 100%;
   }
 
   .uploadSectionTitle {

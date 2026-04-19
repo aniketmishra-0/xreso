@@ -879,41 +879,19 @@ function UploadPageContent() {
     status: "idle" | "checking" | "public" | "private";
     message: string;
   }>({ status: "idle", message: "" });
-  const [showVideoTagsInput, setShowVideoTagsInput] = useState(false);
   const [customShareTemplates, setCustomShareTemplates] = useState<Record<string, string>>({});
-
-  if (status === "loading") {
-    return (
-      <div className={styles.page}>
-        <div className={styles.formContainer} aria-busy="true" style={{ minHeight: 560 }} />
-      </div>
-    );
-  }
-
-  if (status === "unauthenticated") {
-    return (
-      <div className={styles.page}>
-        <div className={styles.formContainer}>
-          <div className={styles.errorBanner}>
-            Login first, then contribute your resource.
-          </div>
-          <Link href={loginToContributeHref} className="btn btn-primary btn-lg">
-            Login First to Contribute
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   // Fetch custom share templates from admin settings
   useEffect(() => {
+    if (status !== "authenticated") return;
+
     fetch("/api/share-templates", { cache: "no-store" })
       .then((res) => res.json())
       .then((data: { templates?: Record<string, string> }) => {
         if (data.templates) setCustomShareTemplates(data.templates);
       })
       .catch(() => {});
-  }, []);
+  }, [status]);
 
   const selectedAdvancedTrack = advancedTracks.find(
     (track) => track.slug === formData.advancedTrackSlug
@@ -1149,12 +1127,6 @@ function UploadPageContent() {
   useEffect(() => {
     if (uploadMode !== "video") return;
     setResourceTier("standard");
-  }, [uploadMode]);
-
-  useEffect(() => {
-    if (uploadMode !== "video") {
-      setShowVideoTagsInput(false);
-    }
   }, [uploadMode]);
 
   useEffect(() => {
@@ -1808,6 +1780,29 @@ function UploadPageContent() {
 
   const linkMeta = detectLinkType(formData.resourceUrl, hasLinkImagePreview);
 
+  if (status === "loading") {
+    return (
+      <div className={styles.page}>
+        <div className={styles.formContainer} aria-busy="true" style={{ minHeight: 560 }} />
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return (
+      <div className={styles.page}>
+        <div className={styles.formContainer}>
+          <div className={styles.errorBanner}>
+            Login first, then contribute your resource.
+          </div>
+          <Link href={loginToContributeHref} className="btn btn-primary btn-lg">
+            Login First to Contribute
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // ── Success screen ────────────────────────
   if (uploadResult?.success) {
     const baseOrigin = typeof window !== "undefined" ? window.location.origin : "";
@@ -2455,32 +2450,20 @@ function UploadPageContent() {
                   </div>
 
               </div>
-              {uploadMode !== "video" ? (
-                <div className="input-group">
-                  <label htmlFor="tags" className="input-label">Tags <span className={styles.optional}>(optional)</span></label>
-                  <input type="text" id="tags" name="tags" className="input"
-                    placeholder="e.g., joins, subqueries, optimization"
-                    value={formData.tags ?? ""} onChange={handleInputChange} {...fieldShieldProps} />
-                  <span className={styles.fieldHint}>Skip if not needed</span>
-                </div>
-              ) : showVideoTagsInput || Boolean(formData.tags?.trim()) ? (
-                <div className="input-group">
-                  <label htmlFor="tags" className="input-label">Tags <span className={styles.optional}>(optional)</span></label>
-                  <input type="text" id="tags" name="tags" className="input"
-                    placeholder="e.g., dsa, recursion, sorting"
-                    value={formData.tags ?? ""} onChange={handleInputChange} {...fieldShieldProps} />
-                </div>
-              ) : (
-                <div className="input-group">
-                  <button
-                    type="button"
-                    className={`btn btn-secondary btn-sm ${styles.videoAddTagsBtn}`}
-                    onClick={() => setShowVideoTagsInput(true)}
-                  >
-                    + Add Tags (Optional)
-                  </button>
-                </div>
-              )}
+              <div className="input-group">
+                <label htmlFor="tags" className="input-label">Tags <span className={styles.optional}>(optional)</span></label>
+                <input
+                  type="text"
+                  id="tags"
+                  name="tags"
+                  className="input"
+                  placeholder={uploadMode === "video" ? "e.g., dsa, recursion, sorting" : "e.g., joins, subqueries, optimization"}
+                  value={formData.tags ?? ""}
+                  onChange={handleInputChange}
+                  {...fieldShieldProps}
+                />
+                {uploadMode !== "video" ? <span className={styles.fieldHint}>Skip if not needed</span> : null}
+              </div>
 
               {uploadMode === "video" && (
                 <>

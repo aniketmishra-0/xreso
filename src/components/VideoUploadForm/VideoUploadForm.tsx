@@ -35,7 +35,7 @@ export default function VideoUploadForm({
 
   const [videoPreview, setVideoPreview] = useState<{
     videoId: string;
-    videoType: "youtube" | "vimeo";
+    videoType: "youtube" | "vimeo" | "drive";
     thumbnailUrl: string;
   } | null>(null);
 

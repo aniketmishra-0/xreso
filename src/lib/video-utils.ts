@@ -86,11 +86,56 @@ export function extractVimeoId(url: string): string | null {
 }
 
 /**
- * Detect video type from URL
+ * Extract Google Drive file ID from URL
+ * Supports: drive.google.com/file/d/ID/view, drive.google.com/open?id=ID
+ */
+export function extractGoogleDriveId(url: string): string | null {
+  const input = sanitizeVideoInput(url);
+  if (!input) return null;
+
+  // Format: drive.google.com/file/d/FILE_ID/view
+  let match = input.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/i);
+  if (match?.[1]) return match[1];
+
+  // Format: drive.google.com/open?id=FILE_ID
+  match = input.match(/drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/i);
+  if (match?.[1]) return match[1];
+
+  // Format: docs.google.com/presentation/d/FILE_ID
+  match = input.match(/docs\.google\.com\/(?:document|presentation|spreadsheets)\/d\/([a-zA-Z0-9_-]+)/i);
+  if (match?.[1]) return match[1];
+
+  try {
+    const urlObj = new URL(input);
+
+    // drive.google.com/file/d/ID/view
+    if (urlObj.hostname.includes("drive.google.com")) {
+      const pathMatch = urlObj.pathname.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (pathMatch?.[1]) return pathMatch[1];
+
+      // drive.google.com/open?id=ID
+      const fileId = urlObj.searchParams.get("id");
+      if (fileId && /^[a-zA-Z0-9_-]+$/.test(fileId)) return fileId;
+    }
+
+    // docs.google.com/* /d/ID
+    if (urlObj.hostname.includes("docs.google.com")) {
+      const pathMatch = urlObj.pathname.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (pathMatch?.[1]) return pathMatch[1];
+    }
+  } catch {
+    // Invalid URL format
+  }
+
+  return null;
+}
+
+/**
+ * Detect video type from URL (including Google Drive)
  */
 export function detectVideoType(
   url: string
-): "youtube" | "vimeo" | null {
+): "youtube" | "vimeo" | "drive" | null {
   const input = sanitizeVideoInput(url).toLowerCase();
   if (!input) return null;
 
@@ -104,23 +149,36 @@ export function detectVideoType(
     return "vimeo";
   }
 
+  if (/drive\.google\.com|docs\.google\.com/.test(input)) {
+    return "drive";
+  }
+
   return null;
 }
 
 /**
- * Extract video ID based on video type
+ * Extract video ID based on video type (including Drive)
  */
 export function extractVideoId(
   url: string,
-  videoType: "youtube" | "vimeo"
+  videoType: "youtube" | "vimeo" | "drive"
 ): string | null {
   if (videoType === "youtube") {
     return extractYouTubeId(url);
   } else if (videoType === "vimeo") {
     return extractVimeoId(url);
+  } else if (videoType === "drive") {
+    return extractGoogleDriveId(url);
   }
 
   return null;
+}
+
+/**
+ * Generate Google Drive embed URL from file ID
+ */
+export function getGoogleDriveEmbedUrl(fileId: string): string {
+  return `https://drive.google.com/file/d/${fileId}/preview`;
 }
 
 /**
@@ -158,13 +216,18 @@ export function getVimeoThumbnailUrl(videoId: string): string {
  */
 export function getVideoIframeHtml(
   videoId: string,
-  videoType: "youtube" | "vimeo",
+  videoType: "youtube" | "vimeo" | "drive",
   title?: string
 ): string {
-  const embedUrl =
-    videoType === "youtube"
-      ? getYouTubeEmbedUrl(videoId)
-      : getVimeoEmbedUrl(videoId);
+  let embedUrl: string;
+  
+  if (videoType === "youtube") {
+    embedUrl = getYouTubeEmbedUrl(videoId);
+  } else if (videoType === "vimeo") {
+    embedUrl = getVimeoEmbedUrl(videoId);
+  } else {
+    embedUrl = getGoogleDriveEmbedUrl(videoId);
+  }
 
   return `<iframe
     src="${embedUrl}"
@@ -178,7 +241,7 @@ export function getVideoIframeHtml(
 }
 
 /**
- * Validate video URL (basic check)
+ * Validate video URL (basic check, including Drive videos)
  */
 export function isValidVideoUrl(url: string): boolean {
   const videoType = detectVideoType(url);

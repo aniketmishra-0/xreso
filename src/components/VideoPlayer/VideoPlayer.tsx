@@ -1,11 +1,11 @@
 "use client";
 
-import { getYouTubeEmbedUrl, getVimeoEmbedUrl } from "@/lib/video-utils";
+import { getYouTubeEmbedUrl, getVimeoEmbedUrl, getGoogleDriveEmbedUrl } from "@/lib/video-utils";
 import styles from "./VideoPlayer.module.css";
 
 interface VideoPlayerProps {
   videoId: string;
-  videoType: "youtube" | "vimeo";
+  videoType: "youtube" | "vimeo" | "drive";
   title?: string;
 }
 
@@ -14,10 +14,15 @@ export default function VideoPlayer({
   videoType,
   title = "Video Player",
 }: VideoPlayerProps) {
-  const embedUrl =
-    videoType === "youtube"
-      ? getYouTubeEmbedUrl(videoId)
-      : getVimeoEmbedUrl(videoId);
+  let embedUrl: string;
+  
+  if (videoType === "youtube") {
+    embedUrl = getYouTubeEmbedUrl(videoId);
+  } else if (videoType === "vimeo") {
+    embedUrl = getVimeoEmbedUrl(videoId);
+  } else {
+    embedUrl = getGoogleDriveEmbedUrl(videoId);
+  }
 
   return (
     <div className={styles.playerContainer}>

@@ -15,7 +15,7 @@ interface VideoDetail {
   authorCredit: string;
   channelName?: string;
   channelUrl?: string;
-  videoType: "youtube" | "vimeo";
+  videoType: "youtube" | "vimeo" | "drive";
   videoId: string;
   viewCount: number;
   licenseType: string;
@@ -101,7 +101,6 @@ export default function VideoDetailPage({
       <section className={styles.hero}>
         <div className={styles.heroCopy}>
           <h1 className={styles.title}>{video.title}</h1>
-          <p className={styles.heroText}>{video.description}</p>
         </div>
 
         <div className={styles.heroStats}>
@@ -154,23 +153,6 @@ export default function VideoDetailPage({
           <div className={styles.description}>
             <h2 className={styles.descTitle}>About this video</h2>
             <p className={styles.descText}>{video.description}</p>
-          </div>
-
-          <div className={styles.details}>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Platform</span>
-              <span className={styles.detailValue}>
-                {video.videoType === "youtube" ? "YouTube" : "Vimeo"}
-              </span>
-            </div>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>License</span>
-              <span className={styles.detailValue}>{video.licenseType}</span>
-            </div>
-            <div className={styles.detailItem}>
-              <span className={styles.detailLabel}>Published</span>
-              <span className={styles.detailValue}>{publishDate}</span>
-            </div>
           </div>
         </aside>
       </div>

@@ -292,11 +292,15 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
   const [activePreviewTab, setActivePreviewTab] = useState<"card" | "detail">("detail");
   const [swipeOffsetY, setSwipeOffsetY] = useState(0);
   const [isSwipingDrawer, setIsSwipingDrawer] = useState(false);
+  const [isGestureClosing, setIsGestureClosing] = useState(false);
   const previewBodyRef = useRef<HTMLDivElement>(null);
   const touchStartXRef = useRef(0);
   const touchStartYRef = useRef(0);
+  const touchStartTimeRef = useRef(0);
+  const touchLastYRef = useRef(0);
+  const touchLastTimeRef = useRef(0);
   const swipeEnabledRef = useRef(false);
-  const swipeCloseTriggeredRef = useRef(false);
+  const closeTimerRef = useRef<number | null>(null);
   const tagList = formData.tags ? formData.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
   const authorName = formData.authorCredit || session?.user?.name || "Anonymous";
   const selectedTrack = advancedTracks.find((track) => track.slug === formData.advancedTrackSlug);
@@ -321,13 +325,46 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
 
   useEffect(() => {
     if (!open) {
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current);
+        closeTimerRef.current = null;
+      }
       setActivePreviewTab("detail");
       setSwipeOffsetY(0);
       setIsSwipingDrawer(false);
+      setIsGestureClosing(false);
       swipeEnabledRef.current = false;
-      swipeCloseTriggeredRef.current = false;
     }
   }, [open]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const closeFromGesture = useCallback(() => {
+    const exitOffset = Math.max(
+      typeof window !== "undefined" ? window.innerHeight : 700,
+      swipeOffsetY + 260
+    );
+
+    swipeEnabledRef.current = false;
+    setIsSwipingDrawer(false);
+    setIsGestureClosing(true);
+    setSwipeOffsetY(exitOffset);
+
+    if (closeTimerRef.current) {
+      window.clearTimeout(closeTimerRef.current);
+    }
+
+    closeTimerRef.current = window.setTimeout(() => {
+      closeTimerRef.current = null;
+      onClose();
+    }, 180);
+  }, [onClose, swipeOffsetY]);
 
   const handleSwipeStart = (event: React.TouchEvent<HTMLElement>) => {
     if (!open) return;
@@ -341,8 +378,11 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     const touch = event.touches[0];
     touchStartXRef.current = touch.clientX;
     touchStartYRef.current = touch.clientY;
+    touchStartTimeRef.current = performance.now();
+    touchLastYRef.current = touch.clientY;
+    touchLastTimeRef.current = touchStartTimeRef.current;
     swipeEnabledRef.current = true;
-    swipeCloseTriggeredRef.current = false;
+    setIsGestureClosing(false);
     setIsSwipingDrawer(true);
   };
 
@@ -364,32 +404,28 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
     }
     event.stopPropagation();
 
-    if (deltaY > 120 && !swipeCloseTriggeredRef.current) {
-      swipeCloseTriggeredRef.current = true;
-      swipeEnabledRef.current = false;
-      setIsSwipingDrawer(false);
-      onClose();
-      return;
-    }
-
-    setSwipeOffsetY(Math.min(deltaY, 240));
+    const maxDrag = Math.min(window.innerHeight * 0.72, 540);
+    const nextOffset = Math.max(0, Math.min(deltaY, maxDrag));
+    touchLastYRef.current = touch.clientY;
+    touchLastTimeRef.current = performance.now();
+    setSwipeOffsetY(nextOffset);
   };
 
   const handleSwipeEnd = () => {
-    if (swipeCloseTriggeredRef.current) {
-      swipeCloseTriggeredRef.current = false;
-      return;
-    }
-
     if (!swipeEnabledRef.current) return;
 
-    const shouldClose = swipeOffsetY > 120;
+    const now = performance.now();
+    const dragDistance = Math.max(0, touchLastYRef.current - touchStartYRef.current);
+    const dragDuration = Math.max(1, now - touchStartTimeRef.current);
+    const releaseVelocity = dragDistance / dragDuration;
+    const closeThreshold = Math.min(window.innerHeight * 0.4, 300);
+    const shouldClose =
+      swipeOffsetY > closeThreshold ||
+      (swipeOffsetY > 42 && releaseVelocity > 0.9);
     swipeEnabledRef.current = false;
 
     if (shouldClose) {
-      // Close directly from the current drag position; avoid snapping back first.
-      setIsSwipingDrawer(false);
-      onClose();
+      closeFromGesture();
       return;
     }
 
@@ -420,7 +456,11 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
           open
             ? {
               transform: `translate(-50%, ${swipeOffsetY}px)`,
-              transition: isSwipingDrawer ? "none" : undefined,
+              transition: isSwipingDrawer
+                ? "none"
+                : isGestureClosing
+                  ? "transform 180ms cubic-bezier(0.22, 1, 0.36, 1)"
+                  : undefined,
             }
             : undefined
         }

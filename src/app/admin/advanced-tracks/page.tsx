@@ -3,23 +3,7 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import UnifiedDropdown from "@/components/UnifiedDropdown/UnifiedDropdown";
 import styles from "./page.module.css";
-
-interface Track {
-  id: number;
-  slug: string;
-  name: string;
-  description: string;
-}
-
-interface Topic {
-  id: number;
-  track_id: number;
-  slug: string;
-  name: string;
-  level: "Beginner" | "Intermediate" | "Advanced";
-}
 
 interface Resource {
   id: string;
@@ -40,24 +24,10 @@ interface Resource {
 }
 
 interface ApiPayload {
-  tracks: Track[];
-  topics: Topic[];
   resources: Resource[];
 }
 
-const INITIAL_FORM = {
-  title: "",
-  summary: "",
-  trackSlug: "",
-  topicSlug: "",
-  resourceType: "link" as "link" | "pdf" | "doc" | "video",
-  contentUrl: "",
-  thumbnailUrl: "",
-  tags: "",
-  status: "pending" as "draft" | "pending" | "approved",
-  premiumOnly: false,
-  featured: false,
-};
+type QueueAction = "approve" | "reject" | "feature" | "unfeature" | "delete";
 
 export default function AdvancedTracksAdminPage() {
   const { data: session, status } = useSession();
@@ -65,14 +35,11 @@ export default function AdvancedTracksAdminPage() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [topics, setTopics] = useState<Topic[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
-  const [form, setForm] = useState(INITIAL_FORM);
+  const [resourceActions, setResourceActions] = useState<Record<string, QueueAction | null>>({});
 
   const loadData = useCallback(async (isRefresh = false) => {
     if (isRefresh) {
@@ -97,16 +64,7 @@ export default function AdvancedTracksAdminPage() {
 
       const payload = (await advancedRes.json()) as ApiPayload;
 
-      setTracks(payload.tracks || []);
-      setTopics(payload.topics || []);
       setResources(payload.resources || []);
-      setForm((prev) => {
-        if (prev.trackSlug || !payload.tracks?.length) {
-          return prev;
-        }
-
-        return { ...prev, trackSlug: payload.tracks[0].slug };
-      });
     } catch (loadError) {
       if (loadError instanceof Error) {
         setError(loadError.message);
@@ -128,13 +86,6 @@ export default function AdvancedTracksAdminPage() {
     }
   }, [loadData, role]);
 
-  const scopedTopics = useMemo(() => {
-    if (!form.trackSlug) return [];
-    const selectedTrack = tracks.find((track) => track.slug === form.trackSlug);
-    if (!selectedTrack) return [];
-    return topics.filter((topic) => topic.track_id === selectedTrack.id);
-  }, [form.trackSlug, topics, tracks]);
-
   const summary = useMemo(
     () => ({
       total: resources.length,
@@ -145,50 +96,11 @@ export default function AdvancedTracksAdminPage() {
     [resources]
   );
 
-  const handleCreate = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setSaving(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const response = await fetch("/api/admin/advanced-tracks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...form,
-          premiumOnly: false,
-          tags: form.tags,
-          topicSlug: form.topicSlug || undefined,
-        }),
-      });
-
-      const payload = (await response.json()) as { error?: string };
-      if (!response.ok) {
-        throw new Error(payload.error || "Create request failed");
-      }
-
-      setMessage("Open resource created successfully.");
-      setForm((prev) => ({
-        ...INITIAL_FORM,
-        trackSlug: prev.trackSlug,
-      }));
-      await loadData(true);
-    } catch (createError) {
-      if (createError instanceof Error) {
-        setError(createError.message);
-      } else {
-        setError("Failed to create open resource.");
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleAction = async (
     resourceId: string,
-    action: "approve" | "reject" | "archive" | "feature" | "unfeature"
+    action: "approve" | "reject" | "feature" | "unfeature"
   ) => {
+    setResourceActions((prev) => ({ ...prev, [resourceId]: action }));
     setError("");
     setMessage("");
 
@@ -204,6 +116,7 @@ export default function AdvancedTracksAdminPage() {
         throw new Error(payload.error || "Action failed");
       }
 
+      setMessage("Resource updated.");
       await loadData(true);
     } catch (actionError) {
       if (actionError instanceof Error) {
@@ -211,6 +124,8 @@ export default function AdvancedTracksAdminPage() {
       } else {
         setError("Action failed.");
       }
+    } finally {
+      setResourceActions((prev) => ({ ...prev, [resourceId]: null }));
     }
   };
 
@@ -218,6 +133,7 @@ export default function AdvancedTracksAdminPage() {
     const confirmed = window.confirm("Delete this open resource permanently?");
     if (!confirmed) return;
 
+    setResourceActions((prev) => ({ ...prev, [resourceId]: "delete" }));
     setError("");
     setMessage("");
 
@@ -233,6 +149,7 @@ export default function AdvancedTracksAdminPage() {
         throw new Error(payload.error || "Delete failed");
       }
 
+      setMessage("Resource deleted.");
       await loadData(true);
     } catch (deleteError) {
       if (deleteError instanceof Error) {
@@ -240,7 +157,20 @@ export default function AdvancedTracksAdminPage() {
       } else {
         setError("Delete failed.");
       }
+    } finally {
+      setResourceActions((prev) => ({ ...prev, [resourceId]: null }));
     }
+  };
+
+  const isResourceLocked = (resourceId: string) => Boolean(resourceActions[resourceId]);
+
+  const isActionBusy = (resourceId: string, action: QueueAction) => {
+    const activeAction = resourceActions[resourceId];
+    if (!activeAction) return false;
+    if (action === "feature") {
+      return activeAction === "feature" || activeAction === "unfeature";
+    }
+    return activeAction === action;
   };
 
   if (status === "loading") {
@@ -326,165 +256,6 @@ export default function AdvancedTracksAdminPage() {
         </section>
 
         <section className={styles.panel}>
-          <h2 className={styles.panelTitle}>Create Open Resource</h2>
-          <form className={styles.formGrid} onSubmit={handleCreate}>
-            <label className={styles.field}>
-              <span>Track</span>
-              <UnifiedDropdown
-                value={form.trackSlug}
-                title="Track"
-                placeholder="Select track"
-                options={tracks.map((track) => ({ value: track.slug, label: track.name }))}
-                onChange={(selectedTrackSlug) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    trackSlug: selectedTrackSlug,
-                    topicSlug: "",
-                  }))
-                }
-                required
-              />
-            </label>
-
-            <label className={styles.field}>
-              <span>Topic (optional)</span>
-              <UnifiedDropdown
-                value={form.topicSlug}
-                title="Topic"
-                placeholder="All topics"
-                options={scopedTopics.map((topic) => ({ value: topic.slug, label: topic.name }))}
-                onChange={(nextTopicSlug) =>
-                  setForm((prev) => ({ ...prev, topicSlug: nextTopicSlug }))
-                }
-              />
-            </label>
-
-            <label className={styles.fieldWide}>
-              <span>Title</span>
-              <input
-                type="text"
-                value={form.title}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, title: event.target.value }))
-                }
-                required
-              />
-            </label>
-
-            <label className={styles.fieldWide}>
-              <span>Summary</span>
-              <textarea
-                rows={3}
-                value={form.summary}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, summary: event.target.value }))
-                }
-                required
-              />
-            </label>
-
-            <label className={styles.field}>
-              <span>Resource Type</span>
-              <UnifiedDropdown
-                value={form.resourceType}
-                title="Resource Type"
-                placeholder="Select resource type"
-                options={[
-                  { value: "link", label: "Link" },
-                  { value: "pdf", label: "PDF" },
-                  { value: "doc", label: "Doc" },
-                  { value: "video", label: "Video" },
-                ]}
-                onChange={(nextResourceType) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    resourceType: nextResourceType as "link" | "pdf" | "doc" | "video",
-                  }))
-                }
-              />
-            </label>
-
-            <label className={styles.field}>
-              <span>Initial Status</span>
-              <UnifiedDropdown
-                value={form.status}
-                title="Initial Status"
-                placeholder="Select status"
-                options={[
-                  { value: "pending", label: "Pending" },
-                  { value: "approved", label: "Approved" },
-                  { value: "draft", label: "Draft" },
-                ]}
-                onChange={(nextStatus) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    status: nextStatus as "draft" | "pending" | "approved",
-                  }))
-                }
-              />
-            </label>
-
-            <label className={styles.fieldWide}>
-              <span>Content URL</span>
-              <input
-                type="url"
-                value={form.contentUrl}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, contentUrl: event.target.value }))
-                }
-                placeholder="https://..."
-                required
-              />
-            </label>
-
-            <label className={styles.fieldWide}>
-              <span>Thumbnail URL (optional)</span>
-              <input
-                type="url"
-                value={form.thumbnailUrl}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, thumbnailUrl: event.target.value }))
-                }
-                placeholder="https://..."
-              />
-            </label>
-
-            <label className={styles.fieldWide}>
-              <span>Tags (comma separated)</span>
-              <input
-                type="text"
-                value={form.tags}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, tags: event.target.value }))
-                }
-                placeholder="kubernetes, sre, observability"
-              />
-            </label>
-
-            <label className={styles.checkboxField}>
-              <input
-                type="checkbox"
-                checked={form.featured}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, featured: event.target.checked }))
-                }
-              />
-              <span>Featured resource</span>
-            </label>
-
-            <div className={styles.openAccessHint}>
-              New advanced resources are saved as open access. No extra unlock step is required.
-            </div>
-
-            <div className={styles.formActions}>
-              <button className="btn btn-primary" type="submit" disabled={saving || loading}>
-                {saving ? "Saving..." : "Create Resource"}
-              </button>
-            </div>
-          </form>
-        </section>
-
-        <section className={styles.panel}>
           <h2 className={styles.panelTitle}>Open Resource Queue</h2>
 
           {loading ? (
@@ -506,6 +277,7 @@ export default function AdvancedTracksAdminPage() {
                       <div className={styles.resourceMeta}>
                         <span>{resource.track_name}</span>
                         {resource.topic_name ? <span>{resource.topic_name}</span> : null}
+                        <span>{resource.resource_type}</span>
                         <span>{resource.author_name || "Unknown author"}</span>
                         <span>{new Date(resource.created_at).toLocaleDateString()}</span>
                       </div>
@@ -534,18 +306,24 @@ export default function AdvancedTracksAdminPage() {
                       >
                         Open
                       </a>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => void handleAction(resource.id, "approve")}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={() => void handleAction(resource.id, "reject")}
-                      >
-                        Reject
-                      </button>
+                      {resource.status === "pending" && (
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => void handleAction(resource.id, "approve")}
+                          disabled={isResourceLocked(resource.id)}
+                        >
+                          {isActionBusy(resource.id, "approve") ? "Approving..." : "Approve"}
+                        </button>
+                      )}
+                      {resource.status === "pending" && (
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => void handleAction(resource.id, "reject")}
+                          disabled={isResourceLocked(resource.id)}
+                        >
+                          {isActionBusy(resource.id, "reject") ? "Rejecting..." : "Reject"}
+                        </button>
+                      )}
                       <button
                         className="btn btn-secondary btn-sm"
                         onClick={() =>
@@ -554,14 +332,20 @@ export default function AdvancedTracksAdminPage() {
                             resource.featured ? "unfeature" : "feature"
                           )
                         }
+                        disabled={isResourceLocked(resource.id)}
                       >
-                        {resource.featured ? "Unfeature" : "Feature"}
+                        {isActionBusy(resource.id, "feature")
+                          ? "Updating..."
+                          : resource.featured
+                            ? "Unfeature"
+                            : "Feature"}
                       </button>
                       <button
                         className="btn btn-ghost btn-sm"
                         onClick={() => void handleDelete(resource.id)}
+                        disabled={isResourceLocked(resource.id)}
                       >
-                        Delete
+                        {isActionBusy(resource.id, "delete") ? "Deleting..." : "Delete"}
                       </button>
                     </div>
                   </article>

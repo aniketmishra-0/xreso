@@ -370,10 +370,9 @@ export async function getOneDriveItemDownloadInfo(driveItemId: string): Promise<
   mimeType: string;
 }> {
   const token = await getAccessToken();
-  const itemRes = await fetch(
-    `${GRAPH_BASE}/me/drive/items/${driveItemId}?$select=@microsoft.graph.downloadUrl,name,file`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
+  const itemRes = await fetch(`${GRAPH_BASE}/me/drive/items/${driveItemId}?$select=id,name,file,folder,@microsoft.graph.downloadUrl`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
 
   if (!itemRes.ok) {
     const err = await itemRes.text();
@@ -381,7 +380,20 @@ export async function getOneDriveItemDownloadInfo(driveItemId: string): Promise<
   }
 
   const item = await itemRes.json();
-  const downloadUrl = item["@microsoft.graph.downloadUrl"] as string | undefined;
+  if (item.folder) {
+    throw new Error("OneDrive item is a folder, not a downloadable file");
+  }
+
+  let downloadUrl = item["@microsoft.graph.downloadUrl"] as string | undefined;
+  if (!downloadUrl) {
+    const contentRes = await fetch(`${GRAPH_BASE}/me/drive/items/${driveItemId}/content`, {
+      headers: { Authorization: `Bearer ${token}` },
+      redirect: "manual",
+    });
+
+    downloadUrl = contentRes.headers.get("location") || undefined;
+  }
+
   if (!downloadUrl) {
     throw new Error("OneDrive item download URL not available");
   }

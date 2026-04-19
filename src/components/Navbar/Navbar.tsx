@@ -361,22 +361,22 @@ export default function Navbar() {
                 {resolvedAvatar ? (
                   <Image
                     src={resolvedAvatar}
-                    alt={session.user.name || "User"}
+                    alt={session?.user?.name || "User"}
                     className={styles.userAvatarImage}
                     width={36}
                     height={36}
                     unoptimized
                   />
                 ) : (
-                  session.user.name?.charAt(0).toUpperCase() || "U"
+                  session?.user?.name?.charAt(0).toUpperCase() || "U"
                 )}
               </button>
 
               {userMenuOpen ? (
                 <div className={styles.dropdown} role="menu">
                   <div className={styles.dropdownHeader}>
-                    <span className={styles.dropdownName}>{session.user.name}</span>
-                    <span className={styles.dropdownEmail}>{session.user.email}</span>
+                    <span className={styles.dropdownName}>{session?.user?.name || "User"}</span>
+                    <span className={styles.dropdownEmail}>{session?.user?.email || ""}</span>
                   </div>
 
                   <div className={styles.dropdownDivider} />

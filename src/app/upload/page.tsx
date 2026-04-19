@@ -54,11 +54,13 @@ const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
   CATEGORY_CATALOG.map(cat => [cat.slug, cat.name])
 );
 
-const STANDARD_CATEGORY_CATALOG = CATEGORY_CATALOG.filter(
-  (cat) => cat.slug !== "devops"
-);
+type UploadCategoryOption = { slug: string; name: string };
 
-const VIDEO_EXTRA_CATEGORIES = [
+const STANDARD_CATEGORY_CATALOG: UploadCategoryOption[] = CATEGORY_CATALOG
+  .filter((cat) => cat.slug !== "devops")
+  .map((cat) => ({ slug: cat.slug, name: cat.name }));
+
+const VIDEO_EXTRA_CATEGORIES: UploadCategoryOption[] = [
   { slug: "kubernetes", name: "Kubernetes" },
   { slug: "devops", name: "DevOps" },
   { slug: "system-design", name: "System Design" },
@@ -69,9 +71,10 @@ const VIDEO_EXTRA_CATEGORIES = [
   { slug: "api", name: "API" },
 ];
 
-const VIDEO_CATEGORY_CATALOG = STANDARD_CATEGORY_CATALOG
-  .map((cat) => ({ slug: cat.slug, name: cat.name }))
-  .concat(VIDEO_EXTRA_CATEGORIES)
+const VIDEO_CATEGORY_CATALOG: UploadCategoryOption[] = [
+  ...STANDARD_CATEGORY_CATALOG,
+  ...VIDEO_EXTRA_CATEGORIES,
+]
   .filter((cat, index, arr) => arr.findIndex((entry) => entry.slug === cat.slug) === index);
 
 const BADGE_COLOR_MAP: Record<string, string> = {

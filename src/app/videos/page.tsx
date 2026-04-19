@@ -55,7 +55,9 @@ const QUICK_TABS = [
   "Data Structures", "Web Dev", "C / C++",
 ];
 
-const VIDEO_EXTRA_CATEGORIES = [
+type VideoCategoryOption = { slug: string; name: string };
+
+const VIDEO_EXTRA_CATEGORIES: VideoCategoryOption[] = [
   { slug: "kubernetes", name: "Kubernetes" },
   { slug: "devops", name: "DevOps" },
   { slug: "system-design", name: "System Design" },
@@ -66,13 +68,14 @@ const VIDEO_EXTRA_CATEGORIES = [
   { slug: "api", name: "API" },
 ];
 
-const ALL_CATEGORIES = CATEGORY_CATALOG
+const BASE_VIDEO_CATEGORIES: VideoCategoryOption[] = CATEGORY_CATALOG
   .filter((cat) => cat.slug !== "devops")
-  .map((cat) => ({
-    slug: cat.slug,
-    name: cat.name,
-  }))
-  .concat(VIDEO_EXTRA_CATEGORIES)
+  .map((cat) => ({ slug: cat.slug, name: cat.name }));
+
+const ALL_CATEGORIES: VideoCategoryOption[] = [
+  ...BASE_VIDEO_CATEGORIES,
+  ...VIDEO_EXTRA_CATEGORIES,
+]
   .filter((cat, index, arr) => arr.findIndex((entry) => entry.slug === cat.slug) === index);
 
 const SORT_OPTIONS = [

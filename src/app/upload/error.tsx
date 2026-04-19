@@ -22,8 +22,8 @@ export default function UploadError({
           <button className="btn btn-primary" onClick={() => reset()}>
             Retry
           </button>
-          <Link href="/login?callbackUrl=%2Fupload&reason=upload_login_required" className="btn btn-secondary">
-            Sign In
+          <Link href="/upload" className="btn btn-secondary">
+            Open Upload
           </Link>
         </div>
       </div>

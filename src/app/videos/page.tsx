@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, Suspense } from "react";
+import { useState, useEffect, useCallback, useMemo, Suspense, useRef } from "react";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
+import { CATEGORY_CATALOG } from "@/lib/techIcons";
 import VideoCard from "@/components/VideoCard/VideoCard";
 import VideoPlayer from "@/components/VideoPlayer/VideoPlayer";
+
 import styles from "./page.module.css";
 
 interface Video {
@@ -20,6 +22,7 @@ interface Video {
   viewCount: number;
   savedCount?: number;
   createdAt: string;
+  tags?: string[];
 }
 
 interface ListResponse {
@@ -40,22 +43,51 @@ interface PaginationState {
   totalPages: number;
 }
 
+
+
+
+
+const SAVED_VIDEO_STORAGE_KEY = "xreso.savedVideoIds";
+
+/* Quick-access tabs — same as Programming mode */
+const QUICK_TABS = [
+  "All", "Python", "JavaScript", "SQL", "Java",
+  "Data Structures", "Web Dev", "C / C++",
+];
+
+const VIDEO_EXTRA_CATEGORIES = [
+  { slug: "kubernetes", name: "Kubernetes" },
+  { slug: "devops", name: "DevOps" },
+  { slug: "system-design", name: "System Design" },
+  { slug: "cloud-computing", name: "Cloud Computing" },
+  { slug: "machine-learning", name: "Machine Learning" },
+  { slug: "cybersecurity", name: "Cybersecurity" },
+  { slug: "ai", name: "AI" },
+  { slug: "api", name: "API" },
+];
+
+const ALL_CATEGORIES = CATEGORY_CATALOG
+  .filter((cat) => cat.slug !== "devops")
+  .map((cat) => ({
+    slug: cat.slug,
+    name: cat.name,
+  }))
+  .concat(VIDEO_EXTRA_CATEGORIES)
+  .filter((cat, index, arr) => arr.findIndex((entry) => entry.slug === cat.slug) === index);
+
 const SORT_OPTIONS = [
   { value: "newest", label: "Newest First" },
   { value: "views", label: "Most Viewed" },
   { value: "saved", label: "Most Saved" },
 ];
 
-const CATEGORY_PILLS = [
-  { value: "all", label: "All" },
-  { value: "sql", label: "SQL" },
-  { value: "linux", label: "Linux" },
-  { value: "python", label: "Python" },
-  { value: "javascript", label: "JavaScript" },
-  { value: "devops", label: "DevOps" },
-];
-
-const SAVED_VIDEO_STORAGE_KEY = "xreso.savedVideoIds";
+function normalizeCategory(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/\s*\/\s*/g, "-")
+    .replace(/\s+/g, "-");
+}
 
 function getDisplayAuthor(author: string | undefined): string {
   const normalized = (author || "").trim();
@@ -76,6 +108,11 @@ function VideoPageContent() {
   const [searchInput, setSearchInput] = useState("");
   const [activeVideo, setActiveVideo] = useState<Video | null>(null);
   const [savedVideoIds, setSavedVideoIds] = useState<Set<string>>(new Set());
+  const [activeCategory, setActiveCategory] = useState("All");
+  const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const langDropdownRef = useRef<HTMLDivElement | null>(null);
+  const sortDropdownRef = useRef<HTMLDivElement | null>(null);
   const [pagination, setPagination] = useState<PaginationState>({
     page: 1,
     limit: 12,
@@ -85,10 +122,19 @@ function VideoPageContent() {
 
   const page = parseInt(searchParams.get("page") || "1");
   const searchQuery = searchParams.get("search") || "";
-  const activeCategory = (searchParams.get("category") || "all").toLowerCase();
   const activeVideoId = searchParams.get("video") || "";
   const sortBy =
     (searchParams.get("sort") as "newest" | "views" | "saved") || "newest";
+  const selectedLanguageSlug =
+    activeCategory === "All"
+      ? ""
+      : ALL_CATEGORIES.find((c) => c.name === activeCategory)?.slug || "";
+  const selectedLanguageLabel =
+    activeCategory === "All"
+      ? "All Languages"
+      : ALL_CATEGORIES.find((c) => c.slug === selectedLanguageSlug)?.name || "All Languages";
+  const activeSortLabel =
+    SORT_OPTIONS.find((option) => option.value === sortBy)?.label || "Newest First";
 
   useEffect(() => {
     try {
@@ -229,15 +275,37 @@ function VideoPageContent() {
     };
   }, [activeVideoId, videos, updateQueryParams]);
 
-  const filteredVideos = useMemo(() => {
-    const matchesCategory = (video: Video) => {
-      if (!activeCategory || activeCategory === "all") return true;
-      const slug = (video.categorySlug || "").toLowerCase();
-      const label = (video.category || "").toLowerCase();
-      return slug.includes(activeCategory) || label.includes(activeCategory);
+  useEffect(() => {
+    const onDocumentClick = (event: MouseEvent) => {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
+        setLangMenuOpen(false);
+      }
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
+        setSortMenuOpen(false);
+      }
     };
 
-    const list = videos.filter(matchesCategory);
+    document.addEventListener("mousedown", onDocumentClick);
+    return () => document.removeEventListener("mousedown", onDocumentClick);
+  }, []);
+
+  const filteredVideos = useMemo(() => {
+    let list = videos;
+
+    // Category filter - same as Programming mode
+    if (activeCategory !== "All") {
+      const categorySlug = normalizeCategory(activeCategory);
+      list = list.filter((video) => {
+        const videoCategory = normalizeCategory(video.category || "");
+        const videoCategorySlug = normalizeCategory(video.categorySlug || "");
+        const videoTags = (video.tags || []).map((t: string) => normalizeCategory(t));
+        return (
+          videoCategory.includes(categorySlug) ||
+          videoCategorySlug.includes(categorySlug) ||
+          videoTags.some((tag: string) => tag.includes(categorySlug))
+        );
+      });
+    }
 
     if (sortBy === "saved") {
       return [...list].sort((a, b) => {
@@ -268,66 +336,119 @@ function VideoPageContent() {
             Watch educational videos on programming, web development, and more
           </p>
         </div>
+
+        <div className={styles.headerSearchWrap}>
+          <div className={styles.searchControl}>
+            <input
+              id="video-search"
+              type="search"
+              value={searchInput}
+              placeholder="Search by topic, stack, language, or concept..."
+              onChange={(event) => setSearchInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  updateQueryParams({ search: searchInput.trim() });
+                }
+              }}
+            />
+            <button
+              type="button"
+              className={styles.searchBtn}
+              onClick={() => updateQueryParams({ search: searchInput.trim() })}
+            >
+              Search
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Filters */}
-      <div className={styles.controls}>
-        <div className={styles.searchControl}>
-          <input
-            id="video-search"
-            type="search"
-            value={searchInput}
-            placeholder="Search videos by title, description, or author"
-            onChange={(event) => setSearchInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                updateQueryParams({ search: searchInput.trim() });
-              }
-            }}
-          />
+      <div className={styles.filters}>
+        <div className={styles.filterLeft}>
+          <div className={styles.categoryTabs}>
+            {QUICK_TABS.map((category) => (
+              <button
+                key={category}
+                onClick={() => setActiveCategory(category)}
+                className={`${styles.categoryTab} ${activeCategory === category ? styles.categoryTabActive : ""}`}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.langDropdownWrap} ref={langDropdownRef}>
+            <button
+              type="button"
+              className={styles.langDropdown}
+              onClick={() => setLangMenuOpen((current) => !current)}
+              aria-haspopup="listbox"
+              aria-expanded={langMenuOpen}
+              id="video-language-dropdown"
+            >
+              <span className={styles.langDropdownLabel}>{selectedLanguageLabel}</span>
+            </button>
+
+            {langMenuOpen && (
+              <div className={styles.langMenu} role="listbox" aria-label="Language filter options">
+                <button
+                  type="button"
+                  className={`${styles.langMenuItem} ${!selectedLanguageSlug ? styles.langMenuItemActive : ""}`}
+                  onClick={() => {
+                    setActiveCategory("All");
+                    setLangMenuOpen(false);
+                  }}
+                >
+                  All Languages
+                </button>
+                {ALL_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.slug}
+                    type="button"
+                    className={`${styles.langMenuItem} ${selectedLanguageSlug === cat.slug ? styles.langMenuItemActive : ""}`}
+                    onClick={() => {
+                      setActiveCategory(cat.name);
+                      setLangMenuOpen(false);
+                    }}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className={styles.sortDropdownWrap} ref={sortDropdownRef}>
           <button
             type="button"
-            className={styles.searchBtn}
-            onClick={() => updateQueryParams({ search: searchInput.trim() })}
+            className={styles.sortDropdown}
+            onClick={() => setSortMenuOpen((current) => !current)}
+            aria-haspopup="listbox"
+            aria-expanded={sortMenuOpen}
+            id="video-sort-dropdown"
           >
-            Search
+            <span className={styles.sortDropdownLabel}>{activeSortLabel}</span>
           </button>
-        </div>
 
-        <div className={styles.filterPills}>
-          {CATEGORY_PILLS.map((pill) => {
-            const isActive = activeCategory === pill.value;
-            return (
-              <button
-                key={pill.value}
-                type="button"
-                className={isActive ? styles.filterPillActive : styles.filterPill}
-                onClick={() =>
-                  updateQueryParams({
-                    category: pill.value === "all" ? "" : pill.value,
-                  })
-                }
-              >
-                {pill.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className={styles.sortControl}>
-          <label htmlFor="sort">Sort by:</label>
-          <select
-            id="sort"
-            value={sortBy}
-            onChange={(event) => updateQueryParams({ sort: event.target.value })}
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+          {sortMenuOpen && (
+            <div className={styles.sortMenu} role="listbox" aria-label="Sort options">
+              {SORT_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  className={`${styles.sortMenuItem} ${sortBy === opt.value ? styles.sortMenuItemActive : ""}`}
+                  onClick={() => {
+                    updateQueryParams({ sort: opt.value });
+                    setSortMenuOpen(false);
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

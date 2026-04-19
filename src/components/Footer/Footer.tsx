@@ -2,7 +2,7 @@ import Link from "next/link";
 import styles from "./Footer.module.css";
 
 export default function Footer() {
-  const uploadHref = `/login?callbackUrl=${encodeURIComponent("/upload")}&reason=upload_login_required`;
+  const uploadHref = "/upload";
 
   return (
     <footer className={styles.footer} id="main-footer">

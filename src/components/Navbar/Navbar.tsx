@@ -152,14 +152,7 @@ export default function Navbar() {
   const modeAwareHome =
     browseMode === "advanced" ? "/tracks" : "/";
 
-  const uploadHref =
-    session?.user
-      ? browseMode === "advanced"
-        ? "/upload?mode=advanced"
-        : "/upload?mode=programming"
-      : `/login?callbackUrl=${encodeURIComponent(
-          browseMode === "advanced" ? "/upload?mode=advanced" : "/upload?mode=programming"
-        )}&reason=upload_login_required`;
+  const uploadHref = browseMode === "advanced" ? "/upload?mode=advanced" : "/upload?mode=programming";
 
   const navItemsBeforeMode = useMemo(
     () => [

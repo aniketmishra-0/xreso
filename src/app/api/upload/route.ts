@@ -399,13 +399,6 @@ export async function POST(req: NextRequest) {
     const session = await auth();
     const sessionUser = session?.user;
 
-    if (!sessionUser?.id) {
-      return NextResponse.json(
-        { error: "Please sign in to upload content." },
-        { status: 401 }
-      );
-    }
-
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const title = formData.get("title") as string;

@@ -1,11 +1,10 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { Suspense, useState, useCallback, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { CATEGORY_CATALOG } from "@/lib/techIcons";
 import {
   detectVideoType,
@@ -58,6 +57,22 @@ const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
 const STANDARD_CATEGORY_CATALOG = CATEGORY_CATALOG.filter(
   (cat) => cat.slug !== "devops"
 );
+
+const VIDEO_EXTRA_CATEGORIES = [
+  { slug: "kubernetes", name: "Kubernetes" },
+  { slug: "devops", name: "DevOps" },
+  { slug: "system-design", name: "System Design" },
+  { slug: "cloud-computing", name: "Cloud Computing" },
+  { slug: "machine-learning", name: "Machine Learning" },
+  { slug: "cybersecurity", name: "Cybersecurity" },
+  { slug: "ai", name: "AI" },
+  { slug: "api", name: "API" },
+];
+
+const VIDEO_CATEGORY_CATALOG = STANDARD_CATEGORY_CATALOG
+  .map((cat) => ({ slug: cat.slug, name: cat.name }))
+  .concat(VIDEO_EXTRA_CATEGORIES)
+  .filter((cat, index, arr) => arr.findIndex((entry) => entry.slug === cat.slug) === index);
 
 const BADGE_COLOR_MAP: Record<string, string> = {
   python: "badge-blue", javascript: "badge-yellow", sql: "badge-green",
@@ -788,13 +803,12 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
 ──────────────────────────────────────────────────────────── */
 function UploadPageContent() {
   const { data: session, status } = useSession();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionUser = session?.user as { name?: string | null; role?: string } | undefined;
   const sessionName = sessionUser?.name ?? "";
   const preferredResourceTier: "standard" | "advanced" =
-    searchParams.get("mode") === "advanced" ? "advanced" : "standard";
+    searchParams.get("mode") === "advanced" && sessionUser ? "advanced" : "standard";
 
   const [resourceTier, setResourceTier] = useState<"standard" | "advanced">(preferredResourceTier);
   const [uploadMode, setUploadMode] = useState<"file" | "link" | "video">("file");
@@ -825,31 +839,10 @@ function UploadPageContent() {
   const [showVideoTagsInput, setShowVideoTagsInput] = useState(false);
   const [customShareTemplates, setCustomShareTemplates] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    if (status !== "unauthenticated") return;
-    const callbackUrl = encodeURIComponent("/upload");
-    router.replace(`/login?callbackUrl=${callbackUrl}&reason=upload_login_required`);
-  }, [router, status]);
-
   if (status === "loading") {
     return (
       <div className={styles.page}>
         <div className={styles.formContainer} aria-busy="true" style={{ minHeight: 560 }} />
-      </div>
-    );
-  }
-
-  if (status === "unauthenticated") {
-    return (
-      <div className={styles.page}>
-        <div className={styles.formContainer}>
-          <div className={styles.errorBanner}>
-            Please sign in to upload content.
-          </div>
-          <Link href="/login?callbackUrl=%2Fupload&reason=upload_login_required" className="btn btn-primary btn-lg">
-            Sign In to Continue
-          </Link>
-        </div>
       </div>
     );
   }
@@ -870,7 +863,7 @@ function UploadPageContent() {
   const selectedAdvancedTopics = selectedAdvancedTrack?.topics ?? [];
   const hasSelectedCategory =
     uploadMode === "video"
-      ? true
+      ? Boolean(formData.category)
       : resourceTier === "advanced"
         ? Boolean(formData.advancedTrackSlug)
         : Boolean(formData.category);
@@ -943,6 +936,11 @@ function UploadPageContent() {
     value: cat.slug,
     label: cat.name,
   }));
+  const videoCategoryOptions: SelectOption[] = VIDEO_CATEGORY_CATALOG.map((cat) => ({
+    value: cat.slug,
+    label: cat.name,
+  }));
+  const categoryOptions = uploadMode === "video" ? videoCategoryOptions : standardCategoryOptions;
   const advancedTrackOptions: SelectOption[] = advancedTracks.map((track) => ({
     value: track.slug,
     label: track.name,
@@ -1946,7 +1944,10 @@ function UploadPageContent() {
             </button>
             <button type="button" id="mode-video-btn"
               className={`${styles.modeBtn} ${uploadMode === "video" ? styles.modeBtnActive : ""}`}
-              onClick={() => setUploadMode("video")}>
+              onClick={() => {
+                setUploadMode("video");
+                setResourceTier("standard");
+              }}>
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="23 7 16 12 23 17 23 7"/>
                 <rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
@@ -2207,7 +2208,11 @@ function UploadPageContent() {
                       className={`${styles.resourceChoiceBtn} ${
                         isActive ? styles.resourceChoiceBtnActive : ""
                       }`}
-                      onClick={() => setResourceTier(option.tier)}
+                      onClick={() => {
+                        if (option.tier === "advanced" && !sessionUser) return;
+                        setResourceTier(option.tier);
+                      }}
+                      disabled={option.tier === "advanced" && !sessionUser}
                     >
                       <span className={styles.resourceChoiceEyebrow}>
                         {option.eyebrow}
@@ -2280,11 +2285,11 @@ function UploadPageContent() {
 
               <div
                 className={`${styles.fieldConditionalGroup} ${
-                  resourceTier === "standard" && uploadMode !== "video"
+                  resourceTier === "standard"
                     ? ""
                     : styles.fieldSetHidden
                 }`}
-                aria-hidden={resourceTier !== "standard" || uploadMode === "video"}
+                aria-hidden={resourceTier !== "standard"}
               >
                 <div className="input-group">
                   <label htmlFor="category" className="input-label">Programming Language / Topic <span className={styles.required}>*</span></label>
@@ -2293,7 +2298,7 @@ function UploadPageContent() {
                     title: "Programming Language / Topic",
                     placeholder: "Select a programming topic",
                     value: formData.category,
-                    options: standardCategoryOptions,
+                    options: categoryOptions,
                   })}
                   <select
                     id="category"
@@ -2301,13 +2306,13 @@ function UploadPageContent() {
                     className={`input ${styles.desktopSelect}`}
                     value={formData.category ?? ""}
                     onChange={handleInputChange}
-                    required={resourceTier === "standard" && uploadMode !== "video"}
-                    disabled={resourceTier !== "standard" || uploadMode === "video"}
+                    required={resourceTier === "standard"}
+                    disabled={resourceTier !== "standard"}
                     {...fieldShieldProps}
                   >
                     <option value="">Select a programming topic</option>
-                    {STANDARD_CATEGORY_CATALOG.map(cat => (
-                      <option key={cat.slug} value={cat.slug}>{cat.name}</option>
+                    {categoryOptions.map((cat) => (
+                      <option key={cat.value} value={cat.value}>{cat.label}</option>
                     ))}
                   </select>
                 </div>

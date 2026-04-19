@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { auth } from "@/lib/auth";
 import { getAboutMilestoneStats } from "@/lib/db/queries";
 import styles from "./page.module.css";
 
@@ -59,11 +58,8 @@ const getSingularLabel = (value: number, singular: string, plural: string) =>
   value === 1 ? singular : plural;
 
 export default async function AboutPage() {
-  const session = await auth();
   const stats = await getAboutMilestoneStats();
-  const uploadHref = session?.user
-    ? "/upload"
-    : `/login?callbackUrl=${encodeURIComponent("/upload")}&reason=upload_login_required`;
+  const uploadHref = "/upload";
 
   const milestones = [
     {

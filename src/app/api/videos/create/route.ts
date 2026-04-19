@@ -13,11 +13,47 @@ import {
 import { inspectVideoAccess } from "@/lib/video-access";
 import { v4 as uuidv4 } from "uuid";
 const MIN_VIDEO_TITLE_LENGTH = 5;
+const ANONYMOUS_USER_ID = "anonymous-uploader";
+const ANONYMOUS_USER_EMAIL = "anonymous@xreso.local";
+const ANONYMOUS_USER_NAME = "Community Member";
 
 const VIDEO_CATEGORY_ALIASES: Record<string, string> = {
   c: "c-cpp",
   cpp: "c-cpp",
   "c-c++": "c-cpp",
+};
+
+const VIDEO_CATEGORY_NAMES: Record<string, string> = {
+  javascript: "JavaScript",
+  typescript: "TypeScript",
+  python: "Python",
+  sql: "SQL",
+  java: "Java",
+  csharp: "C#",
+  c: "C",
+  cpp: "C++",
+  "c-cpp": "C / C++",
+  ruby: "Ruby",
+  php: "PHP",
+  go: "Go",
+  rust: "Rust",
+  swift: "Swift",
+  kotlin: "Kotlin",
+  bash: "Bash",
+  html: "HTML",
+  css: "CSS",
+  react: "React",
+  "data-structures": "Data Structures",
+  algorithms: "Algorithms",
+  "web-dev": "Web Dev",
+  kubernetes: "Kubernetes",
+  devops: "DevOps",
+  "system-design": "System Design",
+  "cloud-computing": "Cloud Computing",
+  "machine-learning": "Machine Learning",
+  cybersecurity: "Cybersecurity",
+  linux: "Linux",
+  other: "Other",
 };
 
 const ALLOWED_VIDEO_CATEGORY_SLUGS = new Set([
@@ -43,6 +79,13 @@ const ALLOWED_VIDEO_CATEGORY_SLUGS = new Set([
   "data-structures",
   "algorithms",
   "web-dev",
+  "kubernetes",
+  "devops",
+  "system-design",
+  "cloud-computing",
+  "machine-learning",
+  "cybersecurity",
+  "linux",
   "other",
 ]);
 
@@ -133,8 +176,50 @@ async function resolveCategoryId(client: Client, value: string | number) {
     args: [normalizedSlug],
   });
 
-  if (result.rows.length === 0) return undefined;
+  if (result.rows.length === 0) {
+    const categoryName = VIDEO_CATEGORY_NAMES[normalizedSlug];
+    if (!categoryName) return undefined;
+
+    await client.execute({
+      sql: "INSERT OR IGNORE INTO categories (name, slug, description, note_count) VALUES (?, ?, ?, 0)",
+      args: [
+        categoryName,
+        normalizedSlug,
+        `${categoryName} video resources`,
+      ],
+    });
+
+    const created = await client.execute({
+      sql: "SELECT id FROM categories WHERE slug = ? LIMIT 1",
+      args: [normalizedSlug],
+    });
+
+    if (created.rows.length === 0) return undefined;
+    return Number(created.rows[0].id);
+  }
+
   return Number(result.rows[0].id);
+}
+
+async function ensureAnonymousUserRecord(client: Client): Promise<string> {
+  const byId = await client.execute({
+    sql: "SELECT id FROM users WHERE id = ?",
+    args: [ANONYMOUS_USER_ID],
+  });
+  if (byId.rows.length > 0) return ANONYMOUS_USER_ID;
+
+  const byEmail = await client.execute({
+    sql: "SELECT id FROM users WHERE email = ?",
+    args: [ANONYMOUS_USER_EMAIL],
+  });
+  if (byEmail.rows.length > 0) return String(byEmail.rows[0].id);
+
+  await client.execute({
+    sql: "INSERT OR IGNORE INTO users (id, name, email, role) VALUES (?, ?, ?, ?)",
+    args: [ANONYMOUS_USER_ID, ANONYMOUS_USER_NAME, ANONYMOUS_USER_EMAIL, "user"],
+  });
+
+  return ANONYMOUS_USER_ID;
 }
 
 export async function POST(request: NextRequest) {
@@ -145,13 +230,6 @@ export async function POST(request: NextRequest) {
     const sessionUser = session?.user as
       | { id?: string; name?: string | null; email?: string | null }
       | undefined;
-
-    if (!sessionUser?.id) {
-      return NextResponse.json(
-        { error: "Please sign in to upload videos." },
-        { status: 401 }
-      );
-    }
 
     // Parse request body
     const body = await request.json();
@@ -286,7 +364,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const authorId = sessionUser.id;
+    const authorId = sessionUser?.id || (await ensureAnonymousUserRecord(client));
 
     // Create video record
     const videoRecord = {
@@ -295,7 +373,7 @@ export async function POST(request: NextRequest) {
       description: description.trim(),
       categoryId: Number(resolvedCategoryId),
       authorId,
-      authorCredit: sessionUser.name?.trim() || "Xreso Member",
+      authorCredit: sessionUser?.name?.trim() || ANONYMOUS_USER_NAME,
       videoUrl,
       videoType,
       videoId,
@@ -322,7 +400,7 @@ export async function POST(request: NextRequest) {
         category: String(category || "other"),
         link: videoRecord.videoUrl,
         author: videoRecord.authorCredit,
-        authorEmail: sessionUser?.email || "",
+        authorEmail: sessionUser?.email || ANONYMOUS_USER_EMAIL,
         tags: typeof tags === "string" ? tags : "",
         license: videoRecord.licenseType,
         status: "approved",

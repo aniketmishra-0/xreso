@@ -1412,38 +1412,6 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* Advanced Tracks & Topics */}
-                {advTracks.length > 0 && (
-                  <div className={styles.panel} style={{ marginTop: "var(--space-2xl)" }}>
-                    <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginBottom: "var(--space-lg)", color: "var(--text-primary)" }}>Advanced Tracks</h3>
-                    <div className={styles.table}>
-                      {advTracks.map((track) => {
-                        const trackTopics = advTopics.filter((t) => t.track_id === track.id);
-                        return (
-                          <article key={track.id} className={styles.row}>
-                            <div className={styles.rowMain}>
-                              <div className={styles.rowInfo}>
-                                <h3 className={styles.rowTitle}>{track.name}</h3>
-                                <div className={styles.rowMeta}>
-                                  <span className={styles.metaPill}>/{track.slug}</span>
-                                  <span>{track.description || "No description"}</span>
-                                  <span>{trackTopics.length} topics</span>
-                                </div>
-                                {trackTopics.length > 0 && (
-                                  <div className={styles.rowMeta} style={{ marginTop: "4px" }}>
-                                    {trackTopics.map((topic) => (
-                                      <span key={topic.id} className={styles.metaPill}>{topic.name} ({topic.level})</span>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 

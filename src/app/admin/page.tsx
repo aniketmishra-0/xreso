@@ -1226,88 +1226,8 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                {/* Create Form */}
-                <section className={styles.templatesPanel}>
-                  <button className={styles.templatesPanelHeader} onClick={() => {}} style={{ cursor: "default" }}>
-                    <div>
-                      <span className={styles.templatesEyebrow}>Create</span>
-                      <h2 className={styles.templatesTitle}>New Resource</h2>
-                    </div>
-                  </button>
-                  <div className={styles.templatesBody}>
-                    <form className={styles.advForm} onSubmit={handleAdvCreate}>
-                      <div className={styles.advFormRow}>
-                        <label className={styles.advField}>
-                          <span>Track</span>
-                          <UnifiedDropdown
-                            value={advForm.trackSlug}
-                            title="Track"
-                            placeholder="Select track"
-                            options={advTracks.map((t) => ({ value: t.slug, label: t.name }))}
-                            onChange={(v) => setAdvForm((p) => ({ ...p, trackSlug: v, topicSlug: "" }))}
-                            required
-                          />
-                        </label>
-                        <label className={styles.advField}>
-                          <span>Topic (optional)</span>
-                          <UnifiedDropdown
-                            value={advForm.topicSlug}
-                            title="Topic"
-                            placeholder="All topics"
-                            options={advScopedTopics.map((t) => ({ value: t.slug, label: t.name }))}
-                            onChange={(v) => setAdvForm((p) => ({ ...p, topicSlug: v }))}
-                          />
-                        </label>
-                      </div>
-                      <label className={styles.advFieldWide}>
-                        <span>Title</span>
-                        <input type="text" value={advForm.title} onChange={(e) => setAdvForm((p) => ({ ...p, title: e.target.value }))} required />
-                      </label>
-                      <label className={styles.advFieldWide}>
-                        <span>Summary</span>
-                        <textarea rows={3} value={advForm.summary} onChange={(e) => setAdvForm((p) => ({ ...p, summary: e.target.value }))} required />
-                      </label>
-                      <div className={styles.advFormRow}>
-                        <label className={styles.advField}>
-                          <span>Resource Type</span>
-                          <UnifiedDropdown
-                            value={advForm.resourceType}
-                            title="Type"
-                            placeholder="Select type"
-                            options={[{ value: "link", label: "Link" }, { value: "pdf", label: "PDF" }, { value: "doc", label: "Doc" }, { value: "video", label: "Video" }]}
-                            onChange={(v) => setAdvForm((p) => ({ ...p, resourceType: v as "link" | "pdf" | "doc" | "video" }))}
-                          />
-                        </label>
-                        <label className={styles.advField}>
-                          <span>Initial Status</span>
-                          <UnifiedDropdown
-                            value={advForm.status}
-                            title="Status"
-                            placeholder="Select status"
-                            options={[{ value: "approved", label: "Approved" }, { value: "pending", label: "Pending" }, { value: "draft", label: "Draft" }]}
-                            onChange={(v) => setAdvForm((p) => ({ ...p, status: v as "draft" | "pending" | "approved" }))}
-                          />
-                        </label>
-                      </div>
-                      <label className={styles.advFieldWide}>
-                        <span>Content URL</span>
-                        <input type="url" value={advForm.contentUrl} onChange={(e) => setAdvForm((p) => ({ ...p, contentUrl: e.target.value }))} placeholder="https://..." required />
-                      </label>
-                      <label className={styles.advFieldWide}>
-                        <span>Tags (comma separated)</span>
-                        <input type="text" value={advForm.tags} onChange={(e) => setAdvForm((p) => ({ ...p, tags: e.target.value }))} placeholder="kubernetes, sre, observability" />
-                      </label>
-                      <div className={styles.advFormActions}>
-                        <button className="btn btn-primary" type="submit" disabled={advSaving}>
-                          {advSaving ? "Creating..." : "Create Resource"}
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </section>
-
                 {/* Resource Queue */}
-                <div className={styles.panel} style={{ marginTop: "var(--space-2xl)" }}>
+                <div className={styles.panel}>
                   <h3 style={{ fontSize: "var(--text-lg)", fontWeight: 700, marginBottom: "var(--space-lg)", color: "var(--text-primary)" }}>Resource Queue</h3>
                   {advResources.length === 0 ? (
                     <div className={styles.empty}>No advanced resources yet.</div>

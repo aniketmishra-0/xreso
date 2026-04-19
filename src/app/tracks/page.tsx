@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Code2, Zap } from "lucide-react";
+import { Code2, PlayCircle, Zap } from "lucide-react";
 import {
   getAdvancedHeroStats,
   getAdvancedTrackHighlights,
@@ -198,6 +198,14 @@ export default async function TracksHomePage() {
               >
                 <Zap size={14} />
                 Advanced
+              </Link>
+              <Link
+                href="/videos"
+                className={styles.toggleBtn}
+                prefetch={true}
+              >
+                <PlayCircle size={14} />
+                Video
               </Link>
             </div>
           </div>

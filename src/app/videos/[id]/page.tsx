@@ -238,7 +238,7 @@ export default function VideoDetailPage({
           <div className={styles.driveToolsCard}>
             <h2 className={styles.descTitle}>Drive Playback Tools</h2>
             <p className={styles.descText}>
-              Google Drive ya OneDrive link paste karke yahi player me direct run karo.
+              Paste a Google Drive or OneDrive link to play it directly in this player.
             </p>
 
             <div className={styles.driveInputRow}>

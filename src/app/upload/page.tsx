@@ -272,6 +272,12 @@ interface PreviewProps {
   advancedTracks: AdvancedTrack[];
   mode: "file" | "link" | "video";
   fileObjectUrl: string;
+  filePreviewUrl: string;
+  filePreviewKind: "image" | "pdf" | "other";
+  fileName: string;
+  videoEmbedUrl: string;
+  videoPreviewKind: "iframe" | "video";
+  hasVideoSourceMismatch: boolean;
   formData: {
     title: string; description: string; category: string;
     advancedTrackSlug: string;
@@ -282,7 +288,14 @@ interface PreviewProps {
   onLinkImagePreviewError: () => void;
 }
 
-function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, fileObjectUrl, formData, session, hasLinkImagePreview, onLinkImagePreviewError }: PreviewProps) {
+function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, fileObjectUrl, filePreviewUrl, filePreviewKind, fileName, videoEmbedUrl, videoPreviewKind, hasVideoSourceMismatch, formData, session, hasLinkImagePreview, onLinkImagePreviewError }: PreviewProps) {
+  const [activePreviewTab, setActivePreviewTab] = useState<"card" | "detail">("detail");
+  const [swipeOffsetY, setSwipeOffsetY] = useState(0);
+  const [isSwipingDrawer, setIsSwipingDrawer] = useState(false);
+  const previewBodyRef = useRef<HTMLDivElement>(null);
+  const touchStartXRef = useRef(0);
+  const touchStartYRef = useRef(0);
+  const swipeEnabledRef = useRef(false);
   const tagList = formData.tags ? formData.tags.split(",").map(t => t.trim()).filter(Boolean) : [];
   const authorName = formData.authorCredit || session?.user?.name || "Anonymous";
   const selectedTrack = advancedTracks.find((track) => track.slug === formData.advancedTrackSlug);
@@ -293,8 +306,76 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
   const catBadge = resourceTier === "advanced" ? "badge-blue" : CATEGORY_BADGE[formData.category] || "";
   const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   const linkMeta = detectLinkType(formData.resourceUrl, hasLinkImagePreview);
+  const fileExtension = fileName.includes(".") ? fileName.split(".").pop()?.toUpperCase() : "";
+  const pdfCardPreviewSrc =
+    filePreviewKind === "pdf" && filePreviewUrl
+      ? `${filePreviewUrl}#page=1&view=FitH&toolbar=0&navpanes=0&scrollbar=0`
+      : "";
+  const pdfDetailPreviewSrc =
+    filePreviewKind === "pdf" && filePreviewUrl
+      ? `${filePreviewUrl}#page=1&view=FitH`
+      : "";
 
-  const hasContent = formData.title || formData.description || fileObjectUrl || formData.resourceUrl;
+  const hasContent = formData.title || formData.description || filePreviewUrl || fileName || formData.resourceUrl;
+
+  useEffect(() => {
+    if (!open) {
+      setActivePreviewTab("detail");
+      setSwipeOffsetY(0);
+      setIsSwipingDrawer(false);
+      swipeEnabledRef.current = false;
+    }
+  }, [open]);
+
+  const handleSwipeStart = (event: React.TouchEvent<HTMLElement>) => {
+    if (!open) return;
+
+    const bodyTop = previewBodyRef.current?.scrollTop || 0;
+    if (bodyTop > 0) {
+      swipeEnabledRef.current = false;
+      return;
+    }
+
+    const touch = event.touches[0];
+    touchStartXRef.current = touch.clientX;
+    touchStartYRef.current = touch.clientY;
+    swipeEnabledRef.current = true;
+    setIsSwipingDrawer(true);
+  };
+
+  const handleSwipeMove = (event: React.TouchEvent<HTMLElement>) => {
+    if (!swipeEnabledRef.current) return;
+
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - touchStartXRef.current;
+    const deltaY = touch.clientY - touchStartYRef.current;
+
+    if (Math.abs(deltaX) > Math.abs(deltaY) || deltaY <= 0) {
+      setSwipeOffsetY(0);
+      return;
+    }
+
+    // Prevent touch momentum from leaking to the background page while dragging the drawer.
+    if (event.cancelable) {
+      event.preventDefault();
+    }
+    event.stopPropagation();
+
+    setSwipeOffsetY(Math.min(deltaY, 240));
+  };
+
+  const handleSwipeEnd = () => {
+    if (!swipeEnabledRef.current) return;
+
+    const shouldClose = swipeOffsetY > 120;
+    swipeEnabledRef.current = false;
+    setIsSwipingDrawer(false);
+    setSwipeOffsetY(0);
+
+    if (shouldClose) {
+      onClose();
+    }
+  };
 
   return (
     <>
@@ -306,7 +387,25 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
       />
 
       {/* Drawer */}
-      <aside className={`${styles.previewDrawer} ${open ? styles.previewDrawerOpen : ""}`} role="dialog" aria-modal="true" aria-label="Note Preview">
+      <aside
+        className={`${styles.previewDrawer} ${open ? styles.previewDrawerOpen : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Note Preview"
+        onTouchStart={handleSwipeStart}
+        onTouchMove={handleSwipeMove}
+        onTouchEnd={handleSwipeEnd}
+        onTouchCancel={handleSwipeEnd}
+        style={
+          open
+            ? {
+              transform: `translate(-50%, ${swipeOffsetY}px)`,
+              transition: isSwipingDrawer ? "none" : undefined,
+            }
+            : undefined
+        }
+      >
+        <div className={styles.previewSwipeHandle} aria-hidden="true" />
         {/* Header */}
         <div className={styles.previewHeader}>
           <div className={styles.previewHeaderLeft}>
@@ -319,7 +418,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
           </button>
         </div>
 
-        <div className={styles.previewBody}>
+        <div className={styles.previewBody} ref={previewBodyRef}>
           {!hasContent ? (
             <div className={styles.previewEmpty}>
               <div className={styles.previewEmptyIcon}>👁️</div>
@@ -327,7 +426,27 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
             </div>
           ) : (
             <>
+              <div className={styles.previewTabs}>
+                <button
+                  type="button"
+                  className={`${styles.previewTabBtn} ${activePreviewTab === "card" ? styles.previewTabBtnActive : ""}`}
+                  onClick={() => setActivePreviewTab("card")}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                  <span>Card</span>
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.previewTabBtn} ${activePreviewTab === "detail" ? styles.previewTabBtnActive : ""}`}
+                  onClick={() => setActivePreviewTab("detail")}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <span>Detail</span>
+                </button>
+              </div>
+
               {/* ── CARD VIEW ──────────────────────────── */}
+              {activePreviewTab === "card" && (
               <div className={styles.previewSection}>
                 <p className={styles.previewSectionLabel}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
@@ -336,7 +455,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
                 <div className={styles.previewCard}>
                   {/* Thumbnail */}
                     <div className={styles.previewCardThumb}>
-                      {mode === "file" && fileObjectUrl ? (
+                      {mode === "file" && filePreviewKind === "image" && fileObjectUrl ? (
                         <Image
                           src={fileObjectUrl}
                           alt="Preview"
@@ -345,6 +464,36 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
                           sizes="(max-width: 768px) 100vw, 420px"
                           className={styles.previewCardImg}
                         />
+                      ) : mode === "file" && filePreviewKind === "pdf" && filePreviewUrl ? (
+                        <iframe
+                          src={pdfCardPreviewSrc}
+                          title="PDF preview"
+                          className={styles.previewCardPdfFrame}
+                        />
+                      ) : mode === "video" && videoEmbedUrl ? (
+                        videoPreviewKind === "video" ? (
+                          <video
+                            src={videoEmbedUrl}
+                            controls
+                            preload="metadata"
+                            className={styles.previewCardVideoTag}
+                          />
+                        ) : (
+                          <iframe
+                            src={videoEmbedUrl}
+                            title="Video card preview"
+                            loading="lazy"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                            className={styles.previewCardVideoFrame}
+                          />
+                        )
+                      ) : mode === "file" && fileName ? (
+                        <div className={styles.previewCardFileFallback}>
+                          <span className={styles.previewCardFileIcon}>FILE</span>
+                          <strong>{fileExtension || "Document"}</strong>
+                          <span>{fileName}</span>
+                        </div>
                       ) : mode === "link" && formData.resourceUrl ? (
                         <div className={styles.previewCardLinkThumb}>
                           {hasLinkImagePreview ? (
@@ -404,8 +553,10 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
                   </div>
                 </div>
               </div>
+              )}
 
               {/* ── DETAIL VIEW ────────────────────────── */}
+              {activePreviewTab === "detail" && (
               <div className={styles.previewSection}>
                 <p className={styles.previewSectionLabel}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
@@ -413,11 +564,11 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
                 </p>
 
                 {/* File viewer or link resource */}
-                {mode === "file" && fileObjectUrl && (
+                {mode === "file" && filePreviewKind === "image" && filePreviewUrl && (
                   <div className={styles.previewViewer}>
                     <div className={styles.previewViewerMedia}>
                       <Image
-                        src={fileObjectUrl}
+                        src={filePreviewUrl}
                         alt="File preview"
                         fill
                         unoptimized
@@ -428,6 +579,67 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
                     <div className={styles.previewViewerBar}>
                       <span className={styles.previewViewerHint}>← Actual file as it appears to viewers</span>
                     </div>
+                  </div>
+                )}
+
+                {mode === "file" && filePreviewKind === "pdf" && filePreviewUrl && (
+                  <div className={styles.previewViewer}>
+                    <div className={styles.previewViewerMedia}>
+                      <iframe
+                        src={pdfDetailPreviewSrc}
+                        title="PDF detail preview"
+                        className={styles.previewViewerPdfFrame}
+                      />
+                    </div>
+                    <div className={styles.previewViewerBar}>
+                      <span className={styles.previewViewerHint}>PDF preview in reader view</span>
+                    </div>
+                  </div>
+                )}
+
+                {mode === "file" && filePreviewKind === "other" && fileName && (
+                  <div className={styles.previewViewerFileCard}>
+                    <span className={styles.previewViewerFileBadge}>File Attached</span>
+                    <p className={styles.previewViewerFileName}>{fileName}</p>
+                    <p className={styles.previewViewerFileHint}>Preview is unavailable for this format, but upload will still work.</p>
+                  </div>
+                )}
+
+                {mode === "video" && videoEmbedUrl && (
+                  <div className={styles.previewViewer}>
+                    <div className={styles.previewViewerMedia}>
+                      {videoPreviewKind === "video" ? (
+                        <video
+                          src={videoEmbedUrl}
+                          controls
+                          preload="metadata"
+                          className={styles.previewViewerVideoTag}
+                        />
+                      ) : (
+                        <iframe
+                          src={videoEmbedUrl}
+                          title="Video preview"
+                          loading="lazy"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className={styles.previewViewerVideoFrame}
+                        />
+                      )}
+                    </div>
+                    <div className={styles.previewViewerBar}>
+                      <span className={styles.previewViewerHint}>Video link preview</span>
+                    </div>
+                  </div>
+                )}
+
+                {mode === "video" && !videoEmbedUrl && formData.resourceUrl && (
+                  <div className={styles.previewViewerFileCard}>
+                    <span className={styles.previewViewerFileBadge}>Video Link</span>
+                    <p className={styles.previewViewerFileHint}>
+                      {hasVideoSourceMismatch
+                        ? "Selected source and pasted link do not match."
+                        : "Supported links: YouTube, Vimeo, Google Drive, OneDrive."}
+                    </p>
                   </div>
                 )}
 
@@ -495,6 +707,7 @@ function PreviewDrawer({ open, onClose, resourceTier, advancedTracks, mode, file
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Pending notice */}
               <div className={styles.previewPending}>
@@ -535,11 +748,14 @@ function UploadPageContent() {
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileObjectUrl, setFileObjectUrl] = useState("");
+  const [filePreviewUrl, setFilePreviewUrl] = useState("");
+  const [filePreviewKind, setFilePreviewKind] = useState<"image" | "pdf" | "other">("other");
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string; noteId?: string } | null>(null);
   const [linkImagePreviewFailed, setLinkImagePreviewFailed] = useState(false);
   const [detectedLinkContentType, setDetectedLinkContentType] = useState("");
+  const scrollLockYRef = useRef(0);
   const [videoPublicCheck, setVideoPublicCheck] = useState<{
     status: "idle" | "checking" | "public" | "private";
     message: string;
@@ -717,11 +933,12 @@ function UploadPageContent() {
     if (fileObjectUrl) URL.revokeObjectURL(fileObjectUrl);
   }, [fileObjectUrl]);
 
+  useEffect(() => () => {
+    if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+  }, [filePreviewUrl]);
+
   useEffect(() => {
     if (!mobilePicker) return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -732,10 +949,46 @@ function UploadPageContent() {
     document.addEventListener("keydown", handleEscape);
 
     return () => {
-      document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleEscape);
     };
   }, [mobilePicker]);
+
+  const isOverlayOpen = previewOpen || Boolean(mobilePicker);
+
+  useEffect(() => {
+    if (!isOverlayOpen) return;
+
+    const previousPosition = document.body.style.position;
+    const previousTop = document.body.style.top;
+    const previousWidth = document.body.style.width;
+    const previousOverflow = document.body.style.overflow;
+    const previousBodyOverscroll = document.body.style.overscrollBehavior;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+
+    scrollLockYRef.current = window.scrollY;
+
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollLockYRef.current}px`;
+    document.body.style.width = "100%";
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.documentElement.style.overflow = "hidden";
+    document.documentElement.style.overscrollBehavior = "none";
+
+    return () => {
+      document.body.style.position = previousPosition;
+      document.body.style.top = previousTop;
+      document.body.style.width = previousWidth;
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousBodyOverscroll;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.documentElement.style.overscrollBehavior = previousHtmlOverscroll;
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollLockYRef.current);
+      });
+    };
+  }, [isOverlayOpen]);
 
   useEffect(() => {
     setLinkImagePreviewFailed(false);
@@ -1003,10 +1256,21 @@ function UploadPageContent() {
     }
     setUploadResult(null);
     setFile(f);
+    const extension = f.name.split(".").pop()?.toLowerCase() || "";
+    const isImageFile = f.type.startsWith("image/");
+    const isPdfFile = f.type === "application/pdf" || extension === "pdf";
+
     setFileObjectUrl((currentUrl) => {
       if (currentUrl) URL.revokeObjectURL(currentUrl);
-      return f.type.startsWith("image/") ? URL.createObjectURL(f) : "";
+      return isImageFile ? URL.createObjectURL(f) : "";
     });
+
+    setFilePreviewUrl((currentUrl) => {
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+      return isImageFile || isPdfFile ? URL.createObjectURL(f) : "";
+    });
+
+    setFilePreviewKind(isImageFile ? "image" : isPdfFile ? "pdf" : "other");
   }, [resourceTier]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1019,6 +1283,11 @@ function UploadPageContent() {
       if (currentUrl) URL.revokeObjectURL(currentUrl);
       return "";
     });
+    setFilePreviewUrl((currentUrl) => {
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
+      return "";
+    });
+    setFilePreviewKind("other");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -1499,6 +1768,12 @@ function UploadPageContent() {
         advancedTracks={advancedTracks}
         mode={uploadMode}
         fileObjectUrl={fileObjectUrl}
+        filePreviewUrl={filePreviewUrl}
+        filePreviewKind={filePreviewKind}
+        fileName={file?.name || ""}
+        videoEmbedUrl={videoEmbedUrl}
+        videoPreviewKind={videoPreviewKind}
+        hasVideoSourceMismatch={uploadMode === "video" && Boolean(formData.resourceUrl && detectedVideoType && !isVideoSourceMatched)}
         formData={formData}
         session={session}
         hasLinkImagePreview={hasLinkImagePreview}
@@ -1762,15 +2037,15 @@ function UploadPageContent() {
                 </div>
 
                 <p className={styles.videoModeNote}>
-                  Sirf video link save hoga. Koi video file server/database me store ya download nahi hogi.
+                  Only the video link will be saved. No video file will be stored or downloaded on the server/database.
                 </p>
                 <p className={styles.videoModeWarning}>
-                  YouTube unlisted videos play ho jati hain. Drive/OneDrive ke liye embeddable ya accessible link chahiye hota hai.
+                  YouTube unlisted videos can play. For Drive/OneDrive, the link must be embeddable or publicly accessible.
                 </p>
 
                 {formData.resourceUrl && detectedVideoType && !isVideoSourceMatched ? (
                   <p className={styles.videoModeError}>
-                    Selected source {videoSourceType} hai, but pasted link {normalizedDetectedVideoType} detect ho raha hai.
+                    Selected source is {videoSourceType}, but the pasted link was detected as {normalizedDetectedVideoType}.
                   </p>
                 ) : null}
 
@@ -1808,7 +2083,7 @@ function UploadPageContent() {
                   </div>
                 ) : formData.resourceUrl ? (
                   <p className={styles.videoModeError}>
-                    Valid video link detect nahi hua. Supported: YouTube, Vimeo, Google Drive, OneDrive.
+                    No valid video link was detected. Supported: YouTube, Vimeo, Google Drive, OneDrive.
                   </p>
                 ) : null}
               </div>

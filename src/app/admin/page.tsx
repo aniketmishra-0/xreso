@@ -65,21 +65,6 @@ interface StorageStatus {
   workbooks: StorageWorkbook[];
 }
 
-interface AdvTrack {
-  id: number;
-  slug: string;
-  name: string;
-  description: string;
-}
-
-interface AdvTopic {
-  id: number;
-  track_id: number;
-  slug: string;
-  name: string;
-  level: "Beginner" | "Intermediate" | "Advanced";
-}
-
 interface AdvResource {
   id: string;
   title: string;
@@ -97,19 +82,6 @@ interface AdvResource {
   author_name: string;
   tag_names: string | null;
 }
-
-const ADV_INITIAL_FORM = {
-  title: "",
-  summary: "",
-  trackSlug: "",
-  topicSlug: "",
-  resourceType: "link" as "link" | "pdf" | "doc" | "video",
-  contentUrl: "",
-  thumbnailUrl: "",
-  tags: "",
-  status: "approved" as "draft" | "pending" | "approved",
-  featured: false,
-};
 
 const FILTERS = ["all", "pending", "approved", "rejected"] as const;
 type FilterValue = (typeof FILTERS)[number];
@@ -170,12 +142,9 @@ export default function AdminPage() {
   const [thresholdSaving, setThresholdSaving] = useState(false);
 
   // Advanced tracks state
-  const [advTracks, setAdvTracks] = useState<AdvTrack[]>([]);
-  const [advTopics, setAdvTopics] = useState<AdvTopic[]>([]);
   const [advResources, setAdvResources] = useState<AdvResource[]>([]);
-  const [advForm, setAdvForm] = useState(ADV_INITIAL_FORM);
-  const [advSaving, setAdvSaving] = useState(false);
   const [advMessage, setAdvMessage] = useState("");
+  const [activeAdvAction, setActiveAdvAction] = useState<string | null>(null);
 
   // Reports state
   const [reports, setReports] = useState<AdminReport[]>([]);
@@ -344,14 +313,8 @@ export default function AdminPage() {
     try {
       const res = await fetch("/api/admin/advanced-tracks", { cache: "no-store" });
       if (!res.ok) return;
-      const payload = (await res.json()) as { tracks: AdvTrack[]; topics: AdvTopic[]; resources: AdvResource[] };
-      setAdvTracks(payload.tracks || []);
-      setAdvTopics(payload.topics || []);
+      const payload = (await res.json()) as { resources?: AdvResource[] };
       setAdvResources(payload.resources || []);
-      setAdvForm((prev) => {
-        if (prev.trackSlug || !payload.tracks?.length) return prev;
-        return { ...prev, trackSlug: payload.tracks[0].slug };
-      });
     } catch { /* swallow */ }
   }, []);
 
@@ -401,13 +364,6 @@ export default function AdminPage() {
     }
   }, [userRole, loadAdvData, loadReports, loadUsers, loadCategories, loadAuditLogs]);
 
-  const advScopedTopics = useMemo(() => {
-    if (!advForm.trackSlug) return [];
-    const t = advTracks.find((tr) => tr.slug === advForm.trackSlug);
-    if (!t) return [];
-    return advTopics.filter((tp) => tp.track_id === t.id);
-  }, [advForm.trackSlug, advTopics, advTracks]);
-
   const advSummary = useMemo(() => ({
     total: advResources.length,
     pending: advResources.filter((r) => r.status === "pending").length,
@@ -415,46 +371,32 @@ export default function AdminPage() {
     featured: advResources.filter((r) => Boolean(r.featured)).length,
   }), [advResources]);
 
-  const handleAdvCreate = async (event: React.FormEvent) => {
-    event.preventDefault();
-    setAdvSaving(true);
+  const handleAdvAction = async (resourceId: string, action: "approve" | "reject" | "archive" | "feature" | "unfeature") => {
+    const actionKey = `${resourceId}:${action}`;
+    setActiveAdvAction(actionKey);
     setError("");
     setAdvMessage("");
     try {
-      const res = await fetch("/api/admin/advanced-tracks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...advForm, premiumOnly: false, tags: advForm.tags, topicSlug: advForm.topicSlug || undefined }),
-      });
-      const payload = (await res.json()) as { error?: string };
-      if (!res.ok) throw new Error(payload.error || "Create failed");
-      setAdvMessage("Resource created successfully.");
-      setAdvForm((prev) => ({ ...ADV_INITIAL_FORM, trackSlug: prev.trackSlug }));
-      await loadAdvData();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create resource.");
-    } finally {
-      setAdvSaving(false);
-    }
-  };
-
-  const handleAdvAction = async (resourceId: string, action: "approve" | "reject" | "archive" | "feature" | "unfeature") => {
-    setError("");
-    try {
       const res = await fetch("/api/admin/advanced-tracks", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resourceId, action }) });
       if (!res.ok) { const p = (await res.json()) as { error?: string }; throw new Error(p.error || "Action failed"); }
+      setAdvMessage("Resource updated.");
       await loadAdvData();
     } catch (e) { setError(e instanceof Error ? e.message : "Action failed."); }
+    finally { setActiveAdvAction(null); }
   };
 
   const handleAdvDelete = async (resourceId: string) => {
     if (!window.confirm("Delete this resource permanently?")) return;
+    setActiveAdvAction(`${resourceId}:delete`);
     setError("");
+    setAdvMessage("");
     try {
       const res = await fetch("/api/admin/advanced-tracks", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resourceId }) });
       if (!res.ok) { const p = (await res.json()) as { error?: string }; throw new Error(p.error || "Delete failed"); }
+      setAdvMessage("Resource deleted.");
       await loadAdvData();
     } catch (e) { setError(e instanceof Error ? e.message : "Delete failed."); }
+    finally { setActiveAdvAction(null); }
   };
 
   const handleDismissReport = async (noteId: string) => {
@@ -626,6 +568,20 @@ export default function AdminPage() {
 
   const isNoteLocked = (noteId: string) =>
     activeAction ? activeAction.startsWith(`${noteId}:`) : false;
+
+  const isAdvActionBusy = (resourceId: string, action: "approve" | "reject" | "feature" | "delete") => {
+    if (!activeAdvAction) return false;
+    if (action === "feature") {
+      return (
+        activeAdvAction === `${resourceId}:feature` ||
+        activeAdvAction === `${resourceId}:unfeature`
+      );
+    }
+    return activeAdvAction === `${resourceId}:${action}`;
+  };
+
+  const isAdvResourceLocked = (resourceId: string) =>
+    activeAdvAction ? activeAdvAction.startsWith(`${resourceId}:`) : false;
 
   if (status === "loading") {
     return (
@@ -1234,7 +1190,7 @@ export default function AdminPage() {
                   ) : (
                     <div className={styles.table}>
                       {advResources.map((resource) => {
-                        const href = resource.content_url.startsWith("onedrive://") ? `/api/advanced-tracks/resource/${resource.id}` : resource.content_url;
+                        const href = `/api/advanced-tracks/resource/${resource.id}`;
                         return (
                           <article key={resource.id} className={styles.row}>
                             <div className={styles.rowMain}>
@@ -1257,13 +1213,23 @@ export default function AdminPage() {
                                 {Boolean(resource.featured) && <span className={styles.featuredBadge}>Featured</span>}
                               </div>
                               <div className={styles.rowActions}>
-                                <a href={href} target="_blank" rel="noopener noreferrer" className="btn btn-ghost btn-sm">Open</a>
-                                <button className={`btn btn-sm ${styles.approveBtn}`} onClick={() => void handleAdvAction(resource.id, "approve")}>Approve</button>
-                                <button className={`btn btn-sm ${styles.rejectBtn}`} onClick={() => void handleAdvAction(resource.id, "reject")}>Reject</button>
-                                <button className={`btn btn-sm ${styles.featureBtn}`} onClick={() => void handleAdvAction(resource.id, resource.featured ? "unfeature" : "feature")}>
-                                  {resource.featured ? "Unfeature" : "Feature"}
+                                <Link href={href} className="btn btn-sm btn-ghost">Open</Link>
+                                {resource.status === "pending" && (
+                                  <button className={`btn btn-sm ${styles.approveBtn}`} onClick={() => void handleAdvAction(resource.id, "approve")} disabled={isAdvResourceLocked(resource.id)}>
+                                    {isAdvActionBusy(resource.id, "approve") ? "Approving..." : "Approve"}
+                                  </button>
+                                )}
+                                {resource.status === "pending" && (
+                                  <button className={`btn btn-sm ${styles.rejectBtn}`} onClick={() => void handleAdvAction(resource.id, "reject")} disabled={isAdvResourceLocked(resource.id)}>
+                                    {isAdvActionBusy(resource.id, "reject") ? "Rejecting..." : "Reject"}
+                                  </button>
+                                )}
+                                <button className={`btn btn-sm ${styles.featureBtn}`} onClick={() => void handleAdvAction(resource.id, resource.featured ? "unfeature" : "feature")} disabled={isAdvResourceLocked(resource.id)}>
+                                  {isAdvActionBusy(resource.id, "feature") ? "Updating..." : resource.featured ? "Unfeature" : "Feature"}
                                 </button>
-                                <button className={`btn btn-sm ${styles.deleteBtn}`} onClick={() => void handleAdvDelete(resource.id)}>Delete</button>
+                                <button className={`btn btn-sm ${styles.deleteBtn}`} onClick={() => void handleAdvDelete(resource.id)} disabled={isAdvResourceLocked(resource.id)}>
+                                  {isAdvActionBusy(resource.id, "delete") ? "Deleting..." : "Delete"}
+                                </button>
                               </div>
                             </div>
                           </article>

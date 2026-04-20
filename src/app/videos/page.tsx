@@ -84,6 +84,9 @@ const SORT_OPTIONS = [
   { value: "saved", label: "Most Saved" },
 ];
 
+const MOBILE_SHEET_VISIBILITY_EVENT = "xreso:mobile-sheet-visibility";
+const MOBILE_BREAKPOINT = 768;
+
 function normalizeCategory(value: string): string {
   return value
     .toLowerCase()
@@ -292,6 +295,40 @@ function VideoPageContent() {
     return () => document.removeEventListener("mousedown", onDocumentClick);
   }, []);
 
+  useEffect(() => {
+    if (!langMenuOpen && !sortMenuOpen) {
+      return;
+    }
+
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setLangMenuOpen(false);
+      setSortMenuOpen(false);
+    };
+
+    document.addEventListener("keydown", onEscape);
+    return () => document.removeEventListener("keydown", onEscape);
+  }, [langMenuOpen, sortMenuOpen]);
+
+  useEffect(() => {
+    const isMobile = window.innerWidth <= MOBILE_BREAKPOINT;
+    const shouldHideFloatingNav = isMobile && (langMenuOpen || sortMenuOpen);
+
+    window.dispatchEvent(
+      new CustomEvent(MOBILE_SHEET_VISIBILITY_EVENT, {
+        detail: { open: shouldHideFloatingNav },
+      })
+    );
+
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent(MOBILE_SHEET_VISIBILITY_EVENT, {
+          detail: { open: false },
+        })
+      );
+    };
+  }, [langMenuOpen, sortMenuOpen]);
+
   const filteredVideos = useMemo(() => {
     let list = videos;
 
@@ -385,7 +422,13 @@ function VideoPageContent() {
             <button
               type="button"
               className={styles.langDropdown}
-              onClick={() => setLangMenuOpen((current) => !current)}
+              onClick={() => {
+                setLangMenuOpen((current) => {
+                  const next = !current;
+                  if (next) setSortMenuOpen(false);
+                  return next;
+                });
+              }}
               aria-haspopup="listbox"
               aria-expanded={langMenuOpen}
               id="video-language-dropdown"
@@ -420,6 +463,55 @@ function VideoPageContent() {
                 ))}
               </div>
             )}
+
+            {langMenuOpen && (
+              <>
+                <div className={styles.sheetOverlay} onClick={() => setLangMenuOpen(false)} />
+                <div className={styles.sheetPanel} role="dialog" aria-modal="true" aria-label="Language filter options">
+                  <div className={styles.sheetHandle} />
+                  <div className={styles.sheetHeader}>
+                    <div>
+                      <div className={styles.sheetLabel}>CHOOSE ONE</div>
+                      <div className={styles.sheetTitle}>Programming Language / Topic</div>
+                    </div>
+                    <button className={styles.sheetClose} onClick={() => setLangMenuOpen(false)} aria-label="Close">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                    </button>
+                  </div>
+                  <div className={styles.sheetOptions}>
+                    <button
+                      type="button"
+                      className={`${styles.sheetOption} ${!selectedLanguageSlug ? styles.sheetOptionActive : ""}`}
+                      onClick={() => {
+                        setActiveCategory("All");
+                        setLangMenuOpen(false);
+                      }}
+                    >
+                      <span className={styles.sheetOptionText}>Select a programming topic</span>
+                      {!selectedLanguageSlug && (
+                        <svg className={styles.sheetOptionCheck} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                      )}
+                    </button>
+                    {ALL_CATEGORIES.map((cat) => (
+                      <button
+                        key={cat.slug}
+                        type="button"
+                        className={`${styles.sheetOption} ${selectedLanguageSlug === cat.slug ? styles.sheetOptionActive : ""}`}
+                        onClick={() => {
+                          setActiveCategory(cat.name);
+                          setLangMenuOpen(false);
+                        }}
+                      >
+                        <span className={styles.sheetOptionText}>{cat.name}</span>
+                        {selectedLanguageSlug === cat.slug && (
+                          <svg className={styles.sheetOptionCheck} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -427,7 +519,13 @@ function VideoPageContent() {
           <button
             type="button"
             className={styles.sortDropdown}
-            onClick={() => setSortMenuOpen((current) => !current)}
+            onClick={() => {
+              setSortMenuOpen((current) => {
+                const next = !current;
+                if (next) setLangMenuOpen(false);
+                return next;
+              });
+            }}
             aria-haspopup="listbox"
             aria-expanded={sortMenuOpen}
             id="video-sort-dropdown"
@@ -451,6 +549,42 @@ function VideoPageContent() {
                 </button>
               ))}
             </div>
+          )}
+
+          {sortMenuOpen && (
+            <>
+              <div className={styles.sheetOverlay} onClick={() => setSortMenuOpen(false)} />
+              <div className={styles.sheetPanel} role="dialog" aria-modal="true" aria-label="Sort options">
+                <div className={styles.sheetHandle} />
+                <div className={styles.sheetHeader}>
+                  <div>
+                    <div className={styles.sheetLabel}>SORT RESULTS</div>
+                    <div className={styles.sheetTitle}>Choose viewing order</div>
+                  </div>
+                  <button className={styles.sheetClose} onClick={() => setSortMenuOpen(false)} aria-label="Close">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                  </button>
+                </div>
+                <div className={styles.sheetOptions}>
+                  {SORT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={`${styles.sheetOption} ${sortBy === opt.value ? styles.sheetOptionActive : ""}`}
+                      onClick={() => {
+                        updateQueryParams({ sort: opt.value });
+                        setSortMenuOpen(false);
+                      }}
+                    >
+                      <span className={styles.sheetOptionText}>{opt.label}</span>
+                      {sortBy === opt.value && (
+                        <svg className={styles.sheetOptionCheck} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
         </div>
       </div>

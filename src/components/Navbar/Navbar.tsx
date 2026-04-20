@@ -12,6 +12,7 @@ import { trackContributeClick } from "@/lib/contribute-tracking";
 import styles from "./Navbar.module.css";
 
 type BrowseMode = "programming" | "advanced";
+const MOBILE_SHEET_VISIBILITY_EVENT = "xreso:mobile-sheet-visibility";
 
 export default function Navbar() {
   const { data: session } = useSession();
@@ -27,6 +28,7 @@ export default function Navbar() {
   const [loginPromptOpen, setLoginPromptOpen] = useState(false);
   const [loginPromptContext, setLoginPromptContext] = useState<"upload" | "contribute">("upload");
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
 
   const isUploadRoute = pathname === "/upload";
   const focusParam = searchParams.get("focus");
@@ -123,6 +125,18 @@ export default function Navbar() {
   }, [loginPromptOpen]);
 
   useEffect(() => {
+    const onMobileSheetVisibility = (event: Event) => {
+      const sheetEvent = event as CustomEvent<{ open?: boolean }>;
+      setIsMobileSheetOpen(Boolean(sheetEvent.detail?.open));
+    };
+
+    window.addEventListener(MOBILE_SHEET_VISIBILITY_EVENT, onMobileSheetVisibility as EventListener);
+    return () => {
+      window.removeEventListener(MOBILE_SHEET_VISIBILITY_EVENT, onMobileSheetVisibility as EventListener);
+    };
+  }, []);
+
+  useEffect(() => {
     let active = true;
 
     async function loadProfileAvatar() {
@@ -202,6 +216,7 @@ export default function Navbar() {
   const shouldHideFloatingQuickNav =
     headerHidden ||
     mobileMenuOpen ||
+    isMobileSheetOpen ||
     isUploadRoute ||
     isNoteDetailRoute ||
     isTrackNotesRoute ||

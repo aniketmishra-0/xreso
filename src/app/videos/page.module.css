@@ -260,6 +260,14 @@
   background: var(--primary-subtle);
 }
 
+.sheetOverlay {
+  display: none;
+}
+
+.sheetPanel {
+  display: none;
+}
+
 .uploadSection {
   margin-bottom: 32px;
   padding: 24px;
@@ -614,6 +622,149 @@
     padding: calc(var(--nav-height) + 12px) 12px 24px;
   }
 
+  .langMenu {
+    display: none !important;
+  }
+
+  .sortMenu {
+    display: none !important;
+  }
+
+  .sheetOverlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 3, 12, 0.72);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 460;
+  }
+
+  .sheetPanel {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 461;
+    flex-direction: column;
+    gap: 14px;
+    max-height: min(72vh, 560px);
+    padding: 12px 16px calc(18px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border-primary);
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--bg-surface) 96%, transparent) 0%,
+      color-mix(in srgb, var(--bg-elevated) 92%, var(--bg-surface)) 100%
+    );
+    box-shadow: 0 -18px 48px rgba(0, 0, 0, 0.45);
+    animation: sheetSlideUp 0.25s ease-out;
+  }
+
+  @keyframes sheetSlideUp {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  .sheetHandle {
+    width: 48px;
+    height: 5px;
+    border-radius: var(--radius-full);
+    background: var(--border-hover);
+    align-self: center;
+  }
+
+  .sheetHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .sheetLabel {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    margin-bottom: 4px;
+  }
+
+  .sheetTitle {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--text-primary);
+  }
+
+  .sheetClose {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-secondary);
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  .sheetOptions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    padding-bottom: 4px;
+  }
+
+  .sheetOption {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-radius: 16px;
+    border: 1px solid var(--border-secondary);
+    background: color-mix(in srgb, var(--bg-elevated) 92%, var(--bg-surface));
+    text-align: left;
+    transition:
+      border-color var(--transition-fast),
+      background var(--transition-fast),
+      transform var(--transition-fast);
+  }
+
+  .sheetOption:active {
+    transform: scale(0.99);
+  }
+
+  .sheetOptionActive {
+    border-color: color-mix(in srgb, var(--primary) 50%, var(--border-primary));
+    background: color-mix(in srgb, var(--primary) 14%, var(--bg-surface));
+  }
+
+  .sheetOptionText {
+    flex: 1;
+    min-width: 0;
+    font-size: var(--text-sm);
+    line-height: 1.45;
+    color: var(--text-primary);
+  }
+
+  .sheetOptionCheck {
+    width: 18px;
+    height: 18px;
+    color: var(--primary);
+    flex-shrink: 0;
+  }
+
   .title {
     font-size: 24px;
     line-height: 1.15;
@@ -709,4 +860,39 @@
   .videoGrid {
     grid-template-columns: 1fr;
   }
+}
+
+[data-theme="light"] .sheetOverlay {
+  background: rgba(34, 24, 60, 0.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme="light"] .sheetPanel {
+  border-top-color: color-mix(in srgb, var(--primary) 16%, var(--border-secondary));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, white 88%, var(--bg-surface)) 0%,
+    color-mix(in srgb, var(--primary) 4%, white) 100%
+  );
+  box-shadow: 0 -18px 48px rgba(87, 59, 150, 0.16);
+}
+
+[data-theme="light"] .sheetHandle {
+  background: color-mix(in srgb, var(--primary) 18%, var(--border-hover));
+}
+
+[data-theme="light"] .sheetClose {
+  background: color-mix(in srgb, white 78%, var(--bg-elevated));
+}
+
+[data-theme="light"] .sheetOption {
+  background: color-mix(in srgb, white 82%, var(--bg-elevated));
+  border-color: color-mix(in srgb, var(--primary) 14%, var(--border-secondary));
+  box-shadow: 0 6px 18px rgba(139, 92, 246, 0.05);
+}
+
+[data-theme="light"] .sheetOptionActive {
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--border-primary));
+  background: color-mix(in srgb, var(--primary) 10%, white);
 }

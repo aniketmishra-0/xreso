@@ -988,11 +988,11 @@
 /* ── Responsive ───────────────────────────── */
 @media (max-width: 768px) {
   .pageContributeFocus {
-    padding-top: 0;
+    padding-top: var(--nav-height);
   }
 
   .headerContributeFocus {
-    display: none;
+    display: block;
   }
 
   .pageContributeFocus .formContainer {

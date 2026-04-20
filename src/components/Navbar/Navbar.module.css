@@ -836,12 +836,6 @@
   gap: var(--space-sm);
 }
 
-.uploadBtn {
-}
-
-.loginBtn {
-}
-
 /* Hamburger */
 .mobileToggle {
   display: none;

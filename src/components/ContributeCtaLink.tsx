@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ComponentProps, type MouseEvent } from "react";
-import { createPortal } from "react-dom";
 import { useSession } from "next-auth/react";
 import {
   CONTRIBUTE_LOGIN_REQUIRED_MESSAGE,
@@ -72,49 +71,46 @@ export default function ContributeCtaLink({
         data-source={source}
       />
 
-      {promptOpen && typeof document !== "undefined"
-        ? createPortal(
-            <div
-              className={styles.authPromptOverlay}
-              onClick={() => setPromptOpen(false)}
-              aria-hidden="true"
-            >
-              <div
-                className={styles.authPromptDialog}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="contribute-login-title"
-                aria-describedby="contribute-login-description"
-                onClick={(event) => event.stopPropagation()}
+      {promptOpen ? (
+        <div
+          className={styles.authPromptOverlay}
+          onClick={() => setPromptOpen(false)}
+          aria-hidden="true"
+        >
+          <div
+            className={styles.authPromptDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contribute-login-title"
+            aria-describedby="contribute-login-description"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className={styles.authPromptBadge}>Login Required</p>
+            <h3 id="contribute-login-title" className={styles.authPromptTitle}>
+              Login First
+            </h3>
+            <p id="contribute-login-description" className={styles.authPromptText}>
+              {CONTRIBUTE_LOGIN_REQUIRED_MESSAGE}
+            </p>
+            <div className={styles.authPromptActions}>
+              <Link
+                href={loginPromptHref}
+                className={`btn btn-primary ${styles.authPromptPrimary}`}
+                onClick={() => setPromptOpen(false)}
               >
-                <p className={styles.authPromptBadge}>Login Required</p>
-                <h3 id="contribute-login-title" className={styles.authPromptTitle}>
-                  Login First
-                </h3>
-                <p id="contribute-login-description" className={styles.authPromptText}>
-                  {CONTRIBUTE_LOGIN_REQUIRED_MESSAGE}
-                </p>
-                <div className={styles.authPromptActions}>
-                  <Link
-                    href={loginPromptHref}
-                    className={`btn btn-primary ${styles.authPromptPrimary}`}
-                    onClick={() => setPromptOpen(false)}
-                  >
-                    Continue to Login
-                  </Link>
-                  <button
-                    type="button"
-                    className={`btn btn-ghost ${styles.authPromptSecondary}`}
-                    onClick={() => setPromptOpen(false)}
-                  >
-                    Not Now
-                  </button>
-                </div>
-              </div>
-            </div>,
-            document.body
-          )
-        : null}
+                Continue to Login
+              </Link>
+              <button
+                type="button"
+                className={`btn btn-ghost ${styles.authPromptSecondary}`}
+                onClick={() => setPromptOpen(false)}
+              >
+                Not Now
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

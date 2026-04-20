@@ -52,6 +52,7 @@ type UniversalResource = {
 
 type UniversalPayload = {
   query: string;
+  isFallback?: boolean;
   notes: UniversalNote[];
   videos: UniversalVideo[];
   categories: UniversalCategory[];
@@ -83,6 +84,7 @@ export default function SearchClient() {
   const [error, setError] = useState("");
   const [payload, setPayload] = useState<UniversalPayload>({
     query: "",
+    isFallback: false,
     notes: [],
     videos: [],
     categories: [],
@@ -137,6 +139,7 @@ export default function SearchClient() {
             setError("Could not load search results right now.");
             setPayload({
               query: nextQuery,
+              isFallback: false,
               notes: [],
               videos: [],
               categories: [],
@@ -271,6 +274,12 @@ export default function SearchClient() {
 
         {!loading && normalizedSearch && totalResults === 0 ? (
           <div className={styles.state}>No results found. Try another keyword.</div>
+        ) : null}
+
+        {!loading && normalizedSearch && payload.isFallback && totalResults > 0 ? (
+          <div className={styles.state}>
+            No exact matches for <strong>{normalizedSearch}</strong>. Showing recommended content from across the app.
+          </div>
         ) : null}
 
         {!loading && totalResults > 0 ? (

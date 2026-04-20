@@ -155,7 +155,7 @@ xreso supports email/password auth plus optional social login through Google, Gi
 - GitHub app: `http://localhost:3000/api/auth/callback/github`
 - LinkedIn app: `http://localhost:3000/api/auth/callback/linkedin`
 
-For production, replace `http://localhost:3000` with your deployed domain, for example `https://xreso1.vercel.app/api/auth/callback/google`.
+For production, replace `http://localhost:3000` with your deployed domain, for example `https://www.xresoinc.com/api/auth/callback/google`.
 
 4. Restart the dev server after changing env vars.
 
@@ -167,16 +167,17 @@ For production, replace `http://localhost:3000` with your deployed domain, for e
 2. Add these values to `Production`:
 
 - `AUTH_SECRET=<openssl rand -base64 32 output>`
-- `NEXTAUTH_URL=https://xreso1.vercel.app`
+- `NEXTAUTH_URL=https://www.xresoinc.com`
+- `NEXT_PUBLIC_APP_URL=https://www.xresoinc.com`
 - `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`
 - `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`
 - `AUTH_LINKEDIN_ID`, `AUTH_LINKEDIN_SECRET`
 
 3. Provider callback URLs:
 
-- Google: `https://xreso1.vercel.app/api/auth/callback/google`
-- GitHub: `https://xreso1.vercel.app/api/auth/callback/github`
-- LinkedIn: `https://xreso1.vercel.app/api/auth/callback/linkedin`
+- Google: `https://www.xresoinc.com/api/auth/callback/google`
+- GitHub: `https://www.xresoinc.com/api/auth/callback/github`
+- LinkedIn: `https://www.xresoinc.com/api/auth/callback/linkedin`
 
 4. Save env vars and redeploy the latest commit.
 

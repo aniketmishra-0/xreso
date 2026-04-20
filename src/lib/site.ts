@@ -1,4 +1,4 @@
-const DEFAULT_SITE_URL = "https://xresoinc.com";
+const DEFAULT_SITE_URL = "https://www.xresoinc.com";
 
 function normalizeSiteUrl(rawUrl?: string): string {
 	const candidate = rawUrl?.trim();

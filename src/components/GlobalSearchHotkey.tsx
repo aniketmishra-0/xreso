@@ -16,31 +16,36 @@ export default function GlobalSearchHotkey() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      const isShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k";
-      if (!isShortcut) return;
+      const key = event.key.toLowerCase();
+      const isCmdOrCtrlK = (event.metaKey || event.ctrlKey) && key === "k";
+      const isSlashShortcut =
+        key === "/" &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        !event.altKey &&
+        !event.shiftKey;
+      if (!isCmdOrCtrlK && !isSlashShortcut) return;
 
       const activeElement = document.activeElement;
+      if (isTextInputElement(activeElement)) return;
+
       const globalSearchInput = document.querySelector<HTMLInputElement>(
         'input[data-global-search-input="true"]'
       );
 
+      event.preventDefault();
+
       if (globalSearchInput) {
-        event.preventDefault();
         globalSearchInput.focus({ preventScroll: false });
         globalSearchInput.select();
         return;
       }
 
-      if (isTextInputElement(activeElement)) {
-        return;
-      }
-
-      event.preventDefault();
       router.push("/search");
     };
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown, { capture: true });
+    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
   }, [router]);
 
   return null;

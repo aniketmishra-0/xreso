@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import styles from "./page.module.css";
 
@@ -73,10 +73,12 @@ function formatDate(value: string) {
 }
 
 export default function SearchClient() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const query = (searchParams.get("q") || "").trim();
+  const queryFromUrl = (searchParams.get("q") || "").trim();
 
-  const [searchInput, setSearchInput] = useState(query);
+  const [searchInput, setSearchInput] = useState(queryFromUrl);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [payload, setPayload] = useState<UniversalPayload>({
@@ -88,12 +90,14 @@ export default function SearchClient() {
     resources: [],
   });
 
-  useEffect(() => {
-    setSearchInput(query);
-  }, [query]);
+  const normalizedSearch = searchInput.trim();
 
   useEffect(() => {
-    if (!query) {
+    const nextQuery = normalizedSearch;
+    const nextUrl = nextQuery ? `${pathname}?q=${encodeURIComponent(nextQuery)}` : pathname;
+    router.replace(nextUrl, { scroll: false });
+
+    if (!nextQuery) {
       setPayload({
         query: "",
         notes: [],
@@ -109,51 +113,53 @@ export default function SearchClient() {
 
     let cancelled = false;
     const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      const run = async () => {
+        setLoading(true);
+        setError("");
 
-    const run = async () => {
-      setLoading(true);
-      setError("");
-
-      try {
-        const response = await fetch(`/api/search/universal?q=${encodeURIComponent(query)}&limit=8`, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          throw new Error("Search failed");
-        }
-
-        const data = (await response.json()) as UniversalPayload;
-        if (!cancelled) {
-          setPayload(data);
-        }
-      } catch {
-        if (!cancelled) {
-          setError("Could not load search results right now.");
-          setPayload({
-            query,
-            notes: [],
-            videos: [],
-            categories: [],
-            tracks: [],
-            resources: [],
+        try {
+          const response = await fetch(`/api/search/universal?q=${encodeURIComponent(nextQuery)}&limit=8`, {
+            cache: "no-store",
+            signal: controller.signal,
           });
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
 
-    void run();
+          if (!response.ok) {
+            throw new Error("Search failed");
+          }
+
+          const data = (await response.json()) as UniversalPayload;
+          if (!cancelled) {
+            setPayload(data);
+          }
+        } catch {
+          if (!cancelled) {
+            setError("Could not load search results right now.");
+            setPayload({
+              query: nextQuery,
+              notes: [],
+              videos: [],
+              categories: [],
+              tracks: [],
+              resources: [],
+            });
+          }
+        } finally {
+          if (!cancelled) {
+            setLoading(false);
+          }
+        }
+      };
+
+      void run();
+    }, 220);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
       controller.abort();
     };
-  }, [query]);
+  }, [normalizedSearch, pathname, router]);
 
   const totalResults = useMemo(
     () =>
@@ -165,6 +171,47 @@ export default function SearchClient() {
     [payload]
   );
 
+  const recommendations = useMemo(() => {
+    const staticSuggestions = [
+      "SQL",
+      "Python",
+      "System Design",
+      "React",
+      "Docker",
+      "Kubernetes",
+      "JavaScript",
+      "DevOps",
+    ];
+
+    if (!normalizedSearch) {
+      return staticSuggestions.slice(0, 6);
+    }
+
+    const pool = [
+      ...payload.notes.map((item) => item.title),
+      ...payload.videos.map((item) => item.title),
+      ...payload.categories.map((item) => item.name),
+      ...payload.tracks.map((item) => item.name),
+      ...payload.resources.map((item) => item.title),
+      ...staticSuggestions,
+    ];
+
+    const seen = new Set<string>();
+    const output: string[] = [];
+    for (const value of pool) {
+      const normalized = value.trim();
+      if (!normalized) continue;
+      const key = normalized.toLowerCase();
+      if (seen.has(key)) continue;
+      if (!key.includes(normalizedSearch.toLowerCase()) && output.length >= 3) continue;
+      seen.add(key);
+      output.push(normalized);
+      if (output.length >= 8) break;
+    }
+
+    return output;
+  }, [normalizedSearch, payload]);
+
   return (
     <section className={styles.page}>
       <div className={styles.container}>
@@ -172,10 +219,15 @@ export default function SearchClient() {
           <h1 className={styles.title}>Universal Search</h1>
           <p className={styles.subtitle}>Search across notes, videos, categories, tracks, and advanced resources.</p>
 
-          <form action="/search" method="GET" className={styles.searchWrap}>
+          <form
+            className={styles.searchWrap}
+            onSubmit={(event) => {
+              event.preventDefault();
+              setSearchInput((current) => current.trim());
+            }}
+          >
             <input
               type="text"
-              name="q"
               data-global-search-input="true"
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
@@ -186,10 +238,26 @@ export default function SearchClient() {
             <button type="submit" className={styles.searchButton}>Search</button>
           </form>
 
+          <div className={styles.recommendationRow}>
+            <span className={styles.recommendationLabel}>Recommendations</span>
+            <div className={styles.recommendationChips}>
+              {recommendations.map((item) => (
+                <button
+                  key={item}
+                  type="button"
+                  className={styles.recommendationChip}
+                  onClick={() => setSearchInput(item)}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className={styles.meta}>
-            {query ? (
+            {normalizedSearch ? (
               <span>
-                Showing results for <strong>{query}</strong> • {totalResults} matches
+                Showing results for <strong>{normalizedSearch}</strong> • {totalResults} matches
               </span>
             ) : (
               <span>Type any keyword to search the full app data.</span>
@@ -201,7 +269,7 @@ export default function SearchClient() {
 
         {loading ? <div className={styles.state}>Loading results...</div> : null}
 
-        {!loading && query && totalResults === 0 ? (
+        {!loading && normalizedSearch && totalResults === 0 ? (
           <div className={styles.state}>No results found. Try another keyword.</div>
         ) : null}
 

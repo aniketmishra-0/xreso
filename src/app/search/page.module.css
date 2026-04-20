@@ -64,6 +64,43 @@
   font-weight: 700;
 }
 
+.recommendationRow {
+  margin-top: 12px;
+}
+
+.recommendationLabel {
+  display: inline-block;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: 700;
+}
+
+.recommendationChips {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.recommendationChip {
+  border: 1px solid var(--border-primary);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  transition: border-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
+}
+
+.recommendationChip:hover {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border-primary));
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
 .meta {
   margin-top: 10px;
   color: var(--text-tertiary);

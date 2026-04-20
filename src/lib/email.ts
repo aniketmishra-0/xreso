@@ -1,9 +1,10 @@
 import { Resend } from "resend";
+import { SITE_URL } from "@/lib/site";
 
 const FROM_EMAIL = process.env.FROM_EMAIL || "xreso <noreply@xreso.dev>";
 
 function appUrl(pathname: string) {
-  return `${process.env.NEXT_PUBLIC_APP_URL || "https://xreso.dev"}${pathname}`;
+  return `${SITE_URL}${pathname}`;
 }
 
 function getResendClient() {
@@ -40,7 +41,7 @@ export async function sendWelcomeEmail(to: string, name: string) {
             <li>🏷️ Get full author credit and choose your license</li>
           </ul>
           <div style="text-align: center; margin: 32px 0;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/browse" 
+            <a href="${SITE_URL}/browse" 
                style="background: #FF4D6A; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
               Start Browsing Notes
             </a>
@@ -82,7 +83,7 @@ export async function sendNoteApprovedEmail(
             approved by our moderation team. It's now live and available for the community!
           </p>
           <div style="text-align: center; margin: 32px 0;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/note/${noteId}" 
+            <a href="${SITE_URL}/note/${noteId}" 
                style="background: #FF4D6A; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
               View Your Note
             </a>
@@ -127,7 +128,7 @@ export async function sendNoteRejectedEmail(
             Feel free to upload a revised version!
           </p>
           <div style="text-align: center; margin: 32px 0;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/upload" 
+            <a href="${SITE_URL}/upload" 
                style="background: #FF4D6A; color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
               Upload Again
             </a>

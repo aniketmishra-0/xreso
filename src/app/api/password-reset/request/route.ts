@@ -3,6 +3,7 @@ import { createClient } from "@libsql/client/web";
 import { logAuthEvent } from "@/lib/auth-events";
 import { createPasswordResetToken } from "@/lib/password-reset";
 import { sendPasswordResetEmail } from "@/lib/email";
+import { SITE_URL } from "@/lib/site";
 
 function getClient() {
   const databaseUrl = process.env.TURSO_DATABASE_URL;
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           success: true,
           message: "If an account exists for that email, a reset link has been sent.",
-          resetLink: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/reset-password/${token}`,
+          resetLink: `${SITE_URL}/reset-password/${token}`,
         });
       }
     }

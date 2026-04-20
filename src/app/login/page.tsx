@@ -177,7 +177,7 @@ function LoginPageContent() {
       <div className={styles.container}>
         <div className={styles.card}>
           <div className={styles.header}>
-            <Link href="/home" className={styles.logoLink}>
+            <Link href="/" className={styles.logoLink}>
               <Image
                 src="/logo.svg"
                 alt="xreso"

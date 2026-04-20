@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import UnifiedDropdown from "@/components/UnifiedDropdown/UnifiedDropdown";
 import styles from "./page.module.css";
 
 interface AdminNote {
@@ -740,7 +739,7 @@ export default function AdminPage() {
           <div className={styles.denied}>
             <h2>Access Denied</h2>
             <p>You need admin privileges to access this page.</p>
-            <Link href="/home" className="btn btn-primary">Go Home</Link>
+            <Link href="/" className="btn btn-primary">Go Home</Link>
           </div>
         </div>
       </div>

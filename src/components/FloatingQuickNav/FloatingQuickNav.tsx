@@ -11,7 +11,7 @@ type FloatingQuickNavProps = {
 };
 
 const isRouteActive = (pathname: string, href: string) => {
-  if (href === "/home") return pathname === "/home";
+  if (href === "/") return pathname === "/";
   if (href === "/tracks") return pathname === "/tracks" || pathname.startsWith("/tracks/");
   if (href === "/videos") return pathname === "/videos" || pathname.startsWith("/videos/");
   return pathname === href;
@@ -48,9 +48,9 @@ export default function FloatingQuickNav({ hidden = false }: FloatingQuickNavPro
     >
       <div className={styles.floatingToggle} role="navigation" aria-label="Quick navigation">
         <Link
-          href="/home"
-          className={`${styles.toggleBtn} ${isRouteActive(pathname, "/home") ? styles.toggleBtnActive : ""}`}
-          aria-current={isRouteActive(pathname, "/home") ? "page" : undefined}
+          href="/"
+          className={`${styles.toggleBtn} ${isRouteActive(pathname, "/") ? styles.toggleBtnActive : ""}`}
+          aria-current={isRouteActive(pathname, "/") ? "page" : undefined}
           onClick={() => setTracksMenuOpen(false)}
         >
           <House size={14} />
@@ -73,8 +73,8 @@ export default function FloatingQuickNav({ hidden = false }: FloatingQuickNavPro
           {tracksMenuOpen ? (
             <div className={styles.trackMenuPopover} role="menu" aria-label="Tracks options">
               <Link
-                href="/"
-                className={`${styles.trackMenuItem} ${isRouteActive(pathname, "/") ? styles.trackMenuItemActive : ""}`}
+                href="/core-code"
+                className={`${styles.trackMenuItem} ${isRouteActive(pathname, "/core-code") ? styles.trackMenuItemActive : ""}`}
                 role="menuitem"
                 onClick={() => setTracksMenuOpen(false)}
               >

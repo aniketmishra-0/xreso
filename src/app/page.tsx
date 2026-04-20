@@ -1,448 +1,405 @@
-import Image from "next/image";
 import Link from "next/link";
 import ContributeCtaLink from "@/components/ContributeCtaLink";
 import {
-  getTrendingNotes,
   getCategories,
+  getLatestApprovedNotesActivity,
   getLibraryHeroStats,
+  getTrendingTopicSignals,
+  getTopContributors,
 } from "@/lib/db/queries";
-import { getTechIcon } from "@/lib/techIcons";
-import HeroDigitalLibraryDashboard from "@/components/HeroDigitalLibraryDashboard";
-import styles from "./page.module.css";
+import HomeSidebarAccordion from "./home/HomeSidebarAccordion";
+import HomeHeroSearch from "./home/HomeHeroSearch";
+import styles from "./home/page.module.css";
 
 export const revalidate = 30;
 
-const formatDate = (dateStr: string) => {
-  try {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  } catch {
-    return dateStr;
-  }
+type GraphNode = {
+  badge: string;
+  badgeClass: string;
+  meta: string;
+  title: string;
+  description: string;
+  cta: string;
+  href: string;
+  contribute?: boolean;
 };
 
-const formatNoteCount = (count: number) => `${count} note${count === 1 ? "" : "s"}`;
+type RankedTopic = {
+  name: string;
+  normalized: string;
+  noteCount: number;
+  signalScore: number;
+  rankScore: number;
+};
 
-const formatCompactMetric = (value: number) => {
-  if (value < 1000) {
-    return value.toLocaleString("en-US");
+const NODES: GraphNode[] = [
+  {
+    badge: "Foundation",
+    badgeClass: styles.badgeAmber,
+    meta: "1.2k+ notes",
+    title: "Library",
+    description:
+      "Browse handwritten notes by topic, language, and community tags.",
+    cta: "Open Library →",
+    href: "/browse",
+  },
+  {
+    badge: "Visual Track",
+    badgeClass: styles.badgePurple,
+    meta: "Daily picks",
+    title: "Videos",
+    description:
+      "Watch curated programming videos with language and topic filters.",
+    cta: "Watch Videos →",
+    href: "/videos",
+  },
+  {
+    badge: "Practice",
+    badgeClass: styles.badgeBlue,
+    meta: "Fast rounds",
+    title: "MCQ",
+    description:
+      "Practice quick multiple-choice quizzes and sharpen core concepts.",
+    cta: "Start MCQ →",
+    href: "/mcq",
+  },
+  {
+    badge: "Community",
+    badgeClass: styles.badgeGreen,
+    meta: "Open submissions",
+    title: "Contribute",
+    description:
+      "Share your notes, links, and video resources with the community.",
+    cta: "Contribute →",
+    href: "/upload?mode=programming&focus=contribute",
+    contribute: true,
+  },
+  {
+    badge: "Discovery",
+    badgeClass: styles.badgePink,
+    meta: "20+ domains",
+    title: "Categories",
+    description: "Jump to focused tracks — Python, SQL, DSA, React, and more.",
+    cta: "View Categories →",
+    href: "/categories",
+  },
+  {
+    badge: "Deep Tech",
+    badgeClass: styles.badgeOrange,
+    meta: "Cloud + system",
+    title: "Advanced",
+    description:
+      "Cloud native, system design, and advanced engineering tracks.",
+    cta: "Open Advanced →",
+    href: "/tracks",
+  },
+];
+
+const FLOW_STEPS = ["Browse →", "Watch →", "Practice →", "Contribute"];
+
+const AVATAR_COLORS = [
+  styles.avatarOrange,
+  styles.avatarGreen,
+  styles.avatarBlue,
+  styles.avatarPurple,
+];
+
+function normalizeTopicName(topic: string) {
+  return topic.trim().replace(/^#/, "").replace(/\s+/g, " ").toLowerCase();
+}
+
+function mergeUniqueTopics(...topicGroups: string[][]) {
+  const unique = new Map<string, string>();
+
+  for (const group of topicGroups) {
+    for (const topic of group) {
+      const trimmed = topic.trim();
+      if (!trimmed) continue;
+      const normalized = normalizeTopicName(trimmed);
+      if (!normalized || unique.has(normalized)) continue;
+      unique.set(normalized, trimmed);
+    }
   }
 
+  return [...unique.values()];
+}
+
+function formatNoteLabel(count: number) {
+  return `${count} note${count === 1 ? "" : "s"}`;
+}
+
+function formatCompact(value: number) {
+  if (value < 1000) return String(value);
   return new Intl.NumberFormat("en-US", {
     notation: "compact",
     maximumFractionDigits: 1,
   }).format(value);
-};
-
-const formatPublicStatValue = (value: number) => {
-  if (value < 20) return "Growing";
-  return formatCompactMetric(value);
-};
-
-const getSingularLabel = (value: number, singular: string, plural: string) =>
-  value === 1 ? singular : plural;
-
-/* ─── Sub-components ───────────────────────────────────────────────── */
-function CategoryGlyph({
-  slug,
-  label,
-  prominent = false,
-}: {
-  slug: string;
-  label: string;
-  prominent?: boolean;
-}) {
-  const { Icon, color, bg } = getTechIcon(slug);
-  return (
-    <div
-      className={`${styles.categoryGlyph} ${prominent ? styles.categoryGlyphProminent : ""}`}
-      style={{ background: bg, borderColor: `${color}40` }}
-      aria-label={`${label} category`}
-    >
-      <Icon size={prominent ? 22 : 18} color={color} />
-    </div>
-  );
 }
 
-function NoteCategoryPill({
-  category,
-  slug,
-}: {
-  category: string;
-  slug: string;
-}) {
-  const { Icon, color, bg } = getTechIcon(slug);
-
-  return (
-    <span
-      className={styles.noteCategoryPill}
-      style={{ background: bg, borderColor: `${color}33`, color }}
-    >
-      <Icon size={14} color={color} />
-      {category}
-    </span>
-  );
+function formatRelativeTime(dateString: string) {
+  const then = new Date(dateString).getTime();
+  if (Number.isNaN(then)) return "recently";
+  const diffSec = Math.max(0, Math.floor((Date.now() - then) / 1000));
+  if (diffSec < 60) return "just now";
+  const minutes = Math.floor(diffSec / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
-/* ─── Page ─────────────────────────────────────────────────────────── */
-export default async function Home() {
-  const [trendingData, categories, heroStats] = await Promise.all([
-    getTrendingNotes(6),
-    getCategories(9),
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
+  if (parts.length === 0) return "XR";
+  return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
+}
+
+export default async function HomeHubPage() {
+  const [
+    categories,
+    heroStats,
+    latestActivity,
+    topContributorRows,
+    topicSignals,
+  ] = await Promise.all([
+    getCategories(10),
     getLibraryHeroStats(),
+    getLatestApprovedNotesActivity(5),
+    getTopContributors(5),
+    getTrendingTopicSignals(20),
   ]);
 
-  const trendingNotes = trendingData.notes;
-  const viewsThreshold = trendingData.threshold;
-  const visibleCategories = categories.filter((category) => category.noteCount > 0);
+  const categoryTopicMap = new Map<
+    string,
+    { name: string; noteCount: number }
+  >();
+  for (const category of categories) {
+    const normalized = normalizeTopicName(category.name);
+    if (!normalized) continue;
+    const existing = categoryTopicMap.get(normalized);
+    if (!existing || category.noteCount > existing.noteCount) {
+      categoryTopicMap.set(normalized, {
+        name: category.name,
+        noteCount: category.noteCount,
+      });
+    }
+  }
+
+  const signalTopicMap = new Map<string, { name: string; score: number }>();
+  for (const signal of topicSignals) {
+    const normalized = normalizeTopicName(signal.name);
+    if (!normalized) continue;
+    const existing = signalTopicMap.get(normalized);
+    if (!existing || signal.score > existing.score) {
+      signalTopicMap.set(normalized, {
+        name: signal.name,
+        score: signal.score,
+      });
+    }
+  }
+
+  const candidateTopics = mergeUniqueTopics(
+    [...categoryTopicMap.values()].map((entry) => entry.name),
+    [...signalTopicMap.values()].map((entry) => entry.name),
+  );
+
+  const rankedTopics: RankedTopic[] = candidateTopics
+    .map((topic) => {
+      const normalized = normalizeTopicName(topic);
+      const categoryInfo = categoryTopicMap.get(normalized);
+      const signalInfo = signalTopicMap.get(normalized);
+      const noteCount = categoryInfo?.noteCount ?? 0;
+      const signalScore = signalInfo?.score ?? 0;
+
+      return {
+        name: signalInfo?.name || categoryInfo?.name || topic,
+        normalized,
+        noteCount,
+        signalScore,
+        rankScore: signalScore * 10 + noteCount * 4,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.rankScore - a.rankScore ||
+        b.noteCount - a.noteCount ||
+        a.name.localeCompare(b.name),
+    );
+
+  const tickerTopics =
+    rankedTopics.length > 0
+      ? rankedTopics.slice(0, 14).map((topic) => topic.name)
+      : NODES.map((node) => node.title);
+  const doubledTopics = [...tickerTopics, ...tickerTopics];
+
+  const trendingTopics = rankedTopics.slice(0, 6).map((topic, index) => ({
+    rank: index + 1,
+    name: topic.name,
+    count:
+      topic.noteCount > 0
+        ? formatNoteLabel(topic.noteCount)
+        : `${Math.max(topic.signalScore, 1)} mention${Math.max(topic.signalScore, 1) === 1 ? "" : "s"}`,
+    up: index < 3 || topic.signalScore >= 3,
+  }));
+
+  const liveActivity = latestActivity.slice(0, 5).map((note, index) => ({
+    name: note.author || "Community member",
+    title: note.title,
+    time: formatRelativeTime(note.createdAt),
+    initials: initials(note.author || "xreso"),
+    color: AVATAR_COLORS[index % AVATAR_COLORS.length],
+  }));
+
+  const topContributors = topContributorRows.slice(0, 5).map((row, index) => ({
+    name: row.name,
+    noteText: `${row.noteCount} note${row.noteCount === 1 ? "" : "s"} shared`,
+    initials: initials(row.name),
+    color: AVATAR_COLORS[index % AVATAR_COLORS.length],
+  }));
+
+  const searchTags =
+    rankedTopics.length > 0
+      ? rankedTopics.slice(0, 8).map((topic) => topic.name)
+      : NODES.map((node) => node.title);
 
   const stats = [
+    { value: "6", label: "Entry Nodes", accent: true },
+    { value: "3", label: "Learning Modes", accent: false },
     {
-      value: formatPublicStatValue(heroStats.notesIndexed),
-      label: getSingularLabel(heroStats.notesIndexed, "Note Indexed", "Notes Indexed"),
+      value: `${formatCompact(heroStats.notesIndexed)}+`,
+      label: "Notes",
+      accent: true,
     },
     {
-      value: formatPublicStatValue(heroStats.activeLearners),
-      label: getSingularLabel(heroStats.activeLearners, "Active Learner", "Active Learners"),
-    },
-    {
-      value: formatPublicStatValue(heroStats.contributors),
-      label: getSingularLabel(heroStats.contributors, "Contributor", "Contributors"),
+      value: `${Math.max(20, categories.length)}+`,
+      label: "Domains",
+      accent: false,
     },
   ];
 
-  const [primaryCategory] = visibleCategories;
-  const totalCategoryNotes = visibleCategories.reduce((sum, category) => sum + category.noteCount, 0);
-  const activeDomains = visibleCategories.length;
-  const latestTrendingNote = trendingNotes[0];
-
   return (
-    <div className={styles.page}>
-
-      {/* ══ HERO ══════════════════════════════════════════════════════ */}
-      <section className={styles.hero} id="hero-section">
-        {/* Background layers */}
-        <div className={styles.heroBg} />
-        <div className={styles.heroGlow} />
-        <div className={styles.heroGrid} />
-
-        <div className={styles.heroInner}>
-          {/* Left — copy */}
-          <div className={styles.heroLeft}>
-            <div className={styles.heroBadge}>
-              <span className={styles.heroBadgeDot} />
-              Knowledge Infrastructure and Programmer Library Engine
-            </div>
-
-            <h1 className={styles.heroTitle}>
-              Programmer&apos;s Library
-              <span className={styles.heroGradient}>
-                {" "}for Modern Stack Builders
-              </span>
-            </h1>
-
-            <p className={styles.heroSubtitle}>
-              Handwritten programming notes by developers, for developers. Browse, save, and contribute for free.
-            </p>
-
-            <div className={styles.heroActions}>
-              <Link href="/browse" id="hero-browse-btn" className={`btn btn-primary btn-lg ${styles.heroCta}`}>
-                Explore Library
-                <span className={styles.arrow}>→</span>
-              </Link>
-              <ContributeCtaLink
-                href="/upload?mode=programming&focus=contribute"
-                id="hero-upload-btn"
-                className={`btn btn-secondary btn-lg`}
-                source="hero-cta"
-              >
-                Contribute Notes
-              </ContributeCtaLink>
-            </div>
-
-            {/* Search */}
-            <form action="/browse" method="GET" className={styles.heroSearch}>
-              <label htmlFor="hero-search" className="sr-only">Search notes</label>
-              <input
-                id="hero-search"
-                name="q"
-                type="text"
-                placeholder="Search by topic, stack, language, or concept…"
-                className={styles.heroSearchInput}
-                autoComplete="off"
-                spellCheck={false}
-              />
-              <button type="submit" className={`btn btn-primary ${styles.heroSearchBtn}`}>
-                Search
-              </button>
-            </form>
-
-            {/* Stats */}
-            <div className={styles.heroStats}>
-              {stats.map((s) => (
-                <div key={s.label} className={styles.statItem}>
-                  <span className={styles.statValue}>{s.value}</span>
-                  <span className={styles.statLabel}>{s.label}</span>
-                </div>
+    <section className={styles.page}>
+      <div className={styles.contentWrap}>
+        <div className={styles.ticker}>
+          <span className={styles.tickerLabel}>Trending</span>
+          <div className={styles.tickerTrack}>
+            <div className={styles.tickerScroll}>
+              {doubledTopics.map((topic, i) => (
+                <span key={`${topic}-${i}`} className={styles.tickerItem}>
+                  <span className={styles.tickerHash}>#</span>
+                  {topic}
+                </span>
               ))}
             </div>
           </div>
-
-          {/* Right — digital library dashboard */}
-          <div className={styles.heroRight}>
-            <HeroDigitalLibraryDashboard />
-          </div>
         </div>
-      </section>
 
-      {/* ══ CATEGORIES ════════════════════════════════════════════════ */}
-      <section className={styles.section} id="categories-section">
-        <div className={styles.container}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className={styles.eyebrow}>Categories</p>
-              <h2 className={styles.sectionTitle}>Explore by Domain</h2>
-              <p className={styles.sectionSubtitle}>
-                Start with the busiest domains, then drill into the full catalog without the visual clutter.
-              </p>
-            </div>
-            <Link href="/categories" className="btn btn-secondary btn-sm">
-              View all
-            </Link>
+        <section className={styles.hero}>
+          <div className={styles.heroRadial} aria-hidden="true" />
+
+          <div className={styles.heroPill}>
+            <span className={styles.pillDot} />
+            Home Hub — community-powered learning
           </div>
 
-          <div className={styles.sectionShell}>
-            {visibleCategories.length > 0 ? (
-              <>
-                <div className={styles.categorySummary}>
-                  <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Active domains</span>
-                    <span className={styles.summaryValue}>{activeDomains}</span>
-                  </div>
-                  <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Live notes indexed</span>
-                    <span className={styles.summaryValue}>{totalCategoryNotes}</span>
-                  </div>
-                  <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Start here</span>
-                    <span className={styles.summaryValue}>{primaryCategory?.name ?? "Browse all"}</span>
-                  </div>
+          <h1 className={styles.heroTitle}>
+            The programmer&apos;s
+            <br />
+            library, <em>reimagined</em>
+          </h1>
+
+          <p className={styles.heroSub}>
+            Your central graph for library discovery, curated learning, MCQ
+            practice, and open contributions.
+          </p>
+
+          <HomeHeroSearch suggestions={searchTags} />
+
+          {searchTags.length > 0 ? (
+            <div className={styles.searchTags}>
+              {searchTags.map((tag) => (
+                <Link
+                  key={tag}
+                  href={`/search?q=${encodeURIComponent(tag)}`}
+                  className={styles.searchTag}
+                >
+                  {tag}
+                </Link>
+              ))}
+            </div>
+          ) : null}
+
+          <div className={styles.statsBar}>
+            {stats.map((stat) => (
+              <div key={stat.label} className={styles.statItem}>
+                <div
+                  className={`${styles.statNum} ${stat.accent ? styles.statAccent : ""}`}
+                >
+                  {stat.value}
                 </div>
-
-                <div className={styles.categoryGrid}>
-                  {visibleCategories.map((cat, idx) => {
-                    const isPrimary = primaryCategory?.slug === cat.slug;
-
-                    return (
-                      <Link
-                        key={cat.slug}
-                        href={`/browse?category=${cat.slug}`}
-                        className={`${styles.categoryCard} ${
-                          isPrimary ? styles.categoryCardPrimary : ""
-                        } ${idx % 2 === 0 ? styles.categoryTintPurple : styles.categoryTintOrange}`}
-                      >
-                        <div className={styles.categoryCardTop}>
-                          <CategoryGlyph
-                            slug={cat.slug}
-                            label={cat.name}
-                            prominent={isPrimary}
-                          />
-                          <span className={styles.noteCount}>{formatNoteCount(cat.noteCount)}</span>
-                        </div>
-
-                        <div className={styles.categoryCardBody}>
-                          {isPrimary ? (
-                            <p className={styles.cardEyebrow}>Most active category</p>
-                          ) : null}
-                          <h3 className={styles.categoryCardTitle}>{cat.name}</h3>
-                          <p className={styles.categoryCardDesc}>{cat.description}</p>
-                        </div>
-
-                        <div className={styles.categoryCardFooter}>
-                          <span className={styles.categoryCardMeta}>
-                            {isPrimary ? "Recommended start" : "Category library"}
-                          </span>
-                          <span className={styles.categoryCardLink}>Explore category →</span>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </>
-            ) : (
-              <div className={styles.sectionEmpty}>
-                <h3 className={styles.sectionEmptyTitle}>No categories published yet</h3>
-                <p className={styles.sectionEmptyText}>
-                  Categories will appear here once the library is populated with approved notes.
-                </p>
+                <div className={styles.statLabel}>{stat.label}</div>
               </div>
-            )}
+            ))}
           </div>
+        </section>
+
+        <div className={styles.sectionHeader}>
+          <p className={styles.eyebrow}>Learning Graph</p>
+          <h2 className={styles.sectionTitle}>
+            Pick any node. Build anything.
+          </h2>
+          <p className={styles.sectionDesc}>
+            Every path remains connected to your next learning action.
+          </p>
         </div>
-      </section>
-
-      {/* ══ TRENDING NOTES ═════════════════════════════════════════════ */}
-      <section className={styles.section} id="featured-section">
-        <div className={styles.container}>
-          <div className={styles.sectionHeader}>
-            <div>
-              <p className={styles.eyebrow}>Trending</p>
-              <h2 className={styles.sectionTitle}>Curated Notes</h2>
-              <p className={styles.sectionSubtitle}>
-                Top trending notes — automatically surfaced from the community.
-              </p>
-            </div>
-            <Link href="/browse?sort=popular" className="btn btn-secondary btn-sm">
-              View all
-            </Link>
-          </div>
-
-          <div className={styles.sectionShell}>
-            {trendingNotes.length > 0 ? (
-              <>
-                <div className={styles.featuredSummary}>
-                  <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Trending now</span>
-                    <span className={styles.summaryValue}>{trendingNotes.length}</span>
-                  </div>
-
-                  <div className={styles.summaryCard}>
-                    <span className={styles.summaryLabel}>Top note</span>
-                    <span className={styles.summaryValue}>
-                      {latestTrendingNote
-                        ? `${latestTrendingNote.viewCount.toLocaleString()} ${latestTrendingNote.viewCount === 1 ? "view" : "views"}`
-                        : "N/A"}
-                    </span>
-                  </div>
+        <div className={styles.twoCol}>
+          <div className={styles.cardsGrid}>
+            {NODES.map((node) => (
+              <article key={node.title} className={styles.graphCard}>
+                <div className={styles.cardTop}>
+                  <span className={`${styles.badge} ${node.badgeClass}`}>
+                    {node.badge}
+                  </span>
+                  <span className={styles.cardMeta}>{node.meta}</span>
                 </div>
-
-                <div className={styles.featuredScroller}>
-                  <div className={styles.featuredTrack}>
-                  {trendingNotes.map((note) => {
-                    const authorUrl = note.authorId ? `/user/${note.authorId}` : "#";
-
-                    return (
-                    <article key={note.id} className={styles.noteCard}>
-                      <Link href={`/note/${note.id}`} className={styles.cardHitbox} aria-label={`View ${note.title}`} />
-                      
-                      <div className={styles.noteMedia}>
-                        {(() => {
-                          const isUsableThumbnail =
-                            note.thumbnailUrl &&
-                            !note.thumbnailUrl.includes("placeholder") &&
-                            !note.thumbnailUrl.startsWith("/api/files/");
-                          return isUsableThumbnail ? (
-                            <Image
-                              src={note.thumbnailUrl}
-                              alt={note.title}
-                              fill
-                              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                              className={styles.noteMediaImage}
-                            />
-                          ) : (
-                            <div
-                              className={styles.noteMediaOg}
-                              style={{
-                                backgroundImage: `url(/api/og?title=${encodeURIComponent(note.title)}&category=${encodeURIComponent(note.category)}&v=3)`,
-                              }}
-                            />
-                          );
-                        })()}
-                      </div>
-
-                      <div className={styles.noteCardContent}>
-                        <div className={styles.noteCardTop}>
-                          <NoteCategoryPill category={note.category} slug={note.categorySlug} />
-                          <span className={styles.noteDate}>{formatDate(note.createdAt)}</span>
-                        </div>
-                        <h3 className={styles.noteTitle}>
-                          <span>{note.title}</span>
-                        </h3>
-                        <p className={styles.noteDesc}>{note.description}</p>
-                        <div className={styles.noteTags}>
-                          {note.tags.slice(0, 3).map((tag) => (
-                            <span key={tag} className={styles.noteTag}>#{tag}</span>
-                          ))}
-                        </div>
-                        <div className={styles.noteMetrics}>
-                          <span className={styles.noteMetric}>
-                            {note.bookmarkCount} {note.bookmarkCount === 1 ? "save" : "saves"}
-                          </span>
-                          <span className={styles.noteMetric}>{note.tags.length} tags</span>
-                        </div>
-                        <div className={styles.noteFooter}>
-                          <div className={styles.noteAuthorWrap}>
-                            <Link href={authorUrl} className={styles.noteAuthorGroup}>
-                              <span className={styles.noteAuthorAvatar} aria-hidden="true">
-                                {note.author.charAt(0).toUpperCase()}
-                              </span>
-                              <span className={styles.noteAuthor}>{note.author}</span>
-                            </Link>
-
-                            {/* Hover Popover */}
-                            <div className={styles.authorPopoverShell}>
-                              <div className={styles.authorPopover}>
-                                <div className={styles.popoverHeader}>
-                                  <div className={styles.popoverAvatar}>{note.author.charAt(0).toUpperCase()}</div>
-                                  <div className={styles.popoverInfo}>
-                                    <p className={styles.popoverName}>{note.author}</p>
-                                    <Link href={authorUrl} className={styles.popoverLink}>View Profile</Link>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <span className={styles.noteViews}>{note.viewCount} {note.viewCount === 1 ? "view" : "views"}</span>
-                        </div>
-                      </div>
-                    </article>
-                  )})}
-                  </div>
-                </div>
-              </>
-            ) : (
-              <div className={styles.sectionEmpty}>
-                <h3 className={styles.sectionEmptyTitle}>Trending notes will appear here</h3>
-                <p className={styles.sectionEmptyText}>
-                  Notes that cross {viewsThreshold.toLocaleString()} {viewsThreshold === 1 ? "view" : "views"} will automatically show up in this section.
-                </p>
-              </div>
-            )}
+                <h3 className={styles.cardTitle}>{node.title}</h3>
+                <p className={styles.cardDesc}>{node.description}</p>
+                {node.contribute ? (
+                  <ContributeCtaLink
+                    href={node.href}
+                    className={styles.cardCta}
+                    source="home-graph-card"
+                  >
+                    {node.cta}
+                  </ContributeCtaLink>
+                ) : (
+                  <Link href={node.href} className={styles.cardCta}>
+                    {node.cta}
+                  </Link>
+                )}
+              </article>
+            ))}
           </div>
-        </div>
-      </section>
 
-      {/* ══ CTA ═══════════════════════════════════════════════════════ */}
-      <section className={styles.ctaSection} id="cta-section">
-        <div className={styles.container}>
-          <div className={styles.ctaCard}>
-            <div className={styles.ctaGlowLeft} />
-            <div className={styles.ctaGlowRight} />
-            <h2 className={styles.ctaTitle}>Got notes worth sharing?</h2>
-            <p className={styles.ctaSubtitle}>
-              Contribute your handwritten programming notes and help thousands of developers learn.
-              You keep your copyright — we amplify your reach.
-            </p>
-            <div className={styles.ctaActions}>
-              <ContributeCtaLink
-                href="/upload?mode=programming&focus=contribute"
-                id="cta-upload-btn"
-                className="btn btn-primary btn-lg"
-                source="cta-section"
-              >
-                Start Contributing
-              </ContributeCtaLink>
-              <Link href="/terms" id="cta-learn-btn" className="btn btn-secondary btn-lg">
-                Learn about our ToS
-              </Link>
-            </div>
-          </div>
+          <HomeSidebarAccordion
+            trendingTopics={trendingTopics}
+            liveActivity={liveActivity}
+            topContributors={topContributors}
+          />
         </div>
-      </section>
-    </div>
+
+        <div className={styles.flowBar}>
+          {FLOW_STEPS.map((step, index) => (
+            <span
+              key={step}
+              className={`${styles.flowStep} ${index === 0 ? styles.activeFlowStep : ""}`}
+            >
+              {step}
+            </span>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }

@@ -33,7 +33,7 @@ export default function NotFound() {
         </div>
 
         <div className={styles.actions}>
-          <Link href="/home" className="btn btn-primary">
+          <Link href="/" className="btn btn-primary">
             Go to Home
           </Link>
           <ContributeCtaAnchor

@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
             <h1>OneDrive Connected!</h1>
             <p>Your personal OneDrive is now linked to Xreso.<br/>
             Uploaded files will be auto-organized into language folders.</p>
-            <p style="margin-top: 24px;"><a href="/home">← Back to Xreso</a></p>
+            <p style="margin-top: 24px;"><a href="/">← Back to Xreso</a></p>
           </div>
         </body>
       </html>

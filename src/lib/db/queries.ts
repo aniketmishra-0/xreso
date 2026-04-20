@@ -186,7 +186,7 @@ export async function getLibraryHeroStats() {
       `SELECT
         (SELECT COUNT(*)
          FROM notes n
-         WHERE n.status = 'approved'
+         WHERE n.status IN ('approved', 'pending')
            ${hideTestDraft ? "AND LENGTH(TRIM(n.title)) >= 5" : ""}) as notes_indexed,
         (SELECT COUNT(*) FROM users u WHERE u.role = 'user') as registered_learners,
         (

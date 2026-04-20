@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { getNoteById } from "@/lib/db/queries";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://xreso.dev";
+import { SITE_URL } from "@/lib/site";
 
 export async function generateMetadata({
   params,
@@ -24,7 +23,7 @@ export async function generateMetadata({
     openGraph: {
       title: `${note.title} | xreso`,
       description: note.description,
-      url: `${APP_URL}/note/${note.id}`,
+      url: `${SITE_URL}/note/${note.id}`,
       type: "article",
       images: note.thumbnailUrl
         ? [
@@ -66,7 +65,7 @@ export default async function NoteLayout({
         "@type": "LearningResource",
         name: note.title,
         description: note.description,
-        url: `${APP_URL}/note/${note.id}`,
+        url: `${SITE_URL}/note/${note.id}`,
         image: note.thumbnailUrl,
         author: {
           "@type": "Person",

@@ -15,7 +15,7 @@ export default function Footer() {
         <div className={styles.grid}>
           {/* Brand Column */}
           <div className={styles.brandCol}>
-            <Link href="/home" className={styles.logo}>
+            <Link href="/" className={styles.logo}>
               <Image src="/logo.svg" alt="xreso" width={156} height={34} className={styles.logoImage} />
             </Link>
             <p className={styles.brandDesc}>

@@ -189,13 +189,13 @@ export default function Navbar() {
     ? "advanced"
     : browseModeFromQuery || "programming";
   const modeQuery = searchParams.get("mode");
-  const isHomeHubRoute = pathname === "/home" || pathname.startsWith("/home/");
+  const isHomeHubRoute = pathname === "/" || pathname.startsWith("/home/");
   const isAdvancedContextRoute =
     !isHomeHubRoute &&
     (pathname.startsWith("/tracks") || (pathname === "/upload" && modeQuery === "advanced"));
   const isCoreCodeContextRoute =
     !isHomeHubRoute &&
-    (pathname === "/" ||
+    (pathname === "/core-code" ||
       pathname === "/browse" ||
       pathname.startsWith("/browse/") ||
       pathname === "/categories" ||
@@ -248,7 +248,7 @@ export default function Navbar() {
       ? { href: "/tracks/library", label: "Browse" }
       : { href: "/browse", label: "Browse" };
 
-  const modeAwareHome = browseMode === "advanced" ? "/home?mode=advanced" : "/home";
+  const modeAwareHome = "/";
 
   const uploadHref = browseMode === "advanced" ? "/upload?mode=advanced" : "/upload?mode=programming";
   const contributeHref = `${uploadHref}&focus=contribute`;
@@ -302,7 +302,7 @@ export default function Navbar() {
 
     if (event.defaultPrevented || isModifiedClick) return;
 
-    const homeHref = "/home";
+    const homeHref = "/";
     if (pathname === homeHref) {
       event.preventDefault();
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
@@ -357,7 +357,7 @@ export default function Navbar() {
 
           <div className={styles.modeToggle} role="group" aria-label="Browse mode toggle">
             <Link
-              href="/"
+              href="/core-code"
               className={`${styles.modeToggleBtn} ${isCoreCodeContextRoute ? styles.modeToggleBtnActive : ""}`}
               onClick={closeMobileMenu}
               aria-current={isCoreCodeContextRoute ? "page" : undefined}
@@ -461,7 +461,7 @@ export default function Navbar() {
                   </button>
                   <button
                     className={styles.dropdownItem}
-                    onClick={() => signOut({ callbackUrl: "/home" })}
+                    onClick={() => signOut({ callbackUrl: "/" })}
                   >
                     Sign Out
                   </button>
@@ -514,7 +514,7 @@ export default function Navbar() {
         <div className={styles.mobileBody}>
           <div className={styles.modeToggle} role="group" aria-label="Browse mode toggle">
             <Link
-              href="/"
+              href="/core-code"
               className={`${styles.modeToggleBtn} ${isCoreCodeContextRoute ? styles.modeToggleBtnActive : ""}`}
               onClick={closeMobileMenu}
             >

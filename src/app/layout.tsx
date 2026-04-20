@@ -6,8 +6,7 @@ import Footer from "@/components/Footer/Footer";
 import AuthProvider from "@/components/AuthProvider";
 import ThemeProviderWrapper from "@/components/ThemeProvider";
 import GlobalSearchHotkey from "@/components/GlobalSearchHotkey";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://xreso.dev";
+import { SITE_URL } from "@/lib/site";
 
 export const viewport: Viewport = {
   themeColor: [
@@ -17,7 +16,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL(APP_URL),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "xreso — The Programmer's Library",
     template: "%s | xreso",
@@ -34,13 +33,13 @@ export const metadata: Metadata = {
     "coding notes",
     "open source education",
   ],
-  authors: [{ name: "xreso", url: APP_URL }],
+  authors: [{ name: "xreso", url: SITE_URL }],
   creator: "xreso",
   openGraph: {
     title: "xreso — The Programmer's Library",
     description:
       "Access, read, and share handwritten programming notes. A community-driven educational resource platform.",
-    url: APP_URL,
+    url: SITE_URL,
     siteName: "xreso",
     locale: "en_US",
     type: "website",
@@ -83,12 +82,12 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   name: "xreso",
-  url: APP_URL,
+  url: SITE_URL,
   description:
     "A community-driven platform for sharing handwritten programming notes.",
   potentialAction: {
     "@type": "SearchAction",
-    target: `${APP_URL}/search?q={search_term_string}`,
+    target: `${SITE_URL}/search?q={search_term_string}`,
     "query-input": "required name=search_term_string",
   },
 };

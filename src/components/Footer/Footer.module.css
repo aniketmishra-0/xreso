@@ -1,8 +1,8 @@
 .footer {
   background: var(--bg-secondary);
   border-top: 1px solid var(--border-secondary);
-  padding: var(--space-4xl) 0 var(--space-xl);
-  margin-top: var(--space-4xl);
+  padding: var(--space-md) 0 var(--space-xl);
+  margin-top: 0;
 }
 
 .container {
@@ -170,7 +170,7 @@
 
 @media (min-width: 1920px) {
   .footer {
-    padding: calc(var(--space-4xl) + var(--space-lg)) 0 var(--space-2xl);
+    padding: var(--space-lg) 0 var(--space-2xl);
   }
 
   .grid {

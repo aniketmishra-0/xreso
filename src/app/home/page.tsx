@@ -8,6 +8,8 @@ import {
 } from "@/lib/db/queries";
 import styles from "./page.module.css";
 
+export const revalidate = 30;
+
 type GraphNode = {
 	badge: string;
 	badgeClass: string;

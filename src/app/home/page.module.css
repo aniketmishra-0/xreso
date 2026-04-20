@@ -52,6 +52,12 @@
   overflow: hidden;
 }
 
+.tickerTrack {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .tickerLabel {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -63,6 +69,7 @@
 
 .tickerScroll {
   display: flex;
+  width: max-content;
   animation: ticker 22s linear infinite;
 }
 
@@ -761,7 +768,7 @@
   color: var(--muted2);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1360px) {
   .twoCol {
     grid-template-columns: 1fr;
     gap: 12px;

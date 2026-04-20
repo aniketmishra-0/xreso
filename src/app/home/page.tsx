@@ -185,20 +185,20 @@ export default async function HomeHubPage() {
 						Your central graph for library discovery, curated learning, MCQ practice, and open contributions.
 					</p>
 
-					<form action="/browse" method="GET" className={styles.searchWrap}>
+					<form action="/search" method="GET" className={styles.searchWrap}>
 						<span className={styles.searchIcon}>⌕</span>
 						<input
 							className={styles.searchBox}
 							type="text"
 							name="q"
-							placeholder="Search notes, topics, languages..."
+							placeholder="Search notes, videos, categories, tracks..."
 						/>
 						<span className={styles.searchKbd}>{"⌘K"}</span>
 					</form>
 
 					<div className={styles.searchTags}>
 						{QUICK_TAGS.map((tag) => (
-							<Link key={tag} href={`/browse?q=${encodeURIComponent(tag)}`} className={styles.searchTag}>
+							<Link key={tag} href={`/search?q=${encodeURIComponent(tag)}`} className={styles.searchTag}>
 								{tag}
 							</Link>
 						))}

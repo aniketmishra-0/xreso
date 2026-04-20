@@ -59,7 +59,7 @@
 .mobileHeaderActions {
   display: none;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin-left: auto;
 }
 
@@ -643,13 +643,13 @@
 
 .logoImage {
   display: block;
-  width: 132px;
+  width: 112px;
   height: auto;
 }
 
 @media (max-width: 768px) {
   .nav {
-    padding: 0 12px;
+    padding: 0 10px;
   }
 
   .logo {
@@ -657,7 +657,7 @@
   }
 
   .logoImage {
-    width: 112px;
+    width: 96px;
   }
 }
 .logo:hover {

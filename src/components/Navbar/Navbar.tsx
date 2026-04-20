@@ -323,7 +323,7 @@ export default function Navbar() {
       >
       <nav className={styles.nav}>
         <Link href={modeAwareHome} className={styles.logo} id="nav-logo" onClick={handleHomeLogoClick} aria-label="xreso home">
-          <Image src="/logo-compact.svg" alt="xreso" width={132} height={46} priority className={styles.logoImage} />
+          <Image src="/logo-compact.svg" alt="xreso" width={112} height={40} priority className={styles.logoImage} />
         </Link>
 
         <div className={styles.navLinks}>

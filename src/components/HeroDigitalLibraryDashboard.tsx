@@ -141,10 +141,10 @@ export default function HeroDigitalLibraryDashboard({
           <span className={styles.centerBorder} />
           <div className={styles.centerInner}>
             <Image
-              src="/logo-compact.svg"
+              src="/logo-center.svg"
               alt="xreso"
-              width={124}
-              height={44}
+              width={148}
+              height={56}
               className={styles.centerLogo}
             />
           </div>

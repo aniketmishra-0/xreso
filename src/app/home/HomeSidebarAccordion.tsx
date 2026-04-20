@@ -125,7 +125,7 @@ export default function HomeSidebarAccordion({
 								</div>
 							))
 						) : (
-							<p className={styles.sidebarEmpty}>No recent activity yet.</p>
+							<p className={styles.sidebarEmpty}>New community activity will appear here soon.</p>
 						)}
 					
                                                 </div>
@@ -168,7 +168,7 @@ export default function HomeSidebarAccordion({
 								</div>
 							))
 						) : (
-							<p className={styles.sidebarEmpty}>No contributors yet.</p>
+							<p className={styles.sidebarEmpty}>Top contributors will show up here soon.</p>
 						)}
 					
                                                 </div>

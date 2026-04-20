@@ -66,8 +66,10 @@ export default function HomeSidebarAccordion({
 					</span>
 				</button>
 
-				{openPanel === "trending" ? (
-					<div id="home-sidebar-trending" className={styles.sidebarPanelBody}>
+				<div className={`${styles.sidebarPanelBodyWrapper} ${openPanel === "trending" ? styles.sidebarPanelBodyWrapperOpen : ""}`}>
+                                        <div id="home-sidebar-trending" className={styles.sidebarPanelBody}>
+                                                <div className={styles.sidebarPanelBodyInner}>
+
 						{trendingTopics.length > 0 ? (
 							trendingTopics.map((topic) => (
 								<div key={`${topic.name}-${topic.rank}`} className={styles.trendItem}>
@@ -80,8 +82,10 @@ export default function HomeSidebarAccordion({
 						) : (
 							<p className={styles.sidebarEmpty}>No trending topics yet.</p>
 						)}
-					</div>
-				) : null}
+					
+                                                </div>
+                                        </div>
+                                </div>
 			</section>
 
 			<section className={`${styles.sidebarBox} ${openPanel === "activity" ? styles.sidebarBoxOpen : ""}`}>
@@ -104,8 +108,10 @@ export default function HomeSidebarAccordion({
 					</span>
 				</button>
 
-				{openPanel === "activity" ? (
-					<div id="home-sidebar-activity" className={styles.sidebarPanelBody}>
+				<div className={`${styles.sidebarPanelBodyWrapper} ${openPanel === "activity" ? styles.sidebarPanelBodyWrapperOpen : ""}`}>
+                                        <div id="home-sidebar-activity" className={styles.sidebarPanelBody}>
+                                                <div className={styles.sidebarPanelBodyInner}>
+
 						{liveActivity.length > 0 ? (
 							liveActivity.map((activity, index) => (
 								<div key={`${activity.name}-${activity.time}-${index}`} className={styles.activityItem}>
@@ -121,8 +127,10 @@ export default function HomeSidebarAccordion({
 						) : (
 							<p className={styles.sidebarEmpty}>No recent activity yet.</p>
 						)}
-					</div>
-				) : null}
+					
+                                                </div>
+                                        </div>
+                                </div>
 			</section>
 
 			<section className={`${styles.sidebarBox} ${openPanel === "contributors" ? styles.sidebarBoxOpen : ""}`}>
@@ -145,8 +153,10 @@ export default function HomeSidebarAccordion({
 					</span>
 				</button>
 
-				{openPanel === "contributors" ? (
-					<div id="home-sidebar-contributors" className={styles.sidebarPanelBody}>
+				<div className={`${styles.sidebarPanelBodyWrapper} ${openPanel === "contributors" ? styles.sidebarPanelBodyWrapperOpen : ""}`}>
+                                        <div id="home-sidebar-contributors" className={styles.sidebarPanelBody}>
+                                                <div className={styles.sidebarPanelBodyInner}>
+
 						{topContributors.length > 0 ? (
 							topContributors.map((contributor, index) => (
 								<div key={`${contributor.name}-${index}`} className={styles.contributorItem}>
@@ -160,8 +170,10 @@ export default function HomeSidebarAccordion({
 						) : (
 							<p className={styles.sidebarEmpty}>No contributors yet.</p>
 						)}
-					</div>
-				) : null}
+					
+                                                </div>
+                                        </div>
+                                </div>
 			</section>
 		</aside>
 	);

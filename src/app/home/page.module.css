@@ -569,8 +569,23 @@
   color: var(--accent);
 }
 
+.sidebarPanelBodyWrapper {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebarPanelBodyWrapperOpen {
+  grid-template-rows: 1fr;
+}
+
 .sidebarPanelBody {
-  margin-top: 10px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.sidebarPanelBodyInner {
+  padding-top: 14px;
 }
 
 .sidebarPanelFooter {

@@ -139,7 +139,6 @@ export default async function HomeHubPage() {
 	const topContributors = topContributorRows.map((row, index) => ({
 		name: row.name,
 		noteText: `${row.noteCount} note${row.noteCount === 1 ? "" : "s"} shared`,
-		pointsText: `${row.points} pts`,
 		initials: initials(row.name),
 		color: AVATAR_COLORS[index % AVATAR_COLORS.length],
 	}));
@@ -291,7 +290,6 @@ export default async function HomeHubPage() {
 										<p className={styles.contributorName}>{contributor.name}</p>
 										<p className={styles.contributorRole}>{contributor.noteText}</p>
 									</div>
-									<span className={styles.contributorScore}>{contributor.pointsText}</span>
 								</div>
 							))}
 						</div>

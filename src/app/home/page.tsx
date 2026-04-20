@@ -4,8 +4,10 @@ import {
 	getCategories,
 	getLatestApprovedNotesActivity,
 	getLibraryHeroStats,
+	getTrendingTopicSignals,
 	getTopContributors,
 } from "@/lib/db/queries";
+import HomeSidebarAccordion from "./HomeSidebarAccordion";
 import styles from "./page.module.css";
 
 export const revalidate = 30;
@@ -21,7 +23,13 @@ type GraphNode = {
 	contribute?: boolean;
 };
 
-const QUICK_TAGS = ["Python", "DSA", "System Design", "SQL", "Docker", "React"];
+type RankedTopic = {
+	name: string;
+	normalized: string;
+	noteCount: number;
+	signalScore: number;
+	rankScore: number;
+};
 
 const NODES: GraphNode[] = [
 	{
@@ -85,6 +93,30 @@ const FLOW_STEPS = ["Browse →", "Watch →", "Practice →", "Contribute"];
 
 const AVATAR_COLORS = [styles.avatarOrange, styles.avatarGreen, styles.avatarBlue, styles.avatarPurple];
 
+function normalizeTopicName(topic: string) {
+	return topic.trim().replace(/^#/, "").replace(/\s+/g, " ").toLowerCase();
+}
+
+function mergeUniqueTopics(...topicGroups: string[][]) {
+	const unique = new Map<string, string>();
+
+	for (const group of topicGroups) {
+		for (const topic of group) {
+			const trimmed = topic.trim();
+			if (!trimmed) continue;
+			const normalized = normalizeTopicName(trimmed);
+			if (!normalized || unique.has(normalized)) continue;
+			unique.set(normalized, trimmed);
+		}
+	}
+
+	return [...unique.values()];
+}
+
+function formatNoteLabel(count: number) {
+	return `${count} note${count === 1 ? "" : "s"}`;
+}
+
 function formatCompact(value: number) {
 	if (value < 1000) return String(value);
 	return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
@@ -110,25 +142,77 @@ function initials(name: string) {
 }
 
 export default async function HomeHubPage() {
-	const [categories, heroStats, latestActivity, topContributorRows] = await Promise.all([
+	const [categories, heroStats, latestActivity, topContributorRows, topicSignals] = await Promise.all([
 		getCategories(10),
 		getLibraryHeroStats(),
-		getLatestApprovedNotesActivity(4),
-		getTopContributors(3),
+		getLatestApprovedNotesActivity(5),
+		getTopContributors(5),
+		getTrendingTopicSignals(20),
 	]);
 
-	const topicNames = categories.map((category) => category.name).filter(Boolean);
-	const topics = topicNames.length > 0 ? topicNames : QUICK_TAGS;
-	const doubledTopics = [...topics, ...topics];
+	const categoryTopicMap = new Map<string, { name: string; noteCount: number }>();
+	for (const category of categories) {
+		const normalized = normalizeTopicName(category.name);
+		if (!normalized) continue;
+		const existing = categoryTopicMap.get(normalized);
+		if (!existing || category.noteCount > existing.noteCount) {
+			categoryTopicMap.set(normalized, {
+				name: category.name,
+				noteCount: category.noteCount,
+			});
+		}
+	}
 
-	const trendingTopics = categories.slice(0, 5).map((category, index) => ({
+	const signalTopicMap = new Map<string, { name: string; score: number }>();
+	for (const signal of topicSignals) {
+		const normalized = normalizeTopicName(signal.name);
+		if (!normalized) continue;
+		const existing = signalTopicMap.get(normalized);
+		if (!existing || signal.score > existing.score) {
+			signalTopicMap.set(normalized, { name: signal.name, score: signal.score });
+		}
+	}
+
+	const candidateTopics = mergeUniqueTopics(
+		[...categoryTopicMap.values()].map((entry) => entry.name),
+		[...signalTopicMap.values()].map((entry) => entry.name),
+	);
+
+	const rankedTopics: RankedTopic[] = candidateTopics
+		.map((topic) => {
+			const normalized = normalizeTopicName(topic);
+			const categoryInfo = categoryTopicMap.get(normalized);
+			const signalInfo = signalTopicMap.get(normalized);
+			const noteCount = categoryInfo?.noteCount ?? 0;
+			const signalScore = signalInfo?.score ?? 0;
+
+			return {
+				name: signalInfo?.name || categoryInfo?.name || topic,
+				normalized,
+				noteCount,
+				signalScore,
+				rankScore: signalScore * 10 + noteCount * 4,
+			};
+		})
+		.sort((a, b) => b.rankScore - a.rankScore || b.noteCount - a.noteCount || a.name.localeCompare(b.name));
+
+	const tickerTopics =
+		rankedTopics.length > 0
+			? rankedTopics.slice(0, 14).map((topic) => topic.name)
+			: NODES.map((node) => node.title);
+	const doubledTopics = [...tickerTopics, ...tickerTopics];
+
+	const trendingTopics = rankedTopics.slice(0, 6).map((topic, index) => ({
 		rank: index + 1,
-		name: category.name,
-		count: `${category.noteCount} notes`,
-		up: index < 3,
+		name: topic.name,
+		count:
+			topic.noteCount > 0
+				? formatNoteLabel(topic.noteCount)
+				: `${Math.max(topic.signalScore, 1)} mention${Math.max(topic.signalScore, 1) === 1 ? "" : "s"}`,
+		up: index < 3 || topic.signalScore >= 3,
 	}));
 
-	const liveActivity = latestActivity.map((note, index) => ({
+	const liveActivity = latestActivity.slice(0, 5).map((note, index) => ({
 		name: note.author || "Community member",
 		title: note.title,
 		time: formatRelativeTime(note.createdAt),
@@ -136,12 +220,17 @@ export default async function HomeHubPage() {
 		color: AVATAR_COLORS[index % AVATAR_COLORS.length],
 	}));
 
-	const topContributors = topContributorRows.map((row, index) => ({
+	const topContributors = topContributorRows.slice(0, 5).map((row, index) => ({
 		name: row.name,
 		noteText: `${row.noteCount} note${row.noteCount === 1 ? "" : "s"} shared`,
 		initials: initials(row.name),
 		color: AVATAR_COLORS[index % AVATAR_COLORS.length],
 	}));
+
+	const searchTags =
+		rankedTopics.length > 0
+			? rankedTopics.slice(0, 8).map((topic) => topic.name)
+			: NODES.map((node) => node.title);
 
 	const stats = [
 		{ value: "6", label: "Entry Nodes", accent: true },
@@ -197,13 +286,15 @@ export default async function HomeHubPage() {
 						<button type="submit" className={styles.searchSubmit}>Search</button>
 					</form>
 
-					<div className={styles.searchTags}>
-						{QUICK_TAGS.map((tag) => (
-							<Link key={tag} href={`/search?q=${encodeURIComponent(tag)}`} className={styles.searchTag}>
-								{tag}
-							</Link>
-						))}
-					</div>
+					{searchTags.length > 0 ? (
+						<div className={styles.searchTags}>
+							{searchTags.map((tag) => (
+								<Link key={tag} href={`/search?q=${encodeURIComponent(tag)}`} className={styles.searchTag}>
+									{tag}
+								</Link>
+							))}
+						</div>
+					) : null}
 
 					<div className={styles.statsBar}>
 						{stats.map((stat) => (
@@ -215,15 +306,13 @@ export default async function HomeHubPage() {
 					</div>
 				</section>
 
+				<div className={styles.sectionHeader}>
+					<p className={styles.eyebrow}>Learning Graph</p>
+					<h2 className={styles.sectionTitle}>Pick any node. Build anything.</h2>
+					<p className={styles.sectionDesc}>Every path remains connected to your next learning action.</p>
+				</div>
 				<div className={styles.twoCol}>
-					<div>
-						<div className={styles.sectionHeader}>
-							<p className={styles.eyebrow}>Learning Graph</p>
-							<h2 className={styles.sectionTitle}>Pick any node. Build anything.</h2>
-							<p className={styles.sectionDesc}>Every path remains connected to your next learning action.</p>
-						</div>
-
-						<div className={styles.cardsGrid}>
+					<div className={styles.cardsGrid}>
 							{NODES.map((node) => (
 								<article key={node.title} className={styles.graphCard}>
 									<div className={styles.cardTop}>
@@ -244,57 +333,12 @@ export default async function HomeHubPage() {
 								</article>
 							))}
 						</div>
-					</div>
 
-					<aside className={styles.sidebar}>
-						<div className={styles.sidebarBox}>
-							<div className={styles.sidebarBoxHeader}>
-								<span className={styles.sidebarBoxTitle}>Trending Topics</span>
-								<Link href="/categories" className={styles.sidebarBoxMore}>{"See all →"}</Link>
-							</div>
-							{trendingTopics.map((topic) => (
-								<div key={topic.name} className={styles.trendItem}>
-									<span className={styles.trendRank}>{topic.rank}</span>
-									<span className={styles.trendName}>{topic.name}</span>
-									<span className={styles.trendCount}>{topic.count}</span>
-									{topic.up && <span className={styles.trendUp}>↑</span>}
-								</div>
-							))}
-						</div>
-
-						<div className={styles.sidebarBox}>
-							<div className={styles.sidebarBoxHeader}>
-								<span className={styles.sidebarBoxTitle}>Live Activity</span>
-							</div>
-							{liveActivity.map((activity) => (
-								<div key={`${activity.name}-${activity.time}`} className={styles.activityItem}>
-									<div className={`${styles.avatar} ${activity.color}`}>{activity.initials}</div>
-									<div className={styles.activityBody}>
-										<p className={styles.activityText}>
-											<strong>{activity.name}</strong> added note on <span className={styles.activityTag}>{activity.title}</span>
-										</p>
-										<span className={styles.activityTime}>{activity.time}</span>
-									</div>
-								</div>
-							))}
-						</div>
-
-						<div className={styles.sidebarBox}>
-							<div className={styles.sidebarBoxHeader}>
-								<span className={styles.sidebarBoxTitle}>Top Contributors</span>
-								<span className={styles.sidebarBoxMore}>{"View all →"}</span>
-							</div>
-							{topContributors.map((contributor) => (
-								<div key={contributor.name} className={styles.contributorItem}>
-									<div className={`${styles.avatar} ${contributor.color}`}>{contributor.initials}</div>
-									<div className={styles.contributorInfo}>
-										<p className={styles.contributorName}>{contributor.name}</p>
-										<p className={styles.contributorRole}>{contributor.noteText}</p>
-									</div>
-								</div>
-							))}
-						</div>
-					</aside>
+					<HomeSidebarAccordion
+						trendingTopics={trendingTopics}
+						liveActivity={liveActivity}
+						topContributors={topContributors}
+					/>
 				</div>
 
 				<div className={styles.flowBar}>

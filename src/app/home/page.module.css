@@ -46,6 +46,7 @@
   border: 1px solid var(--accentBorder);
   border-radius: 10px;
   padding: 8px 16px;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -56,6 +57,8 @@
   flex: 1;
   min-width: 0;
   overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
 }
 
 .tickerLabel {
@@ -70,7 +73,11 @@
 .tickerScroll {
   display: flex;
   width: max-content;
-  animation: ticker 22s linear infinite;
+  animation: ticker 28s linear infinite;
+}
+
+.ticker:hover .tickerScroll {
+  animation-play-state: paused;
 }
 
 @keyframes ticker {
@@ -79,6 +86,8 @@
 }
 
 .tickerItem {
+  display: inline-flex;
+  align-items: center;
   font-size: 12px;
   color: var(--muted);
   white-space: nowrap;
@@ -361,10 +370,11 @@
   grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
   gap: 14px;
   align-items: start;
-  padding: 40px 0 0;
+  padding: 0;
 }
 
 .sectionHeader {
+  margin-top: 40px;
   margin-bottom: 20px;
 }
 
@@ -508,16 +518,63 @@
   top: calc(var(--nav-height) + 16px);
   margin-top: 0;
   width: 100%;
-  align-self: stretch;
+  align-self: start;
 }
 
 .sidebarBox {
   background: var(--s1);
   border: 1.5px solid var(--border);
   border-radius: var(--radiusLg);
-  padding: 16px;
+  padding: 12px 14px;
   box-shadow: 0 6px 20px -16px rgba(13, 16, 26, 0.34);
   width: 100%;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.sidebarBoxOpen {
+  border-color: var(--accentBorder);
+  box-shadow: 0 10px 22px -18px rgba(15, 23, 42, 0.5);
+}
+
+.sidebarPanelToggle {
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sidebarPanelToggleMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sidebarPanelCaret {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted2);
+  transition: transform 0.18s ease;
+}
+
+.sidebarPanelCaretOpen {
+  transform: rotate(90deg);
+}
+
+.sidebarPanelToggle:hover .sidebarBoxTitle {
+  color: var(--accent);
+}
+
+.sidebarPanelBody {
+  margin-top: 10px;
+}
+
+.sidebarPanelFooter {
+  margin-top: 10px;
 }
 
 .sidebarBoxHeader {
@@ -535,6 +592,14 @@
   text-transform: uppercase;
 }
 
+.sidebarBoxMeta {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--muted2);
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+
 .sidebarBoxMore {
   font-size: 12px;
   color: var(--accent);
@@ -545,6 +610,13 @@
 
 .sidebarBoxMore:hover {
   opacity: 0.75;
+}
+
+.sidebarEmpty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted2);
+  line-height: 1.5;
 }
 
 .trendItem {
@@ -697,21 +769,21 @@
 
 .flowBar {
   display: flex;
-  margin: 26px 0 0;
-  border: 1px solid var(--border2);
+  margin: 24px 0 8px;
+  border: 1.5px solid color-mix(in srgb, var(--accent) 14%, var(--border2));
   border-radius: 12px;
   overflow: hidden;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 60%, transparent), var(--s1));
-  box-shadow: 0 10px 24px -20px rgba(15, 23, 42, 0.45);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accentBg) 42%, var(--s1)), var(--s1));
+  box-shadow: 0 14px 30px -24px rgba(15, 23, 42, 0.52);
 }
 
 .flowStep {
   flex: 1;
-  padding: 13px 16px;
+  padding: 11px 14px;
   text-align: center;
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--muted);
+  color: var(--muted2);
   border-right: 1px solid var(--border);
   cursor: pointer;
   background: transparent;
@@ -729,7 +801,7 @@
 .flowStep:hover,
 .activeFlowStep {
   color: var(--accent);
-  background: var(--accentBg);
+  background: color-mix(in srgb, var(--accentBg) 78%, white 8%);
 }
 
 .flowStep:focus-visible,
@@ -737,7 +809,8 @@
 .heroPrimaryAction:focus-visible,
 .heroSecondaryAction:focus-visible,
 .cardCta:focus-visible,
-.sidebarBoxMore:focus-visible {
+.sidebarBoxMore:focus-visible,
+.sidebarPanelToggle:focus-visible {
   outline: 2px solid color-mix(in srgb, var(--accent) 36%, white);
   outline-offset: 2px;
 }
@@ -789,6 +862,7 @@
   .twoCol {
     grid-template-columns: 1fr;
     gap: 12px;
+    align-items: start;
   }
 
   .sidebar {
@@ -797,10 +871,17 @@
     gap: 12px;
     position: static;
     margin-top: 0;
+    align-items: start;
   }
 
   .cardsGrid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .flowBar {
+    margin-bottom: calc(env(safe-area-inset-bottom, 0px) + 78px);
   }
 }
 
@@ -828,7 +909,7 @@
   }
 
   .twoCol {
-    padding: 32px 0 0;
+    padding: 0;
   }
 
   .sectionTitle {

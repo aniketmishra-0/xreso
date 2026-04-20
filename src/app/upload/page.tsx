@@ -14,6 +14,10 @@ import {
   getYouTubeEmbedUrl,
   getVimeoEmbedUrl,
 } from "@/lib/video-utils";
+import {
+  CONTRIBUTE_LOGIN_REQUIRED_BUTTON_LABEL,
+  CONTRIBUTE_LOGIN_REQUIRED_MESSAGE,
+} from "@/lib/contribute-copy";
 import { trackContributeClick } from "@/lib/contribute-tracking";
 import styles from "./page.module.css";
 
@@ -1803,7 +1807,7 @@ function UploadPageContent() {
       <div className={pageClassName}>
         <div className={styles.formContainer}>
           <div className={styles.errorBanner}>
-            Login first, then contribute your resource.
+            {CONTRIBUTE_LOGIN_REQUIRED_MESSAGE}
           </div>
           <Link
             href={loginToContributeHref}
@@ -1812,7 +1816,7 @@ function UploadPageContent() {
             data-source="upload-login-required"
             onClick={() => handleContributeClick("upload-login-required")}
           >
-            Login First to Contribute
+            {CONTRIBUTE_LOGIN_REQUIRED_BUTTON_LABEL}
           </Link>
         </div>
       </div>

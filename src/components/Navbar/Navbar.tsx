@@ -7,6 +7,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import FloatingQuickNav from "@/components/FloatingQuickNav/FloatingQuickNav";
+import { CONTRIBUTE_LOGIN_REQUIRED_MESSAGE } from "@/lib/contribute-copy";
 import { trackContributeClick } from "@/lib/contribute-tracking";
 import styles from "./Navbar.module.css";
 
@@ -239,10 +240,7 @@ export default function Navbar() {
     loginPromptContext === "contribute" ? mobileQuickUploadHref : contributeHref;
   const loginPromptHref =
     `/login?callbackUrl=${encodeURIComponent(loginPromptCallbackPath)}&reason=upload_login_required`;
-  const loginPromptMessage =
-    loginPromptContext === "contribute"
-      ? "Please login first, then contribute your resource."
-      : "Please login first, then contribute your notes.";
+  const loginPromptMessage = CONTRIBUTE_LOGIN_REQUIRED_MESSAGE;
   const mobileQuickUploadLabel = "Contribute";
   const mobileQuickUploadAriaLabel =
     browseMode === "advanced"

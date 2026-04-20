@@ -126,6 +126,58 @@ export async function getCategories(limit = 9, includeEmpty = false) {
   }
 }
 
+export async function getTrendingTopicSignals(limit = 20) {
+  try {
+    const client = getClient();
+    const hideTestDraft = await shouldHideTestDraftPublicContent(client);
+
+    const result = await client.execute({
+      sql: `SELECT
+        topic_key,
+        MIN(topic_name) as topic_name,
+        SUM(topic_score) as topic_score
+      FROM (
+        SELECT
+          LOWER(TRIM(t.name)) as topic_key,
+          TRIM(t.name) as topic_name,
+          COUNT(*) * 3 as topic_score
+        FROM note_tags nt
+        JOIN tags t ON nt.tag_id = t.id
+        JOIN notes n ON n.id = nt.note_id
+        WHERE n.status = 'approved'
+          ${hideTestDraft ? "AND LENGTH(TRIM(n.title)) >= 5" : ""}
+          AND TRIM(COALESCE(t.name, '')) <> ''
+        GROUP BY LOWER(TRIM(t.name))
+
+        UNION ALL
+
+        SELECT
+          LOWER(TRIM(c.name)) as topic_key,
+          TRIM(c.name) as topic_name,
+          COUNT(*) as topic_score
+        FROM notes n
+        JOIN categories c ON n.category_id = c.id
+        WHERE n.status = 'approved'
+          ${hideTestDraft ? "AND LENGTH(TRIM(n.title)) >= 5" : ""}
+          AND TRIM(COALESCE(c.name, '')) <> ''
+        GROUP BY LOWER(TRIM(c.name))
+      ) ranked_topics
+      WHERE topic_key <> ''
+      GROUP BY topic_key
+      ORDER BY topic_score DESC, topic_name ASC
+      LIMIT ?`,
+      args: [limit],
+    });
+
+    return result.rows.map((row) => ({
+      name: String(row.topic_name || ""),
+      score: Number(row.topic_score) || 0,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getLibraryHeroStats() {
   try {
     const client = getClient();

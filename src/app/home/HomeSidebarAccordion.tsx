@@ -38,9 +38,13 @@ export default function HomeSidebarAccordion({
 	liveActivity,
 	topContributors,
 }: HomeSidebarAccordionProps) {
+	const visibleTrendingTopics = trendingTopics.slice(0, 10);
+	const visibleLiveActivity = liveActivity.slice(0, 10);
+	const visibleTopContributors = topContributors.slice(0, 10);
+
 	const [openPanel, setOpenPanel] = useState<SidebarPanel>(() => {
-		if (liveActivity.length > 0) return "activity";
-		if (topContributors.length > 0) return "contributors";
+		if (visibleLiveActivity.length > 0) return "activity";
+		if (visibleTopContributors.length > 0) return "contributors";
 		return "trending";
 	});
 
@@ -56,7 +60,7 @@ export default function HomeSidebarAccordion({
 				>
 					<span className={styles.sidebarBoxTitle}>Trending Topics</span>
 					<span className={styles.sidebarPanelToggleMeta}>
-						<span className={styles.sidebarBoxMeta}>Top 5</span>
+						<span className={styles.sidebarBoxMeta}>Top 10</span>
 						<span
 							className={`${styles.sidebarPanelCaret} ${openPanel === "trending" ? styles.sidebarPanelCaretOpen : ""}`}
 							aria-hidden="true"
@@ -70,8 +74,8 @@ export default function HomeSidebarAccordion({
                                         <div id="home-sidebar-trending" className={styles.sidebarPanelBody}>
                                                 <div className={styles.sidebarPanelBodyInner}>
 
-						{trendingTopics.length > 0 ? (
-							trendingTopics.map((topic) => (
+						{visibleTrendingTopics.length > 0 ? (
+							visibleTrendingTopics.map((topic) => (
 								<div key={`${topic.name}-${topic.rank}`} className={styles.trendItem}>
 									<span className={styles.trendRank}>{topic.rank}</span>
 									<span className={styles.trendName}>{topic.name}</span>
@@ -98,7 +102,7 @@ export default function HomeSidebarAccordion({
 				>
 					<span className={styles.sidebarBoxTitle}>Live Activity</span>
 					<span className={styles.sidebarPanelToggleMeta}>
-						<span className={styles.sidebarBoxMeta}>Latest 5</span>
+						<span className={styles.sidebarBoxMeta}>Latest 10</span>
 						<span
 							className={`${styles.sidebarPanelCaret} ${openPanel === "activity" ? styles.sidebarPanelCaretOpen : ""}`}
 							aria-hidden="true"
@@ -112,8 +116,8 @@ export default function HomeSidebarAccordion({
                                         <div id="home-sidebar-activity" className={styles.sidebarPanelBody}>
                                                 <div className={styles.sidebarPanelBodyInner}>
 
-						{liveActivity.length > 0 ? (
-							liveActivity.map((activity, index) => (
+						{visibleLiveActivity.length > 0 ? (
+							visibleLiveActivity.map((activity, index) => (
 								<div key={`${activity.name}-${activity.time}-${index}`} className={styles.activityItem}>
 									<div className={`${styles.avatar} ${activity.color}`}>{activity.initials}</div>
 									<div className={styles.activityBody}>
@@ -143,7 +147,7 @@ export default function HomeSidebarAccordion({
 				>
 					<span className={styles.sidebarBoxTitle}>Top Contributors</span>
 					<span className={styles.sidebarPanelToggleMeta}>
-						<span className={styles.sidebarBoxMeta}>Top 5</span>
+						<span className={styles.sidebarBoxMeta}>Top 10</span>
 						<span
 							className={`${styles.sidebarPanelCaret} ${openPanel === "contributors" ? styles.sidebarPanelCaretOpen : ""}`}
 							aria-hidden="true"
@@ -157,8 +161,8 @@ export default function HomeSidebarAccordion({
                                         <div id="home-sidebar-contributors" className={styles.sidebarPanelBody}>
                                                 <div className={styles.sidebarPanelBodyInner}>
 
-						{topContributors.length > 0 ? (
-							topContributors.map((contributor, index) => (
+						{visibleTopContributors.length > 0 ? (
+							visibleTopContributors.map((contributor, index) => (
 								<div key={`${contributor.name}-${index}`} className={styles.contributorItem}>
 									<div className={`${styles.avatar} ${contributor.color}`}>{contributor.initials}</div>
 									<div className={styles.contributorInfo}>

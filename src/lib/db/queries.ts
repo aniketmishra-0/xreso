@@ -233,7 +233,7 @@ export async function getLibraryHeroStats() {
   }
 }
 
-export async function getLatestApprovedNotesActivity(limit = 4) {
+export async function getLatestApprovedNotesActivity(limit = 10) {
   try {
     const client = getClient();
     const hideTestDraft = await shouldHideTestDraftPublicContent(client);
@@ -266,7 +266,7 @@ export async function getLatestApprovedNotesActivity(limit = 4) {
   }
 }
 
-export async function getTopContributors(limit = 3) {
+export async function getTopContributors(limit = 10) {
   try {
     const client = getClient();
     const hideTestDraft = await shouldHideTestDraftPublicContent(client);

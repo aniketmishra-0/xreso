@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import "./globals.css";
 import Navbar from "@/components/Navbar/Navbar";
 import Footer from "@/components/Footer/Footer";
@@ -112,7 +113,9 @@ export default function RootLayout({
         <ThemeProviderWrapper>
           <AuthProvider>
             <GlobalSearchHotkey />
-            <Navbar />
+            <Suspense fallback={null}>
+              <Navbar />
+            </Suspense>
             <main>{children}</main>
             <Footer />
           </AuthProvider>

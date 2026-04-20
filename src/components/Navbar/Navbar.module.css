@@ -32,9 +32,9 @@
 
 @media (max-width: 768px) {
   .headerContributeFocus {
-    transform: translateY(calc(-100% - 8px));
-    opacity: 0;
-    pointer-events: none;
+    transform: translateY(0);
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 

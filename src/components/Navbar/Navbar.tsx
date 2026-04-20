@@ -38,8 +38,8 @@ export default function Navbar() {
       const currentY = window.scrollY;
 
       if (isContributeFocusFlow) {
-        setScrolled(true);
-        setHeaderHidden(true);
+        setScrolled(currentY > 8);
+        setHeaderHidden(false);
         lastScrollY = currentY;
         return;
       }

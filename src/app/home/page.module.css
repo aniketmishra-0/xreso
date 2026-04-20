@@ -42,7 +42,7 @@
 }
 
 .ticker {
-  background: linear-gradient(90deg, var(--accentBg), #fffbf5, var(--accentBg));
+  background: linear-gradient(90deg, #fff8ee 0%, #ffffff 50%, #fff8ee 100%);
   border: 1px solid var(--accentBorder);
   border-radius: 10px;
   padding: 8px 16px;
@@ -91,7 +91,7 @@
   display: inline-flex;
   align-items: center;
   font-size: 12px;
-  color: var(--muted);
+  color: color-mix(in srgb, var(--text) 70%, var(--muted));
   white-space: nowrap;
   padding: 0 20px;
   border-right: 1px solid var(--border);
@@ -100,6 +100,25 @@
 .tickerHash {
   color: var(--accent);
   margin-right: 3px;
+}
+
+[data-theme="dark"] .ticker {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--accent-orange) 10%, var(--bg-elevated)) 0%,
+    color-mix(in srgb, var(--bg-elevated) 92%, #000000) 50%,
+    color-mix(in srgb, var(--accent-orange) 10%, var(--bg-elevated)) 100%
+  );
+  border-color: color-mix(in srgb, var(--accent-orange) 34%, var(--border-primary));
+}
+
+[data-theme="dark"] .tickerLabel {
+  color: color-mix(in srgb, var(--accent-orange-light) 88%, #ffffff);
+}
+
+[data-theme="dark"] .tickerItem {
+  color: color-mix(in srgb, var(--text-primary) 82%, var(--accent-orange) 18%);
+  border-right-color: color-mix(in srgb, var(--accent-orange) 22%, var(--border-secondary));
 }
 
 .hero {

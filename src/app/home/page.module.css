@@ -257,12 +257,15 @@
   right: 13px;
   top: 50%;
   transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--muted2);
   background: var(--s2);
   border: 1px solid var(--border);
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: 4px;
   pointer-events: none;
 }

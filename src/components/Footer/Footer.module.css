@@ -35,6 +35,7 @@
   display: block;
   width: 156px;
   height: auto;
+  transform: translateX(-44px);
 }
 
 .brandDesc {
@@ -142,6 +143,7 @@
 @media (max-width: 768px) {
   .logoImage {
     width: 136px;
+    transform: translateX(-26px);
   }
 
   .grid {

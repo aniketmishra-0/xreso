@@ -50,13 +50,15 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .tickerTrack {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
   mask-image: linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
   -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
 }
@@ -105,7 +107,8 @@
   padding: 68px 24px 56px;
   text-align: center;
   position: relative;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
   border: 1px solid var(--border);
   border-radius: 16px;
   background:
@@ -228,6 +231,16 @@
   position: relative;
 }
 
+.searchAutocompleteWrap {
+  max-width: 540px;
+  margin: 0 auto 14px;
+  position: relative;
+}
+
+.searchAutocompleteWrap .searchWrap {
+  margin-bottom: 0;
+}
+
 .searchBox {
   width: 100%;
   padding: 13px 96px 13px 56px;
@@ -295,6 +308,43 @@
   transform: translateY(-50%) translateY(-1px);
 }
 
+.searchSuggestDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 22;
+  border: 1.5px solid var(--accentBorder);
+  border-radius: 12px;
+  background: var(--s1);
+  box-shadow: 0 12px 26px -18px rgba(15, 23, 42, 0.45);
+  max-height: 240px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.searchSuggestItem {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.searchSuggestItem:last-child {
+  border-bottom: none;
+}
+
+.searchSuggestItem:hover {
+  background: var(--accentBg);
+  color: var(--accent);
+}
+
 .searchTags {
   display: flex;
   gap: 6px;
@@ -328,7 +378,8 @@
   margin: 28px auto 0;
   border: 1.5px solid var(--border2);
   border-radius: var(--radiusLg);
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
   background: var(--s1);
   box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
 }
@@ -418,7 +469,8 @@
   cursor: pointer;
   transition: all 0.2s;
   position: relative;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
   box-shadow: 0 6px 20px -16px rgba(13, 16, 26, 0.38);
 }
 
@@ -580,7 +632,8 @@
 }
 
 .sidebarPanelBody {
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
   min-height: 0;
 }
 
@@ -787,7 +840,8 @@
   margin: 24px 0 8px;
   border: 1.5px solid color-mix(in srgb, var(--accent) 14%, var(--border2));
   border-radius: 12px;
-  overflow: hidden;
+  overflow-x: clip;
+  overflow-y: visible;
   background: linear-gradient(180deg, color-mix(in srgb, var(--accentBg) 42%, var(--s1)), var(--s1));
   box-shadow: 0 14px 30px -24px rgba(15, 23, 42, 0.52);
 }

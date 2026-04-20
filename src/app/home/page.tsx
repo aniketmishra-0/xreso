@@ -8,6 +8,7 @@ import {
   getTopContributors,
 } from "@/lib/db/queries";
 import HomeSidebarAccordion from "./HomeSidebarAccordion";
+import HomeHeroSearch from "./HomeHeroSearch";
 import styles from "./page.module.css";
 
 export const revalidate = 30;
@@ -313,19 +314,7 @@ export default async function HomeHubPage() {
             practice, and open contributions.
           </p>
 
-          <form action="/search" method="GET" className={styles.searchWrap}>
-            <span className={styles.searchHint}>{"⌘K"}</span>
-            <input
-              className={styles.searchBox}
-              type="text"
-              name="q"
-              data-global-search-input="true"
-              placeholder="Search notes, videos, categories, tracks..."
-            />
-            <button type="submit" className={styles.searchSubmit}>
-              Search
-            </button>
-          </form>
+          <HomeHeroSearch suggestions={searchTags} />
 
           {searchTags.length > 0 ? (
             <div className={styles.searchTags}>

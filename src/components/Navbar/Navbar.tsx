@@ -208,6 +208,9 @@ export default function Navbar() {
   const isTrackNotesRoute = pathname.startsWith("/tracks/notes");
   const isVideoDetailRoute = pathname.startsWith("/videos/") && pathname !== "/videos";
   const isVideoModalOpen = pathname === "/videos" && !!searchParams.get("video");
+  const isBrowseBottomSheetOpen =
+    pathname === "/browse" &&
+    (searchParams.get("langMenu") === "true" || searchParams.get("sortMenu") === "true");
   const isLoginRoute = pathname === "/login";
   const isForgotPasswordRoute = pathname === "/forgot-password";
   const isResetPasswordRoute = pathname.startsWith("/reset-password");
@@ -222,6 +225,7 @@ export default function Navbar() {
     isTrackNotesRoute ||
     isVideoDetailRoute ||
     isVideoModalOpen ||
+    isBrowseBottomSheetOpen ||
     isLoginRoute ||
     isForgotPasswordRoute ||
     isResetPasswordRoute ||

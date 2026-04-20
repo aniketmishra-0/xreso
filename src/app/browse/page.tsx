@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, Suspense, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { CATEGORY_CATALOG } from "@/lib/techIcons";
 import NoteCard from "@/components/NoteCard/NoteCard";
 import styles from "./page.module.css";
@@ -64,6 +64,7 @@ const formatDate = (dateStr: string) => {
 
 function BrowseContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialCategoryParam = searchParams.get("category");
   const initialFeatured = searchParams.get("featured") === "true";
   const initialQueryParam = searchParams.get("q") || "";
@@ -86,9 +87,33 @@ function BrowseContent() {
     return "All";
   });
   const [sortBy, setSortBy] = useState("newest");
-  const [langMenuOpen, setLangMenuOpen] = useState(false);
+  const langMenuQueryParam = searchParams.get("langMenu") === "true";
+  const [langMenuOpen, setLangMenuOpen] = useState(langMenuQueryParam);
+  const sortMenuQueryParam = searchParams.get("sortMenu") === "true";
+  
+  // Sync langMenuOpen with query parameter
+  const updateLangMenuOpen = useCallback((isOpen: boolean) => {
+    setLangMenuOpen(isOpen);
+    const newParams = new URLSearchParams(searchParams);
+    if (isOpen) {
+      newParams.set("langMenu", "true");
+    } else {
+      newParams.delete("langMenu");
+    }
+    router.push(`?${newParams.toString()}`);
+  }, [searchParams, router]);
   const [catMenuOpen, setCatMenuOpen] = useState(false);
-  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const [sortMenuOpen, setSortMenuOpen] = useState(sortMenuQueryParam);
+  const updateSortMenuOpen = useCallback((isOpen: boolean) => {
+    setSortMenuOpen(isOpen);
+    const newParams = new URLSearchParams(searchParams);
+    if (isOpen) {
+      newParams.set("sortMenu", "true");
+    } else {
+      newParams.delete("sortMenu");
+    }
+    router.push(`?${newParams.toString()}`);
+  }, [searchParams, router]);
   const catDropdownRef = useRef<HTMLDivElement | null>(null);
   const sortDropdownRef = useRef<HTMLDivElement | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
@@ -175,19 +200,19 @@ function BrowseContent() {
   useEffect(() => {
     const onDocumentClick = (event: MouseEvent) => {
       if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
-        setLangMenuOpen(false);
+        updateLangMenuOpen(false);
       }
       if (catDropdownRef.current && !catDropdownRef.current.contains(event.target as Node)) {
         setCatMenuOpen(false);
       }
       if (sortDropdownRef.current && !sortDropdownRef.current.contains(event.target as Node)) {
-        setSortMenuOpen(false);
+        updateSortMenuOpen(false);
       }
     };
 
     document.addEventListener("mousedown", onDocumentClick);
     return () => document.removeEventListener("mousedown", onDocumentClick);
-  }, []);
+  }, [updateLangMenuOpen, updateSortMenuOpen]);
 
   return (
     <div className={styles.page}>
@@ -285,7 +310,7 @@ function BrowseContent() {
               <button
                 type="button"
                 className={styles.langDropdown}
-                onClick={() => setLangMenuOpen((current) => !current)}
+                onClick={() => updateLangMenuOpen(!langMenuOpen)}
                 aria-haspopup="listbox"
                 aria-expanded={langMenuOpen}
                 id="language-dropdown"
@@ -301,7 +326,7 @@ function BrowseContent() {
                     className={`${styles.langMenuItem} ${!selectedLanguageSlug ? styles.langMenuItemActive : ""}`}
                     onClick={() => {
                       setActiveCategory("All");
-                      setLangMenuOpen(false);
+                      updateLangMenuOpen(false);
                     }}
                   >
                     All Languages
@@ -313,7 +338,7 @@ function BrowseContent() {
                       className={`${styles.langMenuItem} ${selectedLanguageSlug === cat.slug ? styles.langMenuItemActive : ""}`}
                       onClick={() => {
                         setActiveCategory(cat.name);
-                        setLangMenuOpen(false);
+                        updateLangMenuOpen(false);
                       }}
                     >
                       {cat.name}
@@ -325,7 +350,7 @@ function BrowseContent() {
               {/* Mobile bottom sheet */}
               {langMenuOpen && (
                 <>
-                  <div className={styles.sheetOverlay} onClick={() => setLangMenuOpen(false)} />
+                  <div className={styles.sheetOverlay} onClick={() => updateLangMenuOpen(false)} />
                   <div className={styles.sheetPanel}>
                     <div className={styles.sheetHandle} />
                     <div className={styles.sheetHeader}>
@@ -333,7 +358,7 @@ function BrowseContent() {
                         <div className={styles.sheetLabel}>CHOOSE ONE</div>
                         <div className={styles.sheetTitle}>Programming Language / Topic</div>
                       </div>
-                      <button className={styles.sheetClose} onClick={() => setLangMenuOpen(false)} aria-label="Close">
+                      <button className={styles.sheetClose} onClick={() => updateLangMenuOpen(false)} aria-label="Close">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                       </button>
                     </div>
@@ -341,7 +366,7 @@ function BrowseContent() {
                       <button
                         type="button"
                         className={`${styles.sheetOption} ${!selectedLanguageSlug ? styles.sheetOptionActive : ""}`}
-                        onClick={() => { setActiveCategory("All"); setLangMenuOpen(false); }}
+                        onClick={() => { setActiveCategory("All"); updateLangMenuOpen(false); }}
                       >
                         <span className={styles.sheetOptionText}>Select a programming topic</span>
                         {!selectedLanguageSlug && (
@@ -353,7 +378,7 @@ function BrowseContent() {
                           key={cat.slug}
                           type="button"
                           className={`${styles.sheetOption} ${selectedLanguageSlug === cat.slug ? styles.sheetOptionActive : ""}`}
-                          onClick={() => { setActiveCategory(cat.name); setLangMenuOpen(false); }}
+                          onClick={() => { setActiveCategory(cat.name); updateLangMenuOpen(false); }}
                         >
                           <span className={styles.sheetOptionText}>{cat.name}</span>
                           {selectedLanguageSlug === cat.slug && (
@@ -373,7 +398,7 @@ function BrowseContent() {
             <button
               type="button"
               className={styles.sortDropdown}
-              onClick={() => setSortMenuOpen((current) => !current)}
+                onClick={() => updateSortMenuOpen(!sortMenuOpen)}
               aria-haspopup="listbox"
               aria-expanded={sortMenuOpen}
               id="sort-dropdown"
@@ -391,7 +416,7 @@ function BrowseContent() {
                     className={`${styles.sortMenuItem} ${sortBy === opt.value ? styles.sortMenuItemActive : ""}`}
                     onClick={() => {
                       setSortBy(opt.value);
-                      setSortMenuOpen(false);
+                        updateSortMenuOpen(false);
                     }}
                   >
                     {opt.label}
@@ -403,7 +428,7 @@ function BrowseContent() {
             {/* Mobile bottom sheet for sort */}
             {sortMenuOpen && (
               <>
-                <div className={styles.sheetOverlay} onClick={() => setSortMenuOpen(false)} />
+                  <div className={styles.sheetOverlay} onClick={() => updateSortMenuOpen(false)} />
                 <div className={styles.sheetPanel}>
                   <div className={styles.sheetHandle} />
                   <div className={styles.sheetHeader}>
@@ -411,7 +436,7 @@ function BrowseContent() {
                       <div className={styles.sheetLabel}>SORT BY</div>
                       <div className={styles.sheetTitle}>Sort Order</div>
                     </div>
-                    <button className={styles.sheetClose} onClick={() => setSortMenuOpen(false)} aria-label="Close">
+                      <button className={styles.sheetClose} onClick={() => updateSortMenuOpen(false)} aria-label="Close">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                     </button>
                   </div>
@@ -421,7 +446,7 @@ function BrowseContent() {
                         key={opt.value}
                         type="button"
                         className={`${styles.sheetOption} ${sortBy === opt.value ? styles.sheetOptionActive : ""}`}
-                        onClick={() => { setSortBy(opt.value); setSortMenuOpen(false); }}
+                          onClick={() => { setSortBy(opt.value); updateSortMenuOpen(false); }}
                       >
                         <span className={styles.sheetOptionText}>{opt.label}</span>
                         {sortBy === opt.value && (

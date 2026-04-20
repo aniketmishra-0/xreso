@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar/Navbar";
 import Footer from "@/components/Footer/Footer";
 import AuthProvider from "@/components/AuthProvider";
 import ThemeProviderWrapper from "@/components/ThemeProvider";
+import GlobalSearchHotkey from "@/components/GlobalSearchHotkey";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "https://xreso.dev";
 
@@ -87,7 +88,7 @@ const jsonLd = {
     "A community-driven platform for sharing handwritten programming notes.",
   potentialAction: {
     "@type": "SearchAction",
-    target: `${APP_URL}/browse?q={search_term_string}`,
+    target: `${APP_URL}/search?q={search_term_string}`,
     "query-input": "required name=search_term_string",
   },
 };
@@ -112,6 +113,7 @@ export default function RootLayout({
       <body suppressHydrationWarning>
         <ThemeProviderWrapper>
           <AuthProvider>
+            <GlobalSearchHotkey />
             <Suspense fallback={<div style={{ height: "var(--nav-height)" }} aria-hidden="true" />}>
               <Navbar />
             </Suspense>

@@ -176,10 +176,12 @@ export default function SearchClient() {
             <input
               type="text"
               name="q"
+              data-global-search-input="true"
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
               placeholder="Search everything in xreso..."
               className={styles.searchInput}
+              autoFocus
             />
             <button type="submit" className={styles.searchButton}>Search</button>
           </form>

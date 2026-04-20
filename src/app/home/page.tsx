@@ -191,6 +191,7 @@ export default async function HomeHubPage() {
 							className={styles.searchBox}
 							type="text"
 							name="q"
+							data-global-search-input="true"
 							placeholder="Search notes, videos, categories, tracks..."
 						/>
 						<span className={styles.searchKbd}>{"⌘K"}</span>

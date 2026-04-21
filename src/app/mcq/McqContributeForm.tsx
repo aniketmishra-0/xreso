@@ -22,7 +22,6 @@ export default function McqContributeForm({
   loginCallbackPath = "/mcq",
 }: McqContributeFormProps) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
   const [message, setMessage] = useState("");
   const [form, setForm] = useState({
@@ -89,52 +88,43 @@ export default function McqContributeForm({
 
   return (
     <div className={styles.formWrap}>
-      <button
-        type="button"
-        className={styles.formToggleBtn}
-        onClick={() => setOpen((prev) => !prev)}
-      >
-        {open ? "Hide Form" : "Open MCQ Contributor"}
-      </button>
+      <form className={styles.formPanel} onSubmit={handleSubmit}>
+        <div className={styles.formIntro}>
+          <h3 className={styles.formTitle}>Add a question to MCQ Quiz Bank</h3>
+          <p className={styles.formText}>
+            Choose an existing topic or type a new one. After save, the topic board refreshes
+            automatically.
+          </p>
+        </div>
 
-      {open ? (
-        <form className={styles.formPanel} onSubmit={handleSubmit}>
-          <div className={styles.formIntro}>
-            <h3 className={styles.formTitle}>Add a question to MCQ Quiz Bank</h3>
-            <p className={styles.formText}>
-              Choose an existing topic or type a new one. After save, the topic board refreshes
-              automatically.
+        {!isAuthenticated ? (
+          <div className={styles.authNotice}>
+            <p className={styles.authNoticeText}>
+              Sign in is required to publish MCQs.
             </p>
+            <Link href={`/login?callbackUrl=${encodeURIComponent(loginCallbackPath)}`} className={styles.authNoticeBtn}>
+              Sign In to Continue
+            </Link>
           </div>
+        ) : null}
 
-          {!isAuthenticated ? (
-            <div className={styles.authNotice}>
-              <p className={styles.authNoticeText}>
-                Sign in is required to publish MCQs.
-              </p>
-              <Link href={`/login?callbackUrl=${encodeURIComponent(loginCallbackPath)}`} className={styles.authNoticeBtn}>
-                Sign In to Continue
-              </Link>
-            </div>
-          ) : null}
-
-          <div className={styles.formGrid}>
-            <label className={styles.formField}>
-              <span>Topic</span>
-              <input
-                value={form.topic}
-                onChange={(event) => updateField("topic", event.target.value)}
-                placeholder="e.g. JavaScript Basics"
-                list="mcq-topic-suggestions"
-                disabled={!isAuthenticated || submitState === "submitting"}
-                required
-              />
-              <datalist id="mcq-topic-suggestions">
-                {topicSuggestions.map((topic) => (
-                  <option key={topic} value={topic} />
-                ))}
-              </datalist>
-            </label>
+        <div className={styles.formGrid}>
+          <label className={styles.formField}>
+            <span>Topic</span>
+            <input
+              value={form.topic}
+              onChange={(event) => updateField("topic", event.target.value)}
+              placeholder="e.g. JavaScript Basics"
+              list="mcq-topic-suggestions"
+              disabled={!isAuthenticated || submitState === "submitting"}
+              required
+            />
+            <datalist id="mcq-topic-suggestions">
+              {topicSuggestions.map((topic) => (
+                <option key={topic} value={topic} />
+              ))}
+            </datalist>
+          </label>
 
             <label className={styles.formField}>
               <span>Difficulty</span>
@@ -234,26 +224,25 @@ export default function McqContributeForm({
                 disabled={!isAuthenticated || submitState === "submitting"}
               />
             </label>
-          </div>
+        </div>
 
-          <div className={styles.formActions}>
-            <button
-              type="submit"
-              className={styles.submitBtn}
-              disabled={!isAuthenticated || submitState === "submitting"}
-            >
-              {!isAuthenticated
-                ? "Sign In Required"
-                : submitState === "submitting"
-                  ? "Saving..."
-                  : "Publish to Quiz Bank"}
-            </button>
-            {message ? (
-              <p className={submitState === "error" ? styles.formError : styles.formSuccess}>{message}</p>
-            ) : null}
-          </div>
-        </form>
-      ) : null}
+        <div className={styles.formActions}>
+          <button
+            type="submit"
+            className={styles.submitBtn}
+            disabled={!isAuthenticated || submitState === "submitting"}
+          >
+            {!isAuthenticated
+              ? "Sign In Required"
+              : submitState === "submitting"
+                ? "Saving..."
+                : "Publish to Quiz Bank"}
+          </button>
+          {message ? (
+            <p className={submitState === "error" ? styles.formError : styles.formSuccess}>{message}</p>
+          ) : null}
+        </div>
+      </form>
     </div>
   );
 }

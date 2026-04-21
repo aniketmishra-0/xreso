@@ -210,35 +210,15 @@
 }
 
 .formWrap {
-  margin-top: 8px;
-}
-
-.formToggleBtn {
-  min-height: 38px;
-  width: 100%;
-  padding: 0 16px;
-  border-radius: 11px;
-  border: 1px solid color-mix(in srgb, var(--primary) 34%, var(--border-primary));
-  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 16%, transparent), color-mix(in srgb, var(--accent-orange) 10%, transparent));
-  color: var(--text-primary);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  cursor: pointer;
-  transition: transform 180ms ease, box-shadow 180ms ease;
-}
-
-.formToggleBtn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 20px -14px rgba(15, 23, 42, 0.6);
+  margin-top: 0;
 }
 
 .formPanel {
-  margin-top: 10px;
-  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border-secondary));
-  border-radius: 12px;
-  padding: 12px;
-  background: color-mix(in srgb, var(--bg-elevated) 60%, transparent);
+  margin-top: 0;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: transparent;
 }
 
 .authNotice {

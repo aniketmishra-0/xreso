@@ -2278,7 +2278,7 @@ function UploadPageContent() {
                 ) : null}
               </div>
             ) : (
-              <div key="mode-mcq" className={styles.mcqModeNotice}>
+              <div key="mode-mcq">
                 <h2 className={styles.sectionTitle}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M9 11l3 3L22 4"/>
@@ -2286,10 +2286,11 @@ function UploadPageContent() {
                   </svg>
                   Contribute MCQ
                 </h2>
-                <p className={styles.mcqModeText}>
-                  MCQ submission form is available below. Add your question and it will reflect on
-                  the MCQ topic board automatically.
-                </p>
+                <McqContributeForm
+                  topicSuggestions={[]}
+                  isAuthenticated={status === "authenticated"}
+                  loginCallbackPath={MCQ_UPLOAD_CALLBACK}
+                />
               </div>
             )}
           </div>
@@ -2673,15 +2674,6 @@ function UploadPageContent() {
           </div>
         </form>
 
-        {uploadMode === "mcq" ? (
-          <section className={styles.section}>
-            <McqContributeForm
-              topicSuggestions={[]}
-              isAuthenticated={status === "authenticated"}
-              loginCallbackPath={MCQ_UPLOAD_CALLBACK}
-            />
-          </section>
-        ) : null}
       </div>
     </div>
   );

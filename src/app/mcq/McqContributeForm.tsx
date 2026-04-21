@@ -68,7 +68,8 @@ export default function McqContributeForm({
           setMessage("Please sign in first to publish MCQ.");
           return;
         }
-        setMessage(respPayload.error || "Failed to save MCQ question.");
+        setMessage(respPayload.error || `Failed to save MCQ question. [${response.status}]`);
+        console.error("MCQ submit error:", respPayload.error, payload, response.status);
         return;
       }
 
@@ -87,9 +88,10 @@ export default function McqContributeForm({
         explanation: "",
         tags: "",
       });
-    } catch {
+    } catch (err) {
       setSubmitState("error");
       setMessage("Something went wrong while saving MCQ question.");
+      console.error("MCQ submit JS error:", err, payload);
     }
   };
 

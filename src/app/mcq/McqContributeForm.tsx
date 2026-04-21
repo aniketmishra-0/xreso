@@ -181,29 +181,25 @@ export default function McqContributeForm({
               />
             </label>
 
-            {/* Option C and D only show if user has started typing */}
-            {form.optionC.trim() !== "" && (
-              <label className={styles.formField}>
-                <span>Option C</span>
-                <input
-                  value={form.optionC}
-                  onChange={(event) => updateField("optionC", event.target.value)}
-                  disabled={!isAuthenticated || submitState === "submitting"}
-                  placeholder="(optional)"
-                />
-              </label>
-            )}
-            {form.optionD.trim() !== "" && (
-              <label className={styles.formField}>
-                <span>Option D</span>
-                <input
-                  value={form.optionD}
-                  onChange={(event) => updateField("optionD", event.target.value)}
-                  disabled={!isAuthenticated || submitState === "submitting"}
-                  placeholder="(optional)"
-                />
-              </label>
-            )}
+            <label className={styles.formField}>
+              <span>Option C</span>
+              <input
+                value={form.optionC}
+                onChange={(event) => updateField("optionC", event.target.value)}
+                disabled={!isAuthenticated || submitState === "submitting"}
+                placeholder="(optional)"
+              />
+            </label>
+
+            <label className={styles.formField}>
+              <span>Option D</span>
+              <input
+                value={form.optionD}
+                onChange={(event) => updateField("optionD", event.target.value)}
+                disabled={!isAuthenticated || submitState === "submitting"}
+                placeholder="(optional)"
+              />
+            </label>
 
             <label className={styles.formField}>
               <span>Correct Option</span>

@@ -101,10 +101,15 @@ export default async function McqPage() {
               <div className={styles.grid}>
                 {cardsToShow.map((topic, index) => (
                   <article key={`${topic.title}-${index}`} className={styles.card}>
-                    <p className={styles.cardLabel}>Updated {topic.updatedAt}</p>
-                    <h3 className={styles.cardTitle}>{topic.title}</h3>
-                    <p className={styles.cardMeta}>{topic.questionCount} questions</p>
-                    <p className={styles.cardMix}>{topic.difficultyMix}</p>
+                    <div className={styles.cardTop}>
+                      <h3 className={styles.cardTitle}>{topic.title}</h3>
+                      <p className={styles.cardCount}>{topic.questionCount}</p>
+                    </div>
+                    <p className={styles.cardCountLabel}>Questions</p>
+                    <div className={styles.cardMetaRow}>
+                      <p className={styles.cardMix}>{topic.difficultyMix}</p>
+                      <p className={styles.cardUpdated}>Updated {topic.updatedAt}</p>
+                    </div>
                   </article>
                 ))}
               </div>

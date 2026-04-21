@@ -43,6 +43,7 @@ export default function McqContributeForm({
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    event.stopPropagation();
     setSubmitState("submitting");
     setMessage("");
 

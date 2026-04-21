@@ -46,14 +46,21 @@ export default function McqContributeForm({
     setSubmitState("submitting");
     setMessage("");
 
+    // Only send non-empty options
+    const payload = {
+      ...form,
+      optionC: form.optionC.trim() ? form.optionC : undefined,
+      optionD: form.optionD.trim() ? form.optionD : undefined,
+    };
+
     try {
       const response = await fetch("/api/mcq/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
 
-      const payload = (await response.json()) as { message?: string; error?: string };
+      const respPayload = (await response.json()) as { message?: string; error?: string };
 
       if (!response.ok) {
         setSubmitState("error");
@@ -61,12 +68,12 @@ export default function McqContributeForm({
           setMessage("Please sign in first to publish MCQ.");
           return;
         }
-        setMessage(payload.error || "Failed to save MCQ question.");
+        setMessage(respPayload.error || "Failed to save MCQ question.");
         return;
       }
 
       setSubmitState("success");
-      setMessage(payload.message || "MCQ question saved successfully.");
+      setMessage(respPayload.message || "MCQ question saved successfully.");
       router.refresh();
       setForm({
         topic: "",
@@ -172,23 +179,29 @@ export default function McqContributeForm({
               />
             </label>
 
-            <label className={styles.formField}>
-              <span>Option C</span>
-              <input
-                value={form.optionC}
-                onChange={(event) => updateField("optionC", event.target.value)}
-                disabled={!isAuthenticated || submitState === "submitting"}
-              />
-            </label>
-
-            <label className={styles.formField}>
-              <span>Option D</span>
-              <input
-                value={form.optionD}
-                onChange={(event) => updateField("optionD", event.target.value)}
-                disabled={!isAuthenticated || submitState === "submitting"}
-              />
-            </label>
+            {/* Option C and D only show if user has started typing */}
+            {form.optionC.trim() !== "" && (
+              <label className={styles.formField}>
+                <span>Option C</span>
+                <input
+                  value={form.optionC}
+                  onChange={(event) => updateField("optionC", event.target.value)}
+                  disabled={!isAuthenticated || submitState === "submitting"}
+                  placeholder="(optional)"
+                />
+              </label>
+            )}
+            {form.optionD.trim() !== "" && (
+              <label className={styles.formField}>
+                <span>Option D</span>
+                <input
+                  value={form.optionD}
+                  onChange={(event) => updateField("optionD", event.target.value)}
+                  disabled={!isAuthenticated || submitState === "submitting"}
+                  placeholder="(optional)"
+                />
+              </label>
+            )}
 
             <label className={styles.formField}>
               <span>Correct Option</span>

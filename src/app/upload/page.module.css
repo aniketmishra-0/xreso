@@ -83,6 +83,18 @@
   color: var(--primary);
 }
 
+.mcqModeNotice {
+  display: flex;
+  flex-direction: column;
+}
+
+.mcqModeText {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
 /* ── Details Tier Toggle ──────────────────── */
 .detailsToggleBlock {
   display: flex;

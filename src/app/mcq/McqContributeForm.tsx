@@ -13,9 +13,14 @@ const CORRECT_OPTIONS = ["A", "B", "C", "D"] as const;
 type McqContributeFormProps = {
   topicSuggestions: string[];
   isAuthenticated: boolean;
+  loginCallbackPath?: string;
 };
 
-export default function McqContributeForm({ topicSuggestions, isAuthenticated }: McqContributeFormProps) {
+export default function McqContributeForm({
+  topicSuggestions,
+  isAuthenticated,
+  loginCallbackPath = "/mcq",
+}: McqContributeFormProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitState, setSubmitState] = useState<SubmitState>("idle");
@@ -107,7 +112,7 @@ export default function McqContributeForm({ topicSuggestions, isAuthenticated }:
               <p className={styles.authNoticeText}>
                 Sign in is required to publish MCQs.
               </p>
-              <Link href="/login?callbackUrl=%2Fmcq" className={styles.authNoticeBtn}>
+              <Link href={`/login?callbackUrl=${encodeURIComponent(loginCallbackPath)}`} className={styles.authNoticeBtn}>
                 Sign In to Continue
               </Link>
             </div>

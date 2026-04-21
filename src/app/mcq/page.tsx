@@ -1,13 +1,9 @@
 import styles from "./page.module.css";
 import { getMcqTopicCards } from "@/lib/excel";
-import McqContributeForm from "./McqContributeForm";
-import { auth } from "@/lib/auth";
 
 export const revalidate = 30;
 
 export default async function McqPage() {
-  const session = await auth();
-  const isAuthenticated = Boolean(session?.user?.id);
   const topicCards = await getMcqTopicCards(12);
   const cardsToShow = topicCards.map((topic) => ({
     title: topic.topic,
@@ -15,7 +11,6 @@ export default async function McqPage() {
     difficultyMix: topic.difficultyMix || "Mixed",
     updatedAt: topic.lastUpdated,
   }));
-  const topicSuggestions = topicCards.map((topic) => topic.topic);
   const totalQuestions = topicCards.reduce((sum, topic) => sum + topic.questionCount, 0);
   const latestSync = topicCards[0]?.lastUpdated || "No entries yet";
   const hasTopics = cardsToShow.length > 0;
@@ -42,7 +37,7 @@ export default async function McqPage() {
               <span className={styles.statusHint}>
                 {hasTopics
                   ? "MCQ topic cards are being generated from your workbook in real-time refresh cycles"
-                  : "Contribute your first MCQ to initialize the live topic board"}
+                  : "Add your first MCQ from Upload page to initialize the live topic board"}
               </span>
             </div>
 
@@ -63,34 +58,20 @@ export default async function McqPage() {
           </div>
 
           <aside className={styles.heroAside}>
-            <p className={styles.heroAsideTitle}>Contribute Flow</p>
+            <p className={styles.heroAsideTitle}>Submission Flow</p>
             <p className={styles.heroAsideText}>
-              Add one question and the topic is created automatically, then appears in the topic
-              board.
+              Open Upload page and choose Contribute MCQ mode to submit new questions.
             </p>
             <p className={styles.heroAsideText}>
-              You can choose an existing topic or type a new topic to expand your MCQ library.
+              Every successful MCQ submission updates this topic board automatically.
             </p>
           </aside>
         </div>
 
         <div className={styles.contentGrid}>
-          <section className={styles.contributePanel}>
+          <section className={`${styles.topicPanel} ${styles.topicPanelStandalone}`}>
             <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Contribute Questions</h2>
-              <p className={styles.sectionText}>
-                Add validated MCQs directly into quiz bank with topic and difficulty mapping.
-              </p>
-            </div>
-            <McqContributeForm
-              topicSuggestions={topicSuggestions}
-              isAuthenticated={isAuthenticated}
-            />
-          </section>
-
-          <section className={styles.topicPanel}>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Topic Board</h2>
+              <h2 className={styles.sectionTitle}>MCQ Topic Board</h2>
               <p className={styles.sectionText}>
                 This board is data-driven from your MCQ workbook and updates when new entries are
                 saved.
@@ -117,8 +98,8 @@ export default async function McqPage() {
               <div className={styles.emptyState}>
                 <h3 className={styles.emptyTitle}>No MCQ topics yet</h3>
                 <p className={styles.emptyText}>
-                  Start with one question in contribute panel. A new topic card will appear here
-                  automatically.
+                  Submit your first MCQ from Upload page in Contribute MCQ mode. A new topic card
+                  will appear here automatically.
                 </p>
               </div>
             )}

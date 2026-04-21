@@ -19,6 +19,7 @@ import {
   CONTRIBUTE_LOGIN_REQUIRED_MESSAGE,
 } from "@/lib/contribute-copy";
 import { trackContributeClick } from "@/lib/contribute-tracking";
+import McqContributeForm from "../mcq/McqContributeForm";
 import styles from "./page.module.css";
 
 function getImageMimeTypeFromUrl(url: string): string | null {
@@ -112,6 +113,7 @@ const INITIAL_FORM_DATA = {
 const SPECIALIZED_RESOURCE_LABEL = "Cloud, System Design & APIs";
 const MAX_STANDARD_FILE_SIZE_MB = 100;
 const MAX_ADVANCED_FILE_SIZE_MB = 100;
+const MCQ_UPLOAD_CALLBACK = "/upload?mode=programming&focus=contribute&tab=mcq";
 const RESOURCE_SECTION_OPTIONS = [
   {
     tier: "standard" as const,
@@ -294,7 +296,7 @@ interface PreviewProps {
   onClose: () => void;
   resourceTier: "standard" | "advanced";
   advancedTracks: AdvancedTrack[];
-  mode: "file" | "link" | "video";
+  mode: "file" | "link" | "video" | "mcq";
   fileObjectUrl: string;
   filePreviewUrl: string;
   filePreviewKind: "image" | "pdf" | "other";
@@ -861,9 +863,11 @@ function UploadPageContent() {
       : "/upload?mode=programming&focus=contribute";
   const loginToContributeHref =
     `/login?callbackUrl=${encodeURIComponent(uploadLoginCallbackPath)}&reason=upload_login_required`;
+  const initialUploadMode: "file" | "link" | "video" | "mcq" =
+    searchParams.get("tab") === "mcq" ? "mcq" : "file";
 
   const [resourceTier, setResourceTier] = useState<"standard" | "advanced">(preferredResourceTier);
-  const [uploadMode, setUploadMode] = useState<"file" | "link" | "video">("file");
+  const [uploadMode, setUploadMode] = useState<"file" | "link" | "video" | "mcq">(initialUploadMode);
   const [videoSourceType, setVideoSourceType] = useState<"youtube" | "vimeo" | "drive">("youtube");
   const [previewOpen, setPreviewOpen] = useState(false);
   const [mobilePicker, setMobilePicker] = useState<MobilePickerState | null>(null);
@@ -907,7 +911,9 @@ function UploadPageContent() {
   );
   const selectedAdvancedTopics = selectedAdvancedTrack?.topics ?? [];
   const hasSelectedCategory =
-    uploadMode === "video"
+    uploadMode === "mcq"
+      ? true
+      : uploadMode === "video"
       ? Boolean(formData.category)
       : resourceTier === "advanced"
         ? Boolean(formData.advancedTrackSlug)
@@ -921,8 +927,10 @@ function UploadPageContent() {
       ? "Supports PDF, DOC, DOCX, MP4, WEBM, PNG, JPG, WEBP • Max 100 MB"
       : "Supports PNG, JPG, WEBP, PDF • Max 100 MB";
   const allChecked = checks.ownership && checks.license && checks.tos;
-  const hasSelectedContent = uploadMode === "file" ? Boolean(file) : Boolean(formData.resourceUrl);
+  const hasSelectedContent =
+    uploadMode === "mcq" ? true : uploadMode === "file" ? Boolean(file) : Boolean(formData.resourceUrl);
   const canSubmit =
+    uploadMode !== "mcq" &&
     (uploadMode === "video" || allChecked) &&
     !uploading &&
     Boolean(formData.title.trim()) &&
@@ -934,7 +942,7 @@ function UploadPageContent() {
     RESOURCE_SECTION_OPTIONS.find((option) => option.tier === resourceTier) ||
     RESOURCE_SECTION_OPTIONS[0];
   const shouldShowFloatingPreview = Boolean(
-    formData.title || formData.description || hasSelectedContent
+    uploadMode !== "mcq" && (formData.title || formData.description || hasSelectedContent)
   );
   const extensionImageMimeType = getImageMimeTypeFromUrl(formData.resourceUrl);
   const isDetectedImageLink = detectedLinkContentType.startsWith("image/");
@@ -2032,6 +2040,18 @@ function UploadPageContent() {
               </svg>
               Add Video Link
             </button>
+            <button type="button" id="mode-mcq-btn"
+              className={`${styles.modeBtn} ${uploadMode === "mcq" ? styles.modeBtnActive : ""}`}
+              onClick={() => {
+                setUploadMode("mcq");
+                setResourceTier("standard");
+              }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 11l3 3L22 4"/>
+                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+              </svg>
+              Contribute MCQ
+            </button>
           </div>
 
           {/* ── File / Link area ────────────── */}
@@ -2167,7 +2187,7 @@ function UploadPageContent() {
                   ))}
                 </div>
               </div>
-            ) : (
+            ) : uploadMode === "video" ? (
               <div key="mode-video">
                 <h2 className={styles.sectionTitle}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2257,11 +2277,25 @@ function UploadPageContent() {
                   </p>
                 ) : null}
               </div>
+            ) : (
+              <div key="mode-mcq" className={styles.mcqModeNotice}>
+                <h2 className={styles.sectionTitle}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 11l3 3L22 4"/>
+                    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                  </svg>
+                  Contribute MCQ
+                </h2>
+                <p className={styles.mcqModeText}>
+                  MCQ submission form is available below. Add your question and it will reflect on
+                  the MCQ topic board automatically.
+                </p>
+              </div>
             )}
           </div>
 
           {/* ── Details ─────────────────────── */}
-          <div className={styles.section} id="resource-section">
+          <div className={uploadMode === "mcq" ? styles.fieldSetHidden : styles.section} id="resource-section">
             <h2 className={styles.sectionTitle}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
@@ -2524,7 +2558,7 @@ function UploadPageContent() {
           </div>
 
           {/* ── Author ──────────────────────── */}
-          <div className={uploadMode === "video" ? styles.fieldSetHidden : styles.section}>
+          <div className={uploadMode === "video" || uploadMode === "mcq" ? styles.fieldSetHidden : styles.section}>
             <h2 className={styles.sectionTitle}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
@@ -2568,7 +2602,7 @@ function UploadPageContent() {
           </div>
 
           {/* ── Legal ───────────────────────── */}
-          <div className={uploadMode === "video" ? styles.fieldSetHidden : styles.section}>
+          <div className={uploadMode === "video" || uploadMode === "mcq" ? styles.fieldSetHidden : styles.section}>
             <h2 className={styles.sectionTitle}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -2593,7 +2627,7 @@ function UploadPageContent() {
           </div>
 
           {/* ── Submit ──────────────────────── */}
-          <div className={styles.submitWrap}>
+          <div className={uploadMode === "mcq" ? styles.fieldSetHidden : styles.submitWrap}>
             <div className={styles.submitRow}>
               <button
                 type="button"
@@ -2638,6 +2672,16 @@ function UploadPageContent() {
             </p>
           </div>
         </form>
+
+        {uploadMode === "mcq" ? (
+          <section className={styles.section}>
+            <McqContributeForm
+              topicSuggestions={[]}
+              isAuthenticated={status === "authenticated"}
+              loginCallbackPath={MCQ_UPLOAD_CALLBACK}
+            />
+          </section>
+        ) : null}
       </div>
     </div>
   );

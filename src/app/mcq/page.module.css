@@ -188,6 +188,10 @@
   background: color-mix(in srgb, var(--bg-surface) 96%, transparent);
 }
 
+.topicPanelStandalone {
+  grid-column: 1 / -1;
+}
+
 .sectionHeader {
   margin-bottom: 8px;
 }

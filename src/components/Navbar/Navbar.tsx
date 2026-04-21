@@ -200,8 +200,6 @@ export default function Navbar() {
       pathname.startsWith("/browse/") ||
       pathname === "/categories" ||
       pathname.startsWith("/categories/") ||
-      pathname === "/mcq" ||
-      pathname.startsWith("/mcq/") ||
       pathname.startsWith("/note/") ||
       (pathname === "/upload" && modeQuery !== "advanced"));
   const isNoteDetailRoute = pathname.startsWith("/note/");

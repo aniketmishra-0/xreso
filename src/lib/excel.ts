@@ -41,6 +41,12 @@ const ADMIN_WORKBOOK: WorkbookTarget = {
   pendingPath: path.join(process.cwd(), "data", "Admin_Audit.pending.xlsx"),
 };
 
+const MCQ_WORKBOOK: WorkbookTarget = {
+  localPath: path.join(process.cwd(), "data", "MCQ_QuizBank.xlsx"),
+  oneDrivePath: "Xreso/MCQ_QuizBank.xlsx",
+  pendingPath: path.join(process.cwd(), "data", "MCQ_QuizBank.pending.xlsx"),
+};
+
 const WORKBOOK_CONFIG = {
   community: {
     key: "community",
@@ -62,6 +68,13 @@ const WORKBOOK_CONFIG = {
     primarySheet: "Admin Logins",
     expectedSheets: ["Admin Logins", "Admin Users", "Admin Actions"],
     target: ADMIN_WORKBOOK,
+  },
+  mcq: {
+    key: "mcq",
+    label: "MCQ Quiz Bank",
+    primarySheet: "MCQ Quiz Bank",
+    expectedSheets: ["MCQ Quiz Bank"],
+    target: MCQ_WORKBOOK,
   },
 } as const;
 
@@ -176,6 +189,24 @@ const ADMIN_LOGIN_HEADERS = [
   { header: "Role", key: "role", width: 16 },
   { header: "Provider", key: "provider", width: 18 },
   { header: "IP Address", key: "ipAddress", width: 24 },
+];
+
+const MCQ_QUESTION_HEADERS = [
+  { header: "Created At", key: "date", width: 22 },
+  { header: "Question ID", key: "questionId", width: 38 },
+  { header: "Topic", key: "topic", width: 24 },
+  { header: "Difficulty", key: "difficulty", width: 14 },
+  { header: "Question", key: "question", width: 54 },
+  { header: "Option A", key: "optionA", width: 28 },
+  { header: "Option B", key: "optionB", width: 28 },
+  { header: "Option C", key: "optionC", width: 28 },
+  { header: "Option D", key: "optionD", width: 28 },
+  { header: "Correct Option", key: "correctOption", width: 14 },
+  { header: "Explanation", key: "explanation", width: 46 },
+  { header: "Tags", key: "tags", width: 30 },
+  { header: "Status", key: "status", width: 14 },
+  { header: "Author", key: "author", width: 24 },
+  { header: "Author Email", key: "authorEmail", width: 36 },
 ];
 
 /* ── Detect link type ───────────────────────────────────── */
@@ -473,6 +504,10 @@ function applyAdminLoginSheetSchema(sheet: ExcelJS.Worksheet) {
   applySheetSchema(sheet, ADMIN_LOGIN_HEADERS, "F59E0B");
 }
 
+function applyMcqQuestionSheetSchema(sheet: ExcelJS.Worksheet) {
+  applySheetSchema(sheet, MCQ_QUESTION_HEADERS, "F97316");
+}
+
 function ensureWorksheet(
   workbook: ExcelJS.Workbook,
   name: string,
@@ -533,9 +568,39 @@ type ExcelLinkRow = {
   status?: string;
 };
 
+export type McqQuestionExcelRow = {
+  questionId: string;
+  topic: string;
+  difficulty: "beginner" | "intermediate" | "advanced";
+  question: string;
+  optionA: string;
+  optionB: string;
+  optionC?: string;
+  optionD?: string;
+  correctOption: "A" | "B" | "C" | "D";
+  explanation?: string;
+  tags?: string;
+  status?: "draft" | "published";
+  author?: string;
+  authorEmail?: string;
+};
+
+export type McqTopicCard = {
+  topic: string;
+  questionCount: number;
+  difficultyMix: string;
+  lastUpdated: string;
+};
+
 function formatExcelStatus(status?: string) {
   const normalized = typeof status === "string" ? status.trim().toLowerCase() : "";
   if (!normalized) return "Pending";
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function formatMcqDifficulty(value: string | undefined) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return "Beginner";
   return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
@@ -788,6 +853,119 @@ export async function appendVideoContentToExcel(data: ExcelLinkRow): Promise<voi
     );
   } catch (error) {
     console.error("[Excel] Failed to append video content:", error);
+  }
+}
+
+export async function appendMcqQuestionToExcel(data: McqQuestionExcelRow): Promise<void> {
+  try {
+    const { isOneDriveConfigured } = await import("@/lib/onedrive");
+    const useOneDrive = isOneDriveConfigured();
+    const existingBuffer = await loadExistingWorkbookBuffer(MCQ_WORKBOOK, useOneDrive);
+
+    const workbook = await loadOrCreateWorkbook(existingBuffer);
+    const sheet = ensureWorksheet(
+      workbook,
+      "MCQ Quiz Bank",
+      "F97316",
+      applyMcqQuestionSheetSchema
+    );
+
+    const now = new Date().toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Asia/Kolkata",
+    });
+
+    const row = sheet.addRow({
+      date: now,
+      questionId: data.questionId,
+      topic: data.topic,
+      difficulty: formatMcqDifficulty(data.difficulty),
+      question: data.question,
+      optionA: data.optionA,
+      optionB: data.optionB,
+      optionC: data.optionC || "",
+      optionD: data.optionD || "",
+      correctOption: data.correctOption,
+      explanation: data.explanation || "",
+      tags: data.tags || "",
+      status: formatExcelStatus(data.status || "draft"),
+      author: data.author || "MCQ Team",
+      authorEmail: data.authorEmail || "",
+    });
+
+    if (row.number % 2 === 0) {
+      row.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFF7ED" },
+      };
+    }
+
+    const outputBuffer = Buffer.from(await workbook.xlsx.writeBuffer());
+    await saveWorkbook(
+      MCQ_WORKBOOK,
+      useOneDrive,
+      outputBuffer,
+      "MCQ question",
+      "MCQ question sync deferred"
+    );
+  } catch (error) {
+    console.error("[Excel] Failed to append MCQ question:", error);
+  }
+}
+
+export async function getMcqTopicCards(limit = 12): Promise<McqTopicCard[]> {
+  try {
+    const { isOneDriveConfigured } = await import("@/lib/onedrive");
+    const useOneDrive = isOneDriveConfigured();
+    const existingBuffer = await loadExistingWorkbookBuffer(MCQ_WORKBOOK, useOneDrive);
+
+    if (!existingBuffer || existingBuffer.length === 0) {
+      return [];
+    }
+
+    const workbook = await loadOrCreateWorkbook(existingBuffer);
+    const sheet = workbook.getWorksheet("MCQ Quiz Bank");
+    if (!sheet) {
+      return [];
+    }
+
+    const aggregate = new Map<string, { count: number; levels: Set<string>; updatedAt: string }>();
+
+    for (let i = 2; i <= sheet.rowCount; i += 1) {
+      const row = sheet.getRow(i);
+      const topic = cellValueToText(row.getCell("topic").value).trim() || "General";
+      const difficulty = formatMcqDifficulty(cellValueToText(row.getCell("difficulty").value));
+      const updatedAt = cellValueToText(row.getCell("date").value).trim();
+
+      const current = aggregate.get(topic) || {
+        count: 0,
+        levels: new Set<string>(),
+        updatedAt,
+      };
+
+      current.count += 1;
+      current.levels.add(difficulty);
+      if (updatedAt) {
+        current.updatedAt = updatedAt;
+      }
+
+      aggregate.set(topic, current);
+    }
+
+    return Array.from(aggregate.entries())
+      .map(([topic, value]) => ({
+        topic,
+        questionCount: value.count,
+        difficultyMix: Array.from(value.levels).join(" • "),
+        lastUpdated: value.updatedAt || "Recently",
+      }))
+      .sort((a, b) => b.questionCount - a.questionCount)
+      .slice(0, limit);
+  } catch (error) {
+    console.error("[Excel] Failed to read MCQ topic cards:", error);
+    return [];
   }
 }
 

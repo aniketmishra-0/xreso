@@ -242,6 +242,9 @@ async function main() {
     admin: [targets.get("admin")?.localPath, targets.get("admin")?.pendingPath].filter(
       (filePath): filePath is string => Boolean(filePath)
     ),
+    mcq: [targets.get("mcq")?.localPath, targets.get("mcq")?.pendingPath].filter(
+      (filePath): filePath is string => Boolean(filePath)
+    ),
   };
 
   const checks: SheetCheck[] = [
@@ -288,17 +291,17 @@ async function main() {
   const misplacedChecks = [
     {
       marker: communityMarker,
-      wrongWorkbooks: [...workbookFiles.advanced, ...workbookFiles.admin],
+      wrongWorkbooks: [...workbookFiles.advanced, ...workbookFiles.admin, ...workbookFiles.mcq],
       label: "community marker",
     },
     {
       marker: advancedMarker,
-      wrongWorkbooks: [...workbookFiles.community, ...workbookFiles.admin],
+      wrongWorkbooks: [...workbookFiles.community, ...workbookFiles.admin, ...workbookFiles.mcq],
       label: "advanced marker",
     },
     {
       marker: adminMarker,
-      wrongWorkbooks: [...workbookFiles.community, ...workbookFiles.advanced],
+      wrongWorkbooks: [...workbookFiles.community, ...workbookFiles.advanced, ...workbookFiles.mcq],
       label: "admin marker",
     },
   ];

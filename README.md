@@ -85,12 +85,15 @@ xreso now keeps submission/audit exports split by responsibility:
   - `Admin Logins`
   - `Admin Users`
   - `Admin Actions`
+- `MCQ_QuizBank.xlsx`
+	- `MCQ Quiz Bank`
 
 Routing map:
 
 - Community submissions (`/api/upload`) -> `Community_Links.xlsx`
 - Advanced track submissions (`/api/admin/advanced-tracks`) -> `Advanced_Tracks.xlsx`
 - Admin audit events (logins/moderation actions/admin user sync) -> `Admin_Audit.xlsx`
+- MCQ question entries (`/api/mcq/create`) -> `MCQ_QuizBank.xlsx`
 
 Database vs Excel responsibility:
 

@@ -133,6 +133,7 @@ const formatBytes = (value: number) => {
 const getStorageFlowLabel = (workbookKey: StorageWorkbook["key"]) => {
   if (workbookKey === "community") return "Community uploads";
   if (workbookKey === "advanced") return "Advanced uploads";
+  if (workbookKey === "mcq") return "MCQ question bank";
   return "Admin audit events";
 };
 

@@ -18,12 +18,11 @@ function getClient() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { email } = await req.json();
-
-    if (typeof email !== "string" || !email.trim()) {
+    const body = await req.json();
+    const email = typeof body.email === "string" ? body.email : "";
+    if (!email.trim()) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
-
     const normalizedEmail = email.trim().toLowerCase();
     const client = getClient();
 

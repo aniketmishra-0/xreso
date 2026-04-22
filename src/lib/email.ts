@@ -191,3 +191,57 @@ export async function sendPasswordResetEmail(
     console.error("Failed to send password reset email:", e);
   }
 }
+
+// ── Email Verification Email ──────────────────────────
+export async function sendEmailVerificationEmail(
+  to: string,
+  name: string,
+  verificationToken: string
+) {
+  try {
+    const resend = getResendClient();
+    if (!resend) {
+      console.log(`[email] Resend not configured. Verification link: ${appUrl(`/verify-email/${verificationToken}`)}`);
+      return;
+    }
+
+    const verifyLink = appUrl(`/verify-email/${verificationToken}`);
+
+    await resend.emails.send({
+      from: FROM_EMAIL,
+      to,
+      subject: "Verify your xreso email address ✉️",
+      text: `Hi ${name},\n\nPlease verify your email address by clicking this link:\n${verifyLink}\n\nThis link expires in 24 hours. If you did not create an account, you can ignore this email.`,
+      html: `
+        <div style="font-family: 'Inter', -apple-system, sans-serif; background: #0F0A1A; padding: 40px 20px; color: #F0EEFF; border-radius: 12px; border: 1px solid #2E2345;">
+          <div style="text-align: center; margin-bottom: 32px;">
+            <h1 style="font-size: 28px; font-weight: 900; margin: 0; background: linear-gradient(135deg, #A78BFA, #FB923C); -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: #A78BFA;">xreso</h1>
+          </div>
+          <div style="background: #1A122A; border: 1px solid #221838; border-radius: 10px; padding: 32px;">
+            <h2 style="color: #F0EEFF; font-size: 20px; font-weight: 700; margin-top: 0;">Verify your email, ${name}</h2>
+            <p style="color: #9B8FC2; font-size: 15px; line-height: 1.6;">
+              Thanks for creating an account on xreso! Please verify your email address to activate your account and start contributing.
+            </p>
+            <div style="text-align: center; margin: 32px 0;">
+              <a href="${verifyLink}"
+                 style="background: linear-gradient(135deg, #8B5CF6, #F97316); color: white; padding: 12px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; display: inline-block;">
+                Verify Email Address
+              </a>
+            </div>
+            <p style="color: #6B5F8A; font-size: 13px; line-height: 1.6; text-align: center;">
+              This link expires in 24 hours. If you did not create an account, you can safely ignore this email.
+            </p>
+          </div>
+          <div style="margin-top: 24px; text-align: center;">
+            <p style="color: #6B5F8A; font-size: 12px; margin-bottom: 4px;">If the button does not work, copy and paste this link:</p>
+            <p style="font-size: 11px; word-break: break-all; margin: 0;">
+              <a href="${verifyLink}" style="color: #A78BFA; text-decoration: underline;">${verifyLink}</a>
+            </p>
+          </div>
+        </div>
+      `,
+    });
+  } catch (e) {
+    console.error("Failed to send email verification email:", e);
+  }
+}

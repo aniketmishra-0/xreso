@@ -4,6 +4,8 @@ import { hashSync } from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { logAuthEvent } from "@/lib/auth-events";
 import { checkRateLimit, registerLimiter } from "@/lib/ratelimit";
+import { createEmailVerificationToken } from "@/lib/email-verification";
+import { sendEmailVerificationEmail, sendWelcomeEmail } from "@/lib/email";
 
 function getClient() {
   const databaseUrl = process.env.TURSO_DATABASE_URL;
@@ -112,12 +114,26 @@ export async function POST(req: NextRequest) {
       client
     );
 
+    // Send email verification
+    try {
+      const verificationToken = await createEmailVerificationToken(client, userId);
+      await sendEmailVerificationEmail(safeEmail, safeName, verificationToken);
+    } catch (e) {
+      console.error("[register] Failed to send verification email:", e);
+      // Don't block registration if email sending fails
+    }
+
+    // Send welcome email (non-blocking)
+    sendWelcomeEmail(safeEmail, safeName).catch(() => {});
+
     return NextResponse.json({
       success: true,
-      message: "Account created successfully!",
+      message: "Account created! Please check your email to verify your address.",
+      requiresVerification: true,
     });
   } catch (error) {
     console.error("POST /api/register error:", error);
     return NextResponse.json({ error: "Registration failed" }, { status: 500 });
   }
 }
+

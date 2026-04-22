@@ -148,7 +148,17 @@ function LoginPageContent() {
           setLoading(false);
           return;
         }
-        // Auto-login after registration
+
+        // If email verification is required, show success message
+        if (data.requiresVerification) {
+          setError("");
+          setLoading(false);
+          setMode("login");
+          setForm({ name: "", email: form.email, password: "", avatar: "" });
+          setError("✅ " + (data.message || "Account created! Check your email to verify."));
+          return;
+        }
+        // Auto-login after registration (fallback if verification disabled)
       }
 
       const result = await signIn("credentials", {

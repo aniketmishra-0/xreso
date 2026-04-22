@@ -8,6 +8,8 @@ import ThemeProviderWrapper from "@/components/ThemeProvider";
 import GlobalSearchHotkey from "@/components/GlobalSearchHotkey";
 import { SITE_URL } from "@/lib/site";
 import Script from "next/script";
+import CookieConsent from "@/components/CookieConsent/CookieConsent";
+import PostHogPageView from "@/components/PostHogProvider";
 
 export const viewport: Viewport = {
   themeColor: [
@@ -105,26 +107,17 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-          <meta name="google-adsense-account" content="ca-pub-1546731712124834" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <meta name="description" content="Xreso - The best resource library for students. Find notes, MCQs, videos, and more for your studies." />
-          <meta name="keywords" content="study resources, free study notes, MCQ questions, digital library, exam preparation, educational videos, online learning, student resources, free pdf notes, competitive exams, subject-wise notes, solved papers, practice questions, online quizzes, academic resources, school notes, college notes, learning platform, free study material, openclassrooms resource" />
-          <meta name="robots" content="index, follow" />
-          <meta property="og:title" content="Xreso - Digital Library for Students" />
-          <meta property="og:description" content="Find the best study resources, notes, MCQs, and videos for your exams and learning." />
-          <meta property="og:type" content="website" />
-          <meta property="og:url" content="https://yourdomain.com/" />
-          <meta property="og:image" content="https://yourdomain.com/og-image.png" />
+        <meta name="google-adsense-account" content="ca-pub-1546731712124834" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-          <Script
-            async
-            src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1546731712124834"
-            crossOrigin="anonymous"
-            strategy="afterInteractive"
-          />
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1546731712124834"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
       </head>
       <body suppressHydrationWarning>
         <ThemeProviderWrapper>
@@ -135,6 +128,10 @@ export default function RootLayout({
             </Suspense>
             <main>{children}</main>
             <Footer />
+            <CookieConsent />
+            <Suspense fallback={null}>
+              <PostHogPageView />
+            </Suspense>
           </AuthProvider>
         </ThemeProviderWrapper>
       </body>

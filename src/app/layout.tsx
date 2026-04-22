@@ -7,6 +7,7 @@ import AuthProvider from "@/components/AuthProvider";
 import ThemeProviderWrapper from "@/components/ThemeProvider";
 import GlobalSearchHotkey from "@/components/GlobalSearchHotkey";
 import { SITE_URL } from "@/lib/site";
+import Script from "next/script";
 
 export const viewport: Viewport = {
   themeColor: [
